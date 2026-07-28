@@ -46,13 +46,13 @@ function generateBarcode() {
 
 function BarcodeRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground">Штрихкод моделі</span>
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Штрихкод моделі</span>
       <div className="flex items-center gap-1.5">
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-7 w-36 px-2 text-right text-sm"
+          className="h-7 w-36 px-2 text-sm"
         />
         <Button
           type="button"
@@ -89,8 +89,8 @@ function PackageDimensionsRow({
 }) {
   return (
     <div className="flex flex-col gap-2 py-2">
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-sm text-muted-foreground">Розміри (ДхШхВ), см</span>
+      <div className="flex items-center gap-4">
+        <span className="w-40 shrink-0 text-sm text-muted-foreground">Розміри (ДхШхВ), см</span>
         <div className="flex items-center gap-1.5">
           <Input
             type="number"
@@ -117,8 +117,8 @@ function PackageDimensionsRow({
           />
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-sm text-muted-foreground">Вага, кг</span>
+      <div className="flex items-center gap-4">
+        <span className="w-40 shrink-0 text-sm text-muted-foreground">Вага, кг</span>
         <Input
           type="number"
           min={0}
@@ -146,13 +146,13 @@ function StatusSelectRow({
     PRODUCT_STATUS_OPTIONS.find((option) => option.value === value) ?? PRODUCT_STATUS_OPTIONS[0];
 
   return (
-    <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground">Статус</span>
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Статус</span>
       <Select value={value} onValueChange={(v) => onChange(v as ProductStatus)}>
         <SelectTrigger className="w-fit gap-1 border-transparent bg-transparent px-1.5 py-1 shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
           <Badge variant={current.badgeVariant}>{current.label}</Badge>
         </SelectTrigger>
-        <SelectContent align="end">
+        <SelectContent align="start">
           {PRODUCT_STATUS_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               <Badge variant={option.badgeVariant}>{option.label}</Badge>
@@ -275,10 +275,10 @@ export function ProductMetaPanel({ product }: { product: Product }) {
   return (
     <Card className="gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
-        <DetailRow label="Створено" value={meta.createdAt} />
-        <DetailRow label="Оновлено" value={meta.updatedAt} />
-        <DetailRow label="Створив" value={meta.createdBy} />
-        <DetailRow label="Останній редагував" value={meta.updatedBy} />
+        <DetailRow align="left" label="Створено" value={meta.createdAt} />
+        <DetailRow align="left" label="Оновлено" value={meta.updatedAt} />
+        <DetailRow align="left" label="Створив" value={meta.createdBy} />
+        <DetailRow align="left" label="Останній редагував" value={meta.updatedBy} />
         <SelectRow
           label="Постачальник"
           value={supplier}

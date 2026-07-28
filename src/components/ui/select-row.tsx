@@ -13,13 +13,12 @@ interface SelectRowProps {
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
-  align?: "start" | "end";
 }
 
-export function SelectRow({ label, value, options, onChange, align = "end" }: SelectRowProps) {
+export function SelectRow({ label, value, options, onChange }: SelectRowProps) {
   return (
-    <div className="flex items-center justify-between gap-4 py-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
+    <div className="flex items-center gap-4 py-1">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">{label}</span>
       <Select value={value} onValueChange={(v) => onChange(v as string)}>
         <SelectTrigger
           size="sm"
@@ -27,7 +26,7 @@ export function SelectRow({ label, value, options, onChange, align = "end" }: Se
         >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent align={align}>
+        <SelectContent align="start">
           {options.map((option) => (
             <SelectItem key={option} value={option}>
               {option}

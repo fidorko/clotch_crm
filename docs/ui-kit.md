@@ -22,10 +22,10 @@
 | Компонент | Файл | Призначення |
 |---|---|---|
 | StatTile | ui/stat-tile.tsx | іконка + число + підпис, використано в нижній панелі статистики картки товару |
-| DetailRow | ui/detail-row.tsx | рядок «лейбл — значення», використано в info/meta/sku-деталях (3+ місця) |
+| DetailRow | ui/detail-row.tsx | рядок «лейбл — значення»; `align="right"` (за замовч.) — значення притиснуте праворуч, для вузьких колонок (деталі SKU); `align="left"` — фіксована ширина лейбла (`w-40`), значення зліва одразу після — для широких карток-панелей (`ProductMetaPanel`), як на зразку `Image.png` |
 | Sidebar | layout/Sidebar.tsx | вузький сайдбар з іконками, активний пункт підсвічено accent-кольором |
 | Select | ui/select.tsx | shadcn/base-ui випадаючий список; в inline-рядках (напр. `ProductInfoPanel`) trigger стилізується без рамки (`border-transparent`, `hover:border-input`), щоб виглядати як звичайний текст до наведення |
-| SelectRow | ui/select-row.tsx | рядок «лейбл — inline `Select`» (без рамки до наведення); винесено з `ProductInfoPanel`, коли той самий патерн знадобився в `ProductMetaPanel` — 2+ використання = ui-kit (правило 9.2 CLAUDE.md) |
+| SelectRow | ui/select-row.tsx | рядок «лейбл (фіксована ширина `w-40`) — inline `Select` зліва одразу після» (без рамки до наведення); винесено з `ProductInfoPanel`, коли той самий патерн знадобився в `ProductMetaPanel` — 2+ використання = ui-kit (правило 9.2 CLAUDE.md) |
 
 ## Палітра й тема
 Див. `design.md`. Кольори підключені як CSS-змінні в `src/app/globals.css` (`:root` світла, `.dark` темна), додано `--success`/`--success-foreground` поза стандартним набором shadcn.

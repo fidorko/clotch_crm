@@ -64,8 +64,8 @@ function CareInstructionsRow({
   const selectedOptions = CARE_OPTIONS.filter((option) => selectedIds.includes(option.id));
 
   return (
-    <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-muted-foreground">Інструкція по догляду</span>
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Інструкція по догляду</span>
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 rounded-md border border-transparent px-1.5 py-1 hover:border-input hover:bg-accent/50 data-popup-open:border-input">
           {selectedOptions.length === 0 ? (
@@ -120,10 +120,10 @@ function CategorySelectRow({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1 py-1.5">
-      <span className="text-sm text-muted-foreground">Категорія</span>
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Категорія</span>
       <Select value={value} onValueChange={(v) => onChange(v as string)}>
-        <SelectTrigger className="w-full justify-between border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
+        <SelectTrigger className="min-w-0 flex-1 justify-between border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
           <SelectValue className="truncate" />
         </SelectTrigger>
         <SelectContent align="start">
