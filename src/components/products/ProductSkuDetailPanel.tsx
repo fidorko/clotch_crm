@@ -35,7 +35,7 @@ export function ProductSkuDetailPanel({ sku }: { sku: SkuDetail }) {
         <Badge variant="success">В наявності</Badge>
       </CardHeader>
       <CardContent className="px-4">
-        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
           <div className="flex flex-col divide-y divide-border">
             <DetailRow label="Штрихкод (EAN)" value={sku.barcode} />
             <DetailRow label="Закупівельна ціна" value={formatUah(sku.purchasePrice)} />

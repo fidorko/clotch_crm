@@ -7,15 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Product, ProductStatus } from "@/lib/types/product";
-
-const statusLabel: Record<ProductStatus, string> = {
-  active: "Активний",
-  archived: "Архівний",
-  draft: "Чернетка",
-};
+import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
+import type { Product } from "@/lib/types/product";
 
 export function ProductHeader({ product }: { product: Product }) {
+  const status = PRODUCT_STATUS_OPTIONS.find((option) => option.value === product.status);
+
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -38,7 +35,7 @@ export function ProductHeader({ product }: { product: Product }) {
           <h1 className="text-2xl font-semibold text-foreground">
             {product.name}
           </h1>
-          <Badge variant="success">{statusLabel[product.status]}</Badge>
+          {status && <Badge variant={status.badgeVariant}>{status.label}</Badge>}
         </div>
 
         <div className="flex items-center gap-2">

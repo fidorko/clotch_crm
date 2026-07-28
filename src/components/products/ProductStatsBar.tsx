@@ -9,7 +9,7 @@ function formatUah(value: number) {
 
 export function ProductStatsBar({ stats }: { stats: Product["stats"] }) {
   return (
-    <Card className="flex-row flex-wrap gap-0 divide-x divide-border overflow-hidden py-0">
+    <Card className="grid grid-cols-2 gap-0 divide-x divide-y divide-border overflow-hidden py-0 sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
       <StatTile icon={Layers} value={String(stats.skuCount)} label="SKU" />
       <StatTile icon={PackageCheck} value={String(stats.inStockCount)} label="У наявності" />
       <StatTile

@@ -11,7 +11,7 @@ export function ProductSkuSection({ skus }: { skus: ProductSku[] }) {
   const activeSku = skus.find((s) => s.id === selectedSkuId);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[3fr_2fr]">
       <ProductSkuTable
         skus={skus}
         selectedSkuId={selectedSkuId}

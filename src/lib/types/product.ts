@@ -1,4 +1,4 @@
-export type ProductStatus = "active" | "archived" | "draft";
+export type ProductStatus = "active" | "inactive" | "archived";
 
 export interface ProductPhoto {
   id: string;
@@ -33,7 +33,6 @@ export interface Product {
   season: string;
   info: {
     category: string;
-    subcategory: string;
     gender: string;
     seasonType: string;
     fit: string;
@@ -49,11 +48,14 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+    updatedBy: string;
     supplier: string;
     brandCountry: string;
     modelBarcode: string;
-    modelWeightKg: number;
-    volumeM3: number;
+    packageLengthCm: number;
+    packageWidthCm: number;
+    packageHeightCm: number;
+    packageWeightKg: number;
   };
   tags: ProductTag[];
   skus: ProductSku[];

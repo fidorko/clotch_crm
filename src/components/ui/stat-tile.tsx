@@ -10,7 +10,7 @@ interface StatTileProps {
 
 export function StatTile({ icon: Icon, value, label, tone = "default" }: StatTileProps) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className="flex min-w-0 items-center gap-3 px-4 py-3">
       <div
         className={cn(
           "flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground",
@@ -19,11 +19,11 @@ export function StatTile({ icon: Icon, value, label, tone = "default" }: StatTil
       >
         <Icon className="size-4.5" />
       </div>
-      <div className="flex flex-col">
-        <span className="text-base font-semibold text-foreground leading-tight">
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-base font-semibold text-foreground leading-tight">
           {value}
         </span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="truncate text-xs text-muted-foreground">{label}</span>
       </div>
     </div>
   );

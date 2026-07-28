@@ -2,7 +2,7 @@
 
 **Статус:** UI `в роботі` · Логіка `—` · Бек `—` · БД `—`
 **Маршрут:** /products/[id]
-**Оновлено:** 2026-07-28
+**Оновлено:** 2026-07-28 (виправлення layout)
 
 ## Призначення
 Картка товару: загальна інформація, фото, варіанти SKU (колір × розмір), залишки, статистика по товару. За зразком `Image.png`.
@@ -14,18 +14,19 @@
 | src/app/products/[id]/page.tsx | сторінка картки товару, збирає секції |
 | src/components/products/ProductHeader.tsx | хлібні крихти, заголовок, статус, дії |
 | src/components/products/ProductTabs.tsx | вкладки (Основне, SKU, Залишки...) |
-| src/components/products/ProductInfoPanel.tsx | ліва панель — характеристики товару |
+| src/components/products/ProductInfoPanel.tsx | ліва панель — характеристики товару, поля редагуються через випадаючий список |
 | src/components/products/ProductPhotoGallery.tsx | фото моделі + мініатюри |
-| src/components/products/ProductMetaPanel.tsx | права панель — метадані, теги |
+| src/components/products/ProductMetaPanel.tsx | права панель — метадані (редаговані: постачальник, країна бренду, штрихкод з генерацією, розміри/вага для ТТН, статус, теги) |
 | src/components/products/ProductSkuSection.tsx | клієнтський компонент: таблиця SKU + деталі вибраного SKU |
 | src/components/products/ProductSkuTable.tsx | таблиця варіантів колір×розмір |
 | src/components/products/ProductSkuDetailPanel.tsx | панель деталей вибраного SKU |
 | src/components/products/ProductStatsBar.tsx | нижня панель підсумкових метрик |
 | src/lib/types/product.ts | типи Product, ProductSku, ProductPhoto |
 | src/lib/mocks/products.ts | мокові дані товару |
+| src/lib/constants/product-status.ts | єдине джерело статусів товару (значення/лейбл/колір бейджа), використовує і хедер, і мета-панель |
 
 ## Використовує з ui-kit
-Sidebar, Button, Badge (variant success), Card, Tabs, Table, DropdownMenu, Tooltip, StatTile, DetailRow
+Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, DropdownMenu (з DropdownMenuCheckboxItem), Tooltip, StatTile, DetailRow, Select, SelectRow, Textarea, Input
 
 ## Дані
 Зараз: моки в `src/lib/mocks/products.ts`.
@@ -39,8 +40,16 @@ Sidebar, Button, Badge (variant success), Card, Tabs, Table, DropdownMenu, Toolt
 Від нього залежать: —
 
 ## Зроблено
-- 2026-07-28 — каркас Next.js + Tailwind + shadcn/ui, палітра й шрифт за `design.md`
-- 2026-07-28 — верстка картки товару (шапка, вкладки, інфо-панелі, фото, таблиця SKU, статистика) за зразком `Image.png`, дані на моках
+- 2026-07-28 — поля лівої панелі (`ProductInfoPanel`): стать, сезон, посадка, країна виробник, виробник, матеріал, щільність, тип тканини — випадаючі списки (`Select` з ui-kit, доданий через shadcn), редагування поки лише в локальному стані компонента. Варіанти списків — тимчасові моки, заміняться довідниками з БД
+- 2026-07-28 — «Інструкція по догляду»: emoji замінено на монохромні іконки lucide-react (`text-foreground`, без кольору). Вибір — через `DropdownMenu` з чекбоксами (`DropdownMenuCheckboxItem`, 8 варіантів на свій смак — прання/відбілювання/прасування/хімчистка/сушіння), у рядку відображаються лише іконки вибраних пунктів з підказкою (Tooltip) при наведенні. Список варіантів тимчасовий, замінити на довідник з БД
+- 2026-07-28 — виправлено `ProductTabs`: `variant="line"` замість дефолтного (активна вкладка була залитою кнопкою, кастомні класи цілились на неіснуючий `data-[state=active]` замість реального `data-active`); вкладки більше не розтягуються на всю ширину; активна — колір `primary`, `font-semibold`, підкреслення знизу того ж кольору, без зміни кольору при наведенні на неактивні
+- 2026-07-28 — поле «Опис» (`ProductInfoPanel`) було статичним текстом — замінено на `Textarea` (ui-kit, доданий через shadcn); фокус без синього ring, бордер той самий, лише трохи темніший (`focus-visible:border-muted-foreground/40`)
+- 2026-07-28 — по всій сторінці зменшено радіус скруглення вдвічі: `--radius` в `globals.css` (0.625rem → 0.3125rem) — єдина точка правки, решта радіусів виведені з неї через `calc()`. Синхронізовано `design.md`
+- 2026-07-28 — прибрано поле «Підкатегорія». «Категорія» — одне значення-шлях («Тип одягу/Категорія/Підкатегорія», напр. «Чоловічий одяг/Футболки/Футболки oversize»), окремий повноширинний `Select`
+- 2026-07-28 — блок розмірів/ваги для ТТН Нова Пошта (Д×Ш×В см + вага кг, підказка «Для створення ЕН Нова Пошта...») перенесено з лівої панелі (`ProductInfoPanel`) у праву (`ProductMetaPanel`) — замінив статичні поля «Вага моделі»/«Об'єм», які дублювали і були зайвими
+- 2026-07-28 — `ProductMetaPanel`: додано поле «Останній редагував» (`meta.updatedBy`); «Постачальник»/«Країна бренду» — випадаючі списки (спільний `SelectRow`, винесений у ui-kit з `ProductInfoPanel`, бо компонент використано вдруге); «Штрихкод моделі» — `Input` + кнопка генерації (префікс «482» + 10 випадкових цифр); «Статус» — `Select` з кольоровим `Badge` (Активний/зелений, Не активний/жовтий — новий варіант `warning` у Badge й токен `--warning` у globals.css, Архівний/сірий); `ProductStatus` перейменовано (`draft` → `inactive`), лейбли й кольори — єдине джерело `lib/constants/product-status.ts`, використовує і хедер, і мета-панель. «Теги» — мультивибір із довідника (`DropdownMenuCheckboxItem`, 12 тимчасових варіантів) + текстове поле для власного тега, видалення тега працює
+- 2026-07-28 — фікс бага: чекбокси в `DropdownMenu` (теги, інструкція по догляду) взагалі не реагували на клік. Причина — `DropdownMenuLabel` (base-ui `Menu.GroupLabel`) використовувався без обгортки `Menu.Group`, що кидало рантайм-помилку одразу при відкритті меню («MenuGroupContext is missing») і зривало рендер решти вмісту. Виправлено в обох місцях — `DropdownMenuLabel` + чекбокси тепер всередині `DropdownMenuGroup` (`ProductInfoPanel`, `ProductMetaPanel`)
+- 2026-07-28 — синій `focus-visible` ring/бордер на текстових полях (був точково прибраний тільки на «Опис») тепер прибрано на рівні базових компонентів ui-kit (`Input`, `Textarea`, `Select`) — усі поля вводу на фокусі отримують той самий нейтральний бордер, лише трохи темніший, без акцентного кольору. Зафіксовано як тверде правило в `design.md`/`ui-kit.md`, щоб не повторювати точково
 
 ## Відкрито
 - [ ] реальні фото (зараз плейсхолдери)
