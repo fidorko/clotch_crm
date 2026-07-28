@@ -1,0 +1,105 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+
+    "allow": [
+      "Edit",
+
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)",
+      "Bash(tree *)",
+
+      "Bash(git init)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git branch *)",
+      "Bash(git restore *)",
+      "Bash(git stash *)",
+      "Bash(git merge *)",
+      "Bash(git tag *)",
+      "Bash(git remote *)",
+
+      "Bash(php *)",
+      "Bash(composer install)",
+      "Bash(composer update *)",
+      "Bash(composer require *)",
+      "Bash(composer dump-autoload *)",
+      "Bash(./vendor/bin/* *)",
+
+      "Bash(node *)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm ci)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx *)",
+      "Bash(yarn *)",
+      "Bash(pnpm *)",
+
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:developer.mozilla.org)",
+      "WebFetch(domain:php.net)",
+      "WebFetch(domain:www.php.net)",
+      "WebFetch(domain:dev.mysql.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:*.npmjs.com)"
+    ],
+
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git rebase *)",
+      "Bash(git revert *)",
+      "Bash(mysql *)",
+      "Bash(mysqldump *)",
+      "Bash(psql *)",
+      "Bash(npm publish *)",
+      "Bash(rsync *)",
+      "Bash(scp *)",
+      "Bash(ssh *)"
+    ],
+
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/id_rsa*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(**/.env)",
+      "Edit(/.git/**)",
+
+      "Bash(sudo *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(chmod 777 *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git filter-branch *)",
+      "Bash(git branch -D *)",
+      "Bash(git reflog expire *)"
+    ],
+
+    "additionalDirectories": []
+  }
+}
