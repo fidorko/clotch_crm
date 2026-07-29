@@ -29,7 +29,7 @@ function formatUah(value: number) {
 
 export function ProductSkuDetailPanel({ sku }: { sku: SkuDetail }) {
   return (
-    <Card className="gap-3 py-4">
+    <Card className="h-full gap-3 py-4">
       <CardHeader className="flex flex-row items-center justify-between px-4">
         <CardTitle className="text-sm font-medium">SKU: {sku.code}</CardTitle>
         <Badge variant="success">В наявності</Badge>

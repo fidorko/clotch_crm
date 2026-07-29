@@ -15,7 +15,7 @@ export function DetailRow({ label, value, emphasis, align = "right", className }
     return (
       <div className={cn("flex items-start gap-4 py-1.5", className)}>
         <span className="w-40 shrink-0 text-sm text-muted-foreground">{label}</span>
-        <span className={cn("text-sm text-foreground", emphasis && "font-semibold")}>
+        <span className={cn("flex-1 text-sm text-foreground", emphasis && "font-semibold")}>
           {value}
         </span>
       </div>

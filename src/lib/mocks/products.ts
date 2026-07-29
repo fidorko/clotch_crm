@@ -12,16 +12,23 @@ export const mockProduct: Product = {
   season: "Літо 2026",
   info: {
     category: "Чоловічий одяг/Футболки/Футболки oversize",
+    collection: "Summer 2026",
     gender: "Унісекс",
     seasonType: "Літо",
     fit: "Oversize",
     countryOfOrigin: "Туреччина",
     manufacturer: "TrendStyle",
     material: "95% Cotton, 5% Elastane",
-    density: "240 gsm",
     fabricType: "Футер двонитка",
     description:
       "Базова футболка оверсайз крою з щільної бавовни. Комфортна, не сковує рухів. Підходить для щоденного носіння.",
+  },
+  pricing: {
+    price: 1199,
+    purchasePrice: 500,
+    oldPrice: 1499,
+    discountPercent: 20,
+    autoMarkup: false,
   },
   photos: [
     { id: "p1", url: "", alt: "Футболка Basic Oversize — головне фото" },
@@ -32,6 +39,12 @@ export const mockProduct: Product = {
     { id: "p6", url: "", alt: "Деталь: тканина" },
     { id: "p7", url: "", alt: "Деталь: рукав" },
   ],
+  measurements: [
+    { id: "m1", type: "Довжина переду виробу, см", valueCm: 48 },
+    { id: "m2", type: "Довжина рукава від горловини, см", valueCm: 65 },
+    { id: "m3", type: "Ширина під проймами рукавів (над грудьми), см", valueCm: 40 },
+    { id: "m4", type: "Довжина рукава по внутрішньому шву, см", valueCm: 46 },
+  ],
   meta: {
     createdAt: "12.05.2026 10:15",
     updatedAt: "25.07.2026 14:30",
@@ -39,7 +52,8 @@ export const mockProduct: Product = {
     updatedBy: "Оксана Ковальчук",
     supplier: "Textile Group",
     brandCountry: "Україна",
-    modelBarcode: "4820200123450",
+    internalCode: "TS201-INT-2026",
+    supplierCode: "TG-TS-014",
     packageLengthCm: 30,
     packageWidthCm: 25,
     packageHeightCm: 3,

@@ -21,6 +21,12 @@ export interface ProductTag {
   label: string;
 }
 
+export interface ProductMeasurement {
+  id: string;
+  type: string;
+  valueCm: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -33,17 +39,25 @@ export interface Product {
   season: string;
   info: {
     category: string;
+    collection: string;
     gender: string;
     seasonType: string;
     fit: string;
     countryOfOrigin: string;
     manufacturer: string;
     material: string;
-    density: string;
     fabricType: string;
     description: string;
   };
+  pricing: {
+    price: number;
+    purchasePrice: number;
+    oldPrice: number;
+    discountPercent: number;
+    autoMarkup: boolean;
+  };
   photos: ProductPhoto[];
+  measurements: ProductMeasurement[];
   meta: {
     createdAt: string;
     updatedAt: string;
@@ -51,7 +65,8 @@ export interface Product {
     updatedBy: string;
     supplier: string;
     brandCountry: string;
-    modelBarcode: string;
+    internalCode: string;
+    supplierCode: string;
     packageLengthCm: number;
     packageWidthCm: number;
     packageHeightCm: number;

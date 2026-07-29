@@ -2,7 +2,7 @@
 
 **Статус:** UI `в роботі` · Логіка `—` · Бек `—` · БД `—`
 **Маршрут:** /products/[id]
-**Оновлено:** 2026-07-29 (dev-мітки блоків + SEO-каркас)
+**Оновлено:** 2026-07-29 (пошук у замірах, видалення заміру, статистика під табами)
 
 ## Призначення
 Картка товару: загальна інформація, фото, варіанти SKU (колір × розмір), залишки, статистика по товару. За зразком `Image.png`.
@@ -12,14 +12,16 @@
 |---|---|
 | src/app/products/layout.tsx | layout з сайдбаром для розділу товарів |
 | src/app/products/[id]/page.tsx | сторінка картки товару, збирає секції |
-| src/components/products/ProductHeader.tsx | хлібні крихти, заголовок, статус, дії |
+| src/components/products/ProductHeader.tsx | хлібні крихти, заголовок, статус (єдине місце редагування — випадаючий список), дії |
 | src/components/products/ProductTabs.tsx | вкладки (Основне, SKU, Залишки...) |
 | src/components/products/ProductInfoPanel.tsx | ліва панель — характеристики товару, поля редагуються через випадаючий список |
 | src/components/products/ProductPhotoGallery.tsx | фото моделі + мініатюри |
-| src/components/products/ProductMetaPanel.tsx | права панель — метадані (редаговані: постачальник, країна бренду, штрихкод з генерацією, розміри/вага для ТТН, статус, теги) |
+| src/components/products/ProductMetaPanel.tsx | права панель — метадані (редаговані: постачальник, країна бренду/виробник, внутрішній артикул, артикул постачальника, розміри/вага для ТТН, теги, опис) |
 | src/components/products/ProductSkuSection.tsx | клієнтський компонент: таблиця SKU + деталі вибраного SKU |
 | src/components/products/ProductSkuTable.tsx | таблиця варіантів колір×розмір |
 | src/components/products/ProductSkuDetailPanel.tsx | панель деталей вибраного SKU |
+| src/components/products/ProductSizeChart.tsx | таблиця «Розмірна сітка» (NT/обхвати/INT/UA-RU/EU), окремий блок під SKU-секцією, ліва колонка ряду (3fr) |
+| src/components/products/ProductMeasurements.tsx | картка «Заміри виробу» — рядки «тип заміру (Combobox — пошук по вводу) — значення (Input, см) — видалити»; згортається, «+ Додати ще один замір»; окремий блок, права колонка ряду (2fr) |
 | src/components/products/ProductStatsBar.tsx | нижня панель підсумкових метрик |
 | src/lib/types/product.ts | типи Product, ProductSku, ProductPhoto |
 | src/lib/mocks/products.ts | мокові дані товару |
@@ -28,11 +30,11 @@
 | src/lib/dev/dev-flags.ts | прапорець показу dev-міток по модулях |
 
 ## Використовує з ui-kit
-Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, DropdownMenu (з DropdownMenuCheckboxItem), Tooltip, StatTile, DetailRow, Select, SelectRow, Textarea, Input
+Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, DropdownMenu (з DropdownMenuCheckboxItem), Tooltip, StatTile, DetailRow, Select, SelectRow, NumberRow, TextRow, Switch, Combobox, Textarea, Input
 
 ## Дані
-Зараз: моки в `src/lib/mocks/products.ts`.
-Планово: таблиці `products`, `product_skus` (див. `db.md`) — ще не створені, БД не підключена.
+Зараз: моки в `src/lib/mocks/products.ts` (`product.measurements`). Розмірна сітка (`ProductSizeChart.tsx`) — окремо захардкоджена, уніфікована таблиця (не прив'язана до товару чи категорії). Типи замірів (`MEASUREMENT_TYPE_OPTIONS`) — тимчасовий довідник у `ProductMeasurements.tsx`.
+Планово: таблиці `products`, `product_skus` (див. `db.md`) — ще не створені, БД не підключена. Розмірна сітка й типи замірів — окремі довідники, ймовірно з прив'язкою до категорії/типу одягу.
 
 ## Доступ
 Ролі, яким доступний модуль: owner (поки єдина активна роль).
@@ -42,21 +44,20 @@ Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, D
 Від нього залежать: —
 
 ## Зроблено
+- 2026-07-29 — `ProductMeasurements`: тип заміру тепер обирається через `Combobox` (новий `ui/combobox.tsx`, обгортка над `@base-ui/react/combobox` — той самий стиль, що й `Select`, але з полем пошуку: ввід одразу фільтрує список) замість звичайного `Select`; у кожного рядка додана кнопка видалення (іконка кошика, `Trash2`, `variant="ghost"`). `ProductStatsBar` перенесено з самого низу сторінки одразу під `ProductTabs` (був запит переставити панель метрик вище, ближче до заголовка)
+- 2026-07-29 — розмірна сітка вийшла задуже широкою на всю ширину сторінки (розтягнута таблиця з великими проміжками). Винесено з `ProductSkuSection` в окремий рядок на сторінці (`page.tsx`), поруч додано новий блок `ProductMeasurements` («Заміри виробу») — обидва тепер у грід-рядку `3fr_2fr` (та сама пропорція, що й SKU-таблиця + деталі SKU вище), кожен зі своєю `DevBlockLabel`. `ProductMeasurements`: рядки «тип заміру (`Select`, тимчасовий довідник) — значення в см (`Input`)», картка згортається (шеврон, локальний стан), «+ Додати ще один замір» додає новий рядок з дефолтним типом. Новий тип `ProductMeasurement` (`id`, `type`, `valueCm`), поле `product.measurements`. Зразок — скрін користувача, але без банерного заголовка й зебра-смуг оригіналу — рядки на `divide-y`, як і решта карток-панелей проєкту
+- 2026-07-29 — додано `ProductSizeChart` — таблиця «Розмірна сітка» (NT-розмір, обхвати грудей/талії/стегон, INT джинси, UA/RU, EU), 9 рядків XS–5XL, під SKU-секцією (`ProductSkuSection`). За зразком-скріном користувача, але без кольорової палітри оригіналу — той самий нейтральний `Table`/`Card`, що й `ProductSkuTable`, щоб не ламати єдиний стиль
+- 2026-07-29 — статус товару дублювався в двох місцях (`ProductHeader` — статичний бейдж, `ProductMetaPanel` — редагований `Select`). Прибрано з `ProductMetaPanel` (`StatusSelectRow` видалено), редагування перенесено в `ProductHeader` — той самий `Select` + кольоровий `Badge`-тригер, тепер єдине місце зміни статусу. `ProductHeader` став `"use client"` (локальний стан `status`)
+- 2026-07-29 — `ProductMetaPanel`: «Штрихкод моделі» (з генерацією) видалено, замінено на «Внутрішній артикул» і «Артикул постачальника» — обидва вільний текст (`TextRow`, ui-kit, 2 використання), поле розтягнуте до правого краю картки, текст зліва. Тип `Product.meta.modelBarcode` → `internalCode` + `supplierCode`. `ProductSkuSection`: прибрано `items-start` з grid (він вимикав стандартний CSS grid stretch) — `ProductSkuTable` і `ProductSkuDetailPanel` тепер теж однакової висоти (`h-full` на обох `Card`), той самий підхід, що й для трьох верхніх панелей
+- 2026-07-29 — `ProductInfoPanel`/`ProductPhotoGallery`/`ProductMetaPanel`: однакова висота карток (`h-full` на `Card`) — причина розбіжності: `DevBlockLabel` рендерить непрозорий wrapper-div навколо кожного блоку, а звичайний block-child не успадковує розтягнуту grid-комірку автоматично (на відміну від самого `Card`, якби він був прямим grid-item). «Країна виробник» і «Опис» перенесено з `ProductInfoPanel` у `ProductMetaPanel` (власний локальний стан, той самий `product.info`); «Щільність» видалено з типу `Product.info` і мока; додано «Колекція» (`Summer 2026`/`Autumn 2026`) в `ProductInfoPanel`. Додано блок цінової політики в `ProductInfoPanel` — Ціна/Закупівельна ціна/Перечеркнута ціна/Знижка % (новий `NumberRow`, ui-kit, 2+ використання) + перемикач «Автоматичний розрахунок націнки» (новий `Switch`, доданий через shadcn CLI). Новий тип `Product.pricing` (`price`, `purchasePrice`, `oldPrice`, `discountPercent`, `autoMarkup`) — поки що незалежний від цін на рівні SKU (`ProductSkuDetailPanel`), не звірявся й не об'єднувався з ними
+- 2026-07-29 — `ProductPhotoGallery`: «Додати фото» відкриває вибір файлу (`accept="image/*"`, кілька файлів за раз), нове фото одразу показується у великому прев'ю і мініатюрі через `URL.createObjectURL` (локальний blob, нічого не зберігається на сервері — `object URL` звільняється при розмонтуванні). Заразом полагоджено: велике прев'ю раніше взагалі не залежало від вибраної мініатюри (завжди був статичний плейсхолдер) — тепер показує саме `active` фото; мініатюри й прев'ю рендерять реальний `<img>`, коли `photo.url` заповнений, інакше — плейсхолдер
+- 2026-07-29 — фікс: завантажені фото заповнюють порожні слоти-заглушки по порядку (а не додаються в кінець списку, лишаючи порожні заглушки зверху й реальні фото знизу)
 - 2026-07-29 — усі секції сторінки (`ProductHeader`, `ProductTabs`, `ProductInfoPanel`, `ProductPhotoGallery`, `ProductMetaPanel`, `ProductSkuSection`, `ProductStatsBar`) обгорнуто `DevBlockLabel` (жовта мітка з назвою + пунктирна рамка), прапорець `DEV_BLOCK_LABELS.products = true` у `lib/dev/dev-flags.ts` — вимкнути, коли статус UI стане `готово`
 - 2026-07-29 — SEO-каркас: `products/layout.tsx` отримав `metadata.robots = { index: false, follow: false }` (CRM-дані не індексуються); сторінка товару — `generateMetadata` повертає `title` з `mockProduct.name` (тимчасово однаковий для будь-якого id, замінити на реальні дані разом з підключенням БД); кореневий `layout.tsx` — title template `%s · Clotch CRM`; доданий `src/app/robots.ts` (`disallow: "/"` — публічного контенту ще нема)
-- 2026-07-28 — «Інструкція по догляду»: emoji замінено на монохромні іконки lucide-react (`text-foreground`, без кольору). Вибір — через `DropdownMenu` з чекбоксами (`DropdownMenuCheckboxItem`, 8 варіантів на свій смак — прання/відбілювання/прасування/хімчистка/сушіння), у рядку відображаються лише іконки вибраних пунктів з підказкою (Tooltip) при наведенні. Список варіантів тимчасовий, замінити на довідник з БД
-- 2026-07-28 — виправлено `ProductTabs`: `variant="line"` замість дефолтного (активна вкладка була залитою кнопкою, кастомні класи цілились на неіснуючий `data-[state=active]` замість реального `data-active`); вкладки більше не розтягуються на всю ширину; активна — колір `primary`, `font-semibold`, підкреслення знизу того ж кольору, без зміни кольору при наведенні на неактивні
-- 2026-07-28 — поле «Опис» (`ProductInfoPanel`) було статичним текстом — замінено на `Textarea` (ui-kit, доданий через shadcn); фокус без синього ring, бордер той самий, лише трохи темніший (`focus-visible:border-muted-foreground/40`)
-- 2026-07-28 — по всій сторінці зменшено радіус скруглення вдвічі: `--radius` в `globals.css` (0.625rem → 0.3125rem) — єдина точка правки, решта радіусів виведені з неї через `calc()`. Синхронізовано `design.md`
-- 2026-07-28 — прибрано поле «Підкатегорія». «Категорія» — одне значення-шлях («Тип одягу/Категорія/Підкатегорія», напр. «Чоловічий одяг/Футболки/Футболки oversize»), окремий повноширинний `Select`
-- 2026-07-28 — блок розмірів/ваги для ТТН Нова Пошта (Д×Ш×В см + вага кг, підказка «Для створення ЕН Нова Пошта...») перенесено з лівої панелі (`ProductInfoPanel`) у праву (`ProductMetaPanel`) — замінив статичні поля «Вага моделі»/«Об'єм», які дублювали і були зайвими
-- 2026-07-28 — `ProductMetaPanel`: додано поле «Останній редагував» (`meta.updatedBy`); «Постачальник»/«Країна бренду» — випадаючі списки (спільний `SelectRow`, винесений у ui-kit з `ProductInfoPanel`, бо компонент використано вдруге); «Штрихкод моделі» — `Input` + кнопка генерації (префікс «482» + 10 випадкових цифр); «Статус» — `Select` з кольоровим `Badge` (Активний/зелений, Не активний/жовтий — новий варіант `warning` у Badge й токен `--warning` у globals.css, Архівний/сірий); `ProductStatus` перейменовано (`draft` → `inactive`), лейбли й кольори — єдине джерело `lib/constants/product-status.ts`, використовує і хедер, і мета-панель. «Теги» — мультивибір із довідника (`DropdownMenuCheckboxItem`, 12 тимчасових варіантів) + текстове поле для власного тега, видалення тега працює
-- 2026-07-28 — фікс бага: чекбокси в `DropdownMenu` (теги, інструкція по догляду) взагалі не реагували на клік. Причина — `DropdownMenuLabel` (base-ui `Menu.GroupLabel`) використовувався без обгортки `Menu.Group`, що кидало рантайм-помилку одразу при відкритті меню («MenuGroupContext is missing») і зривало рендер решти вмісту. Виправлено в обох місцях — `DropdownMenuLabel` + чекбокси тепер всередині `DropdownMenuGroup` (`ProductInfoPanel`, `ProductMetaPanel`)
-- 2026-07-28 — синій `focus-visible` ring/бордер на текстових полях (був точково прибраний тільки на «Опис») тепер прибрано на рівні базових компонентів ui-kit (`Input`, `Textarea`, `Select`) — усі поля вводу на фокусі отримують той самий нейтральний бордер, лише трохи темніший, без акцентного кольору. Зафіксовано як тверде правило в `design.md`/`ui-kit.md`, щоб не повторювати точково
-- 2026-07-28 — вирівнювання рядків «лейбл — значення» в `ProductInfoPanel`/`ProductMetaPanel` не відповідало зразку `Image.png`: значення були притиснуті до правого краю картки (`justify-between`) замість лівого краю одразу після лейбла. Виправлено на обидві колонки зліва, лейбл фіксованої ширини (`w-40`) — `DetailRow` (ui-kit) отримав проп `align="left"|"right"` (за замовч. `"right"`, щоб не зламати вузькі колонки цін у деталях SKU), `SelectRow` і кастомні рядки (`CareInstructionsRow`, `CategorySelectRow`, `BarcodeRow`, `PackageDimensionsRow`, `StatusSelectRow`) переведено на той самий формат
 
 ## Відкрито
-- [ ] реальні фото (зараз плейсхолдери)
+- [ ] цінова політика (`ProductInfoPanel`) і ціни SKU (`ProductSkuDetailPanel`) — два незалежні джерела чисел, не звірені й нічим не пов'язані; вирішити зв'язок, коли підключиться БД
+- [ ] реальне збереження фото — зараз лише локальний прев'ю (`blob:`, зникає після перезавантаження сторінки); треба файлове сховище поза webroot + таблиця `product_photos` (`tenant_id`) при підключенні БД
 - [ ] логіка вкладок (зараз лише «Основне» наповнена)
 - [ ] підключення БД замість моків
 - [ ] список товарів (сторінка `/products` без id)

@@ -30,7 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SelectRow } from "@/components/ui/select-row";
-import { Textarea } from "@/components/ui/textarea";
+import { NumberRow } from "@/components/ui/number-row";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Product } from "@/lib/types/product";
 
@@ -140,10 +141,10 @@ function CategorySelectRow({
 
 // Тимчасові варіанти для випадаючих списків. Планово — довідники з БД (див. db.md).
 const INFO_OPTIONS = {
+  collection: ["Summer 2026", "Autumn 2026"],
   gender: ["Унісекс", "Чоловіча", "Жіноча", "Дитяча"],
   seasonType: ["Літо", "Зима", "Демісезон", "Всесезонний"],
   fit: ["Oversize", "Regular", "Slim", "Relaxed"],
-  countryOfOrigin: ["Туреччина", "Україна", "Китай", "Бангладеш", "Узбекистан"],
   manufacturer: ["TrendStyle", "BasicWear", "UkrTextile"],
   material: [
     "95% Cotton, 5% Elastane",
@@ -151,26 +152,25 @@ const INFO_OPTIONS = {
     "80% Cotton, 20% Polyester",
     "60% Cotton, 40% Polyester",
   ],
-  density: ["180 gsm", "220 gsm", "240 gsm", "260 gsm", "300 gsm"],
   fabricType: ["Футер двонитка", "Футер тринитка", "Кулірна гладь", "Рибана"],
 } as const satisfies Record<string, readonly string[]>;
 
 type InfoField = keyof typeof INFO_OPTIONS;
 
 const INFO_LABELS: Record<InfoField, string> = {
+  collection: "Колекція",
   gender: "Стать",
   seasonType: "Сезон",
   fit: "Посадка",
-  countryOfOrigin: "Країна виробник",
   manufacturer: "Виробник",
   material: "Матеріал",
-  density: "Щільність",
   fabricType: "Тип тканини",
 };
 
 export function ProductInfoPanel({ product }: { product: Product }) {
   const [info, setInfo] = useState(product.info);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
+  const [pricing, setPricing] = useState(product.pricing);
 
   function updateField(field: InfoField, value: string) {
     setInfo((prev) => ({ ...prev, [field]: value }));
@@ -180,18 +180,18 @@ export function ProductInfoPanel({ product }: { product: Product }) {
     setInfo((prev) => ({ ...prev, category: value }));
   }
 
-  function updateDescription(value: string) {
-    setInfo((prev) => ({ ...prev, description: value }));
-  }
-
   function toggleCareId(id: string) {
     setCareIds((prev) =>
       prev.includes(id) ? prev.filter((careId) => careId !== id) : [...prev, id]
     );
   }
 
+  function updatePricing<K extends keyof typeof pricing>(field: K, value: (typeof pricing)[K]) {
+    setPricing((prev) => ({ ...prev, [field]: value }));
+  }
+
   return (
-    <Card className="gap-0 py-4">
+    <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
         <CategorySelectRow value={info.category} onChange={updateCategory} />
         {(Object.keys(INFO_OPTIONS) as InfoField[]).map((field) => (
@@ -204,15 +204,37 @@ export function ProductInfoPanel({ product }: { product: Product }) {
           />
         ))}
         <CareInstructionsRow selectedIds={careIds} onToggle={toggleCareId} />
-        <div className="py-2">
-          <label htmlFor="product-description" className="mb-1 block text-sm text-muted-foreground">
-            Опис
-          </label>
-          <Textarea
-            id="product-description"
-            value={info.description}
-            onChange={(e) => updateDescription(e.target.value)}
-            className="text-sm text-foreground"
+        <NumberRow
+          label="Ціна"
+          value={pricing.price}
+          suffix="грн"
+          onChange={(value) => updatePricing("price", value)}
+        />
+        <NumberRow
+          label="Закупівельна ціна"
+          value={pricing.purchasePrice}
+          suffix="грн"
+          onChange={(value) => updatePricing("purchasePrice", value)}
+        />
+        <NumberRow
+          label="Перечеркнута ціна"
+          value={pricing.oldPrice}
+          suffix="грн"
+          onChange={(value) => updatePricing("oldPrice", value)}
+        />
+        <NumberRow
+          label="Знижка"
+          value={pricing.discountPercent}
+          suffix="%"
+          onChange={(value) => updatePricing("discountPercent", value)}
+        />
+        <div className="flex items-center gap-4 py-1.5">
+          <span className="w-40 shrink-0 text-sm text-muted-foreground">
+            Автоматичний розрахунок націнки
+          </span>
+          <Switch
+            checked={pricing.autoMarkup}
+            onCheckedChange={(checked) => updatePricing("autoMarkup", checked)}
           />
         </div>
       </CardContent>

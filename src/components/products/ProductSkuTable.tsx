@@ -36,7 +36,7 @@ export function ProductSkuTable({
   const colorRows = groupByColor(skus);
 
   return (
-    <Card className="gap-3 py-4">
+    <Card className="h-full gap-3 py-4">
       <CardHeader className="flex flex-row items-center justify-between px-4">
         <CardTitle className="text-sm font-medium">Варіанти (SKU)</CardTitle>
         <div className="flex items-center gap-2">
@@ -91,9 +91,7 @@ export function ProductSkuTable({
                           onClick={() => onSelect?.(sku.id)}
                           className={
                             "w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent " +
-                            (sku.id === selectedSkuId
-                              ? "bg-accent ring-1 ring-inset ring-primary"
-                              : "")
+                            (sku.id === selectedSkuId ? "bg-accent" : "")
                           }
                         >
                           <div className="font-medium text-foreground">{sku.code}</div>

@@ -22,9 +22,9 @@ export function SelectRow({ label, value, options, onChange }: SelectRowProps) {
       <Select value={value} onValueChange={(v) => onChange(v as string)}>
         <SelectTrigger
           size="sm"
-          className="w-fit gap-1 border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input"
+          className="min-w-0 flex-1 justify-between gap-1 border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input"
         >
-          <SelectValue />
+          <SelectValue className="truncate" />
         </SelectTrigger>
         <SelectContent align="start">
           {options.map((option) => (

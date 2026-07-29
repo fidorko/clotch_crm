@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,14 +16,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { SelectRow } from "@/components/ui/select-row";
-import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
-import type { Product, ProductStatus } from "@/lib/types/product";
+import { TextRow } from "@/components/ui/text-row";
+import { Textarea } from "@/components/ui/textarea";
+import type { Product } from "@/lib/types/product";
 
 // Тимчасові довідники. Планово — довідники з БД (див. db.md).
 const SUPPLIER_OPTIONS = ["Textile Group", "FabricPro", "UkrLen", "Prime Textile"];
 const BRAND_COUNTRY_OPTIONS = ["Україна", "Туреччина", "Польща", "Італія", "Китай", "США"];
+const COUNTRY_OF_ORIGIN_OPTIONS = ["Туреччина", "Україна", "Китай", "Бангладеш", "Узбекистан"];
 const TAG_OPTIONS = [
   "базова",
   "oversize",
@@ -38,35 +39,6 @@ const TAG_OPTIONS = [
   "однотонна",
   "premium",
 ];
-
-function generateBarcode() {
-  const digits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join("");
-  return `482${digits}`;
-}
-
-function BarcodeRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">Штрихкод моделі</span>
-      <div className="flex items-center gap-1.5">
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-7 w-36 px-2 text-sm"
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Згенерувати штрихкод"
-          onClick={() => onChange(generateBarcode())}
-        >
-          <RefreshCw className="size-3.5" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function PackageDimensionsRow({
   length,
@@ -131,35 +103,6 @@ function PackageDimensionsRow({
       <p className="text-xs text-muted-foreground">
         Для створення ЕН Нова Пошта. Вказувати розміри у запакованому вигляді.
       </p>
-    </div>
-  );
-}
-
-function StatusSelectRow({
-  value,
-  onChange,
-}: {
-  value: ProductStatus;
-  onChange: (value: ProductStatus) => void;
-}) {
-  const current =
-    PRODUCT_STATUS_OPTIONS.find((option) => option.value === value) ?? PRODUCT_STATUS_OPTIONS[0];
-
-  return (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">Статус</span>
-      <Select value={value} onValueChange={(v) => onChange(v as ProductStatus)}>
-        <SelectTrigger className="w-fit gap-1 border-transparent bg-transparent px-1.5 py-1 shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
-          <Badge variant={current.badgeVariant}>{current.label}</Badge>
-        </SelectTrigger>
-        <SelectContent align="start">
-          {PRODUCT_STATUS_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <Badge variant={option.badgeVariant}>{option.label}</Badge>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   );
 }
@@ -248,12 +191,14 @@ export function ProductMetaPanel({ product }: { product: Product }) {
 
   const [supplier, setSupplier] = useState(meta.supplier);
   const [brandCountry, setBrandCountry] = useState(meta.brandCountry);
-  const [barcode, setBarcode] = useState(meta.modelBarcode);
+  const [countryOfOrigin, setCountryOfOrigin] = useState(product.info.countryOfOrigin);
+  const [description, setDescription] = useState(product.info.description);
+  const [internalCode, setInternalCode] = useState(meta.internalCode);
+  const [supplierCode, setSupplierCode] = useState(meta.supplierCode);
   const [packageLength, setPackageLength] = useState(meta.packageLengthCm);
   const [packageWidth, setPackageWidth] = useState(meta.packageWidthCm);
   const [packageHeight, setPackageHeight] = useState(meta.packageHeightCm);
   const [packageWeight, setPackageWeight] = useState(meta.packageWeightKg);
-  const [status, setStatus] = useState<ProductStatus>(product.status);
   const [tags, setTags] = useState<string[]>(product.tags.map((tag) => tag.label));
   const [customTag, setCustomTag] = useState("");
 
@@ -273,7 +218,7 @@ export function ProductMetaPanel({ product }: { product: Product }) {
   }
 
   return (
-    <Card className="gap-0 py-4">
+    <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
         <DetailRow align="left" label="Створено" value={meta.createdAt} />
         <DetailRow align="left" label="Оновлено" value={meta.updatedAt} />
@@ -291,7 +236,14 @@ export function ProductMetaPanel({ product }: { product: Product }) {
           options={BRAND_COUNTRY_OPTIONS}
           onChange={setBrandCountry}
         />
-        <BarcodeRow value={barcode} onChange={setBarcode} />
+        <SelectRow
+          label="Країна виробник"
+          value={countryOfOrigin}
+          options={COUNTRY_OF_ORIGIN_OPTIONS}
+          onChange={setCountryOfOrigin}
+        />
+        <TextRow label="Внутрішній артикул" value={internalCode} onChange={setInternalCode} />
+        <TextRow label="Артикул постачальника" value={supplierCode} onChange={setSupplierCode} />
         <PackageDimensionsRow
           length={packageLength}
           width={packageWidth}
@@ -302,7 +254,6 @@ export function ProductMetaPanel({ product }: { product: Product }) {
           onChangeHeight={setPackageHeight}
           onChangeWeight={setPackageWeight}
         />
-        <StatusSelectRow value={status} onChange={setStatus} />
         <TagsSection
           tags={tags}
           onToggle={toggleTag}
@@ -311,6 +262,17 @@ export function ProductMetaPanel({ product }: { product: Product }) {
           onCustomTagChange={setCustomTag}
           onAddCustomTag={addCustomTag}
         />
+        <div className="py-2">
+          <label htmlFor="product-description" className="mb-1 block text-sm text-muted-foreground">
+            Опис
+          </label>
+          <Textarea
+            id="product-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </div>
       </CardContent>
     </Card>
   );

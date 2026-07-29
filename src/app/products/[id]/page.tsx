@@ -5,6 +5,8 @@ import { ProductInfoPanel } from "@/components/products/ProductInfoPanel";
 import { ProductPhotoGallery } from "@/components/products/ProductPhotoGallery";
 import { ProductMetaPanel } from "@/components/products/ProductMetaPanel";
 import { ProductSkuSection } from "@/components/products/ProductSkuSection";
+import { ProductSizeChart } from "@/components/products/ProductSizeChart";
+import { ProductMeasurements } from "@/components/products/ProductMeasurements";
 import { ProductStatsBar } from "@/components/products/ProductStatsBar";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
@@ -28,6 +30,10 @@ export default function ProductDetailPage() {
       </DevBlockLabel>
 
       <div className="flex flex-1 flex-col gap-4 p-6">
+        <DevBlockLabel name="ProductStatsBar" enabled={dev}>
+          <ProductStatsBar stats={product.stats} />
+        </DevBlockLabel>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr_1fr]">
           <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
             <ProductInfoPanel product={product} />
@@ -44,9 +50,14 @@ export default function ProductDetailPage() {
           <ProductSkuSection skus={product.skus} />
         </DevBlockLabel>
 
-        <DevBlockLabel name="ProductStatsBar" enabled={dev}>
-          <ProductStatsBar stats={product.stats} />
-        </DevBlockLabel>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+          <DevBlockLabel name="ProductSizeChart" enabled={dev}>
+            <ProductSizeChart />
+          </DevBlockLabel>
+          <DevBlockLabel name="ProductMeasurements" enabled={dev}>
+            <ProductMeasurements measurements={product.measurements} />
+          </DevBlockLabel>
+        </div>
       </div>
     </div>
   );

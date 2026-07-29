@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ChevronRight, Star, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -7,11 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
-import type { Product } from "@/lib/types/product";
+import type { Product, ProductStatus } from "@/lib/types/product";
 
 export function ProductHeader({ product }: { product: Product }) {
-  const status = PRODUCT_STATUS_OPTIONS.find((option) => option.value === product.status);
+  const [status, setStatus] = useState<ProductStatus>(product.status);
+  const current =
+    PRODUCT_STATUS_OPTIONS.find((option) => option.value === status) ?? PRODUCT_STATUS_OPTIONS[0];
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
@@ -35,7 +41,18 @@ export function ProductHeader({ product }: { product: Product }) {
           <h1 className="text-2xl font-semibold text-foreground">
             {product.name}
           </h1>
-          {status && <Badge variant={status.badgeVariant}>{status.label}</Badge>}
+          <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
+            <SelectTrigger className="w-fit gap-1 border-transparent bg-transparent px-1.5 py-1 shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
+              <Badge variant={current.badgeVariant}>{current.label}</Badge>
+            </SelectTrigger>
+            <SelectContent align="start">
+              {PRODUCT_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <Badge variant={option.badgeVariant}>{option.label}</Badge>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
