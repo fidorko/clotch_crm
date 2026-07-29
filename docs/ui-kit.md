@@ -7,6 +7,7 @@
 |---|---|---|
 | Button | ui/button.tsx | variants: default, outline, secondary, ghost, destructive, link |
 | Switch | ui/switch.tsx | тумблер (`@base-ui/react/switch`), контрольований `checked`/`onCheckedChange`; рендериться як `<span role="switch">`, не `<button>` |
+| Dialog | ui/dialog.tsx | модальне вікно (`@base-ui/react/dialog`, доданий через shadcn CLI): `DialogTrigger` (composable через `render` — можна обгорнути `Button`), `DialogContent` (за замовч. `sm:max-w-sm`, оверрайдити класом під ширший вміст), `DialogHeader`/`DialogTitle`, `DialogFooter`. Хрестик закриття — вбудований (`showCloseButton`) |
 | Combobox | ui/combobox.tsx | `Select` із пошуком по вводу (`@base-ui/react/combobox`): `ComboboxInputGroup` (`ComboboxInput` + `ComboboxTrigger`) + `ComboboxContent` (`ComboboxItem`, вбудований `Empty` — «Нічого не знайдено»). `items` на `Combobox` — повний список, фільтрація вбудована. Той самий стиль полів/попапу, що й `Select` |
 | Badge | ui/badge.tsx | variants: default, secondary, destructive, outline, ghost, link, **success** (статуси «Активний», «В наявності»), **warning** (статус «Не активний», токен `--warning` в globals.css) |
 | Card | ui/card.tsx | |
@@ -29,8 +30,9 @@
 | Select | ui/select.tsx | shadcn/base-ui випадаючий список; в inline-рядках (напр. `ProductInfoPanel`) trigger стилізується без рамки (`border-transparent`, `hover:border-input`), щоб виглядати як звичайний текст до наведення |
 | SelectRow | ui/select-row.tsx | рядок «лейбл (фіксована ширина `w-40`) — inline `Select` зліва одразу після» (без рамки до наведення); винесено з `ProductInfoPanel`, коли той самий патерн знадобився в `ProductMetaPanel` — 2+ використання = ui-kit (правило 9.2 CLAUDE.md) |
 | DevBlockLabel | dev/DevBlockLabel.tsx | dev-режим: обгортка блоку/секції сторінки, показує жовту мітку з назвою компонента + пунктирну рамку, поки UI модуля `в роботі`. Прапорець на модуль — `lib/dev/dev-flags.ts`. Деталі — `conventions.md` |
-| NumberRow | ui/number-row.tsx | рядок «лейбл (`w-40`) — числове поле + суфікс» (`h-7`, `text-right`, компактне, без розтягування на всю ширину — той самий патерн, що й `PackageDimensionsRow`); винесено з цінової політики `ProductInfoPanel` (грн/%, 4 використання) |
+| NumberRow | ui/number-row.tsx | рядок «лейбл (`w-40`) — числове поле + суфікс» (`h-7 w-20`, `text-right`, компактне, без розтягування на всю ширину — той самий патерн, що й `PackageDimensionsRow`/`PriceModeRow`/`PurchasePriceRow`, всі з однаковою шириною поля); зараз єдине використання — «Перечеркнута ціна» в `ProductInfoPanel` |
 | TextRow | ui/text-row.tsx | рядок «лейбл (`w-40`) — текстове поле», поле розтягнуте до правого краю (`flex-1`), текст зліва — вільний ввід без довідника (артикули в `ProductMetaPanel`, 2 використання) |
+| PriceModeRow | ui/price-mode-row.tsx | рядок «лейбл — числове поле — перемикач Грн/%». У режимі `%` показує обчислене значення (`= X.XX грн`, формула передається пропом `computeFromPercent`) — сам компонент нічого не знає про базу розрахунку. Опційний проп `warning` — червоний текст під рядком. Цінова політика `ProductInfoPanel`, 4 використання |
 
 ## Палітра й тема
 Див. `design.md`. Кольори підключені як CSS-змінні в `src/app/globals.css` (`:root` світла, `.dark` темна), додано `--success`/`--success-foreground` поза стандартним набором shadcn.

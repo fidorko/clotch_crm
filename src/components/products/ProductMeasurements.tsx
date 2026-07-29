@@ -13,19 +13,10 @@ import {
   ComboboxTrigger,
 } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
+import { MEASUREMENT_TYPE_OPTIONS } from "@/lib/constants/measurement-types";
 import type { ProductMeasurement } from "@/lib/types/product";
 
-// Тимчасовий довідник типів замірів. Планово — довідник з БД.
-const MEASUREMENT_TYPE_OPTIONS = [
-  "Довжина переду виробу, см",
-  "Довжина спинки виробу, см",
-  "Довжина рукава від горловини, см",
-  "Довжина рукава по внутрішньому шву, см",
-  "Ширина під проймами рукавів (над грудьми), см",
-  "Ширина низу виробу, см",
-  "Обхват горловини, см",
-  "Обхват талії, см",
-] as const;
+const MEASUREMENT_TYPE_LABELS = MEASUREMENT_TYPE_OPTIONS.map((option) => option.label);
 
 export function ProductMeasurements({
   measurements: initialMeasurements,
@@ -46,7 +37,7 @@ export function ProductMeasurements({
   function addMeasurement() {
     setMeasurements((prev) => [
       ...prev,
-      { id: `m-${crypto.randomUUID()}`, type: MEASUREMENT_TYPE_OPTIONS[0], valueCm: 0 },
+      { id: `m-${crypto.randomUUID()}`, type: "", valueCm: 0 },
     ]);
   }
 
@@ -75,13 +66,13 @@ export function ProductMeasurements({
           {measurements.map((measurement) => (
             <div key={measurement.id} className="flex items-center gap-2 py-1.5">
               <Combobox
-                items={MEASUREMENT_TYPE_OPTIONS}
+                items={MEASUREMENT_TYPE_LABELS}
                 value={measurement.type}
                 onValueChange={(value) => updateType(measurement.id, (value as string) ?? "")}
               >
                 <ComboboxInputGroup className="min-w-0 flex-1">
                   <ComboboxInput
-                    placeholder="Оберіть замір"
+                    placeholder="Почніть вводити назву заміру"
                     className="h-7 text-sm font-medium"
                   />
                   <ComboboxTrigger />

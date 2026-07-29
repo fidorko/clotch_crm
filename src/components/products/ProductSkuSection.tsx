@@ -3,10 +3,27 @@
 import { useState } from "react";
 import { ProductSkuTable } from "@/components/products/ProductSkuTable";
 import { ProductSkuDetailPanel } from "@/components/products/ProductSkuDetailPanel";
-import type { ProductSku } from "@/lib/types/product";
+import type { ProductMeasurement, ProductSku } from "@/lib/types/product";
 import { selectedSku as defaultSelectedSku } from "@/lib/mocks/products";
 
-export function ProductSkuSection({ skus }: { skus: ProductSku[] }) {
+export interface SkuPricing {
+  purchasePrice: number;
+  retail: number;
+  oldPrice: number;
+  wholesale: number;
+  dropship: number;
+  retailDiscount: number;
+}
+
+export function ProductSkuSection({
+  skus,
+  measurements,
+  pricing,
+}: {
+  skus: ProductSku[];
+  measurements: ProductMeasurement[];
+  pricing: SkuPricing;
+}) {
   const [selectedSkuId, setSelectedSkuId] = useState<string | undefined>("s3");
   const activeSku = skus.find((s) => s.id === selectedSkuId);
 
@@ -22,6 +39,8 @@ export function ProductSkuSection({ skus }: { skus: ProductSku[] }) {
           ...defaultSelectedSku,
           code: activeSku?.code ?? defaultSelectedSku.code,
         }}
+        measurements={measurements}
+        pricing={pricing}
       />
     </div>
   );

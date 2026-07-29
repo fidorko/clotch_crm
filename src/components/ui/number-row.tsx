@@ -27,7 +27,7 @@ export function NumberRow({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="h-7 w-24 px-2 text-right text-sm"
+          className="h-7 w-20 px-1.5 text-right text-sm"
         />
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>

@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import { ProductHeader } from "@/components/products/ProductHeader";
 import { ProductTabs } from "@/components/products/ProductTabs";
-import { ProductInfoPanel } from "@/components/products/ProductInfoPanel";
-import { ProductPhotoGallery } from "@/components/products/ProductPhotoGallery";
-import { ProductMetaPanel } from "@/components/products/ProductMetaPanel";
-import { ProductSkuSection } from "@/components/products/ProductSkuSection";
+import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
 import { ProductSizeChart } from "@/components/products/ProductSizeChart";
 import { ProductMeasurements } from "@/components/products/ProductMeasurements";
-import { ProductStatsBar } from "@/components/products/ProductStatsBar";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { mockProduct } from "@/lib/mocks/products";
@@ -25,40 +22,26 @@ export default function ProductDetailPage() {
       <DevBlockLabel name="ProductHeader" enabled={dev}>
         <ProductHeader product={product} />
       </DevBlockLabel>
-      <DevBlockLabel name="ProductTabs" enabled={dev}>
-        <ProductTabs />
-      </DevBlockLabel>
-
-      <div className="flex flex-1 flex-col gap-4 p-6">
-        <DevBlockLabel name="ProductStatsBar" enabled={dev}>
-          <ProductStatsBar stats={product.stats} />
+      <Tabs defaultValue="general" className="flex flex-1 flex-col">
+        <DevBlockLabel name="ProductTabs" enabled={dev}>
+          <ProductTabs />
         </DevBlockLabel>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr_1fr]">
-          <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
-            <ProductInfoPanel product={product} />
-          </DevBlockLabel>
-          <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
-            <ProductPhotoGallery photos={product.photos} />
-          </DevBlockLabel>
-          <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
-            <ProductMetaPanel product={product} />
-          </DevBlockLabel>
-        </div>
+        <TabsContent value="general" className="flex flex-col gap-4 p-6">
+          <ProductGeneralTab product={product} dev={dev} />
+        </TabsContent>
 
-        <DevBlockLabel name="ProductSkuSection" enabled={dev}>
-          <ProductSkuSection skus={product.skus} />
-        </DevBlockLabel>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-          <DevBlockLabel name="ProductSizeChart" enabled={dev}>
-            <ProductSizeChart />
-          </DevBlockLabel>
-          <DevBlockLabel name="ProductMeasurements" enabled={dev}>
-            <ProductMeasurements measurements={product.measurements} />
-          </DevBlockLabel>
-        </div>
-      </div>
+        <TabsContent value="sizes" className="flex flex-col gap-4 p-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+            <DevBlockLabel name="ProductSizeChart" enabled={dev}>
+              <ProductSizeChart />
+            </DevBlockLabel>
+            <DevBlockLabel name="ProductMeasurements" enabled={dev}>
+              <ProductMeasurements measurements={product.measurements} />
+            </DevBlockLabel>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

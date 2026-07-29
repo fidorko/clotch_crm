@@ -14,6 +14,7 @@ export interface ProductSku {
   size: string;
   barcode: string;
   stock: number;
+  cell: string;
 }
 
 export interface ProductTag {
@@ -25,6 +26,12 @@ export interface ProductMeasurement {
   id: string;
   type: string;
   valueCm: number;
+}
+
+export interface PriceModeValue {
+  mode: "amount" | "percent";
+  amount: number;
+  percent: number;
 }
 
 export interface Product {
@@ -50,11 +57,12 @@ export interface Product {
     description: string;
   };
   pricing: {
-    price: number;
     purchasePrice: number;
+    retail: PriceModeValue;
     oldPrice: number;
-    discountPercent: number;
-    autoMarkup: boolean;
+    wholesale: PriceModeValue;
+    dropship: PriceModeValue;
+    retailDiscount: PriceModeValue;
   };
   photos: ProductPhoto[];
   measurements: ProductMeasurement[];

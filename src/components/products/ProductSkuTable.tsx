@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Printer, Trash2, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +51,10 @@ export function ProductSkuTable({
           <Button variant="outline" size="sm">
             Автогенерація SKU
           </Button>
+          <Button variant="outline" size="sm">
+            <Printer className="size-3.5" />
+            Друк всіх SKU
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="px-4">
@@ -96,9 +100,7 @@ export function ProductSkuTable({
                         >
                           <div className="font-medium text-foreground">{sku.code}</div>
                           <div className="text-muted-foreground">ШК: {sku.barcode}</div>
-                          <div className="text-muted-foreground">
-                            Зал: <span className={sku.stock === 0 ? "text-destructive" : ""}>{sku.stock}</span>
-                          </div>
+                          <div className="text-muted-foreground">Комірка: {sku.cell}</div>
                         </button>
                       </TableCell>
                     );
