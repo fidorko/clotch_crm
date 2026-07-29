@@ -2,7 +2,7 @@
 
 **Статус:** UI `в роботі` · Логіка `—` · Бек `—` · БД `—`
 **Маршрут:** /products/[id]
-**Оновлено:** 2026-07-28 (виправлення layout)
+**Оновлено:** 2026-07-29 (dev-мітки блоків + SEO-каркас)
 
 ## Призначення
 Картка товару: загальна інформація, фото, варіанти SKU (колір × розмір), залишки, статистика по товару. За зразком `Image.png`.
@@ -24,6 +24,8 @@
 | src/lib/types/product.ts | типи Product, ProductSku, ProductPhoto |
 | src/lib/mocks/products.ts | мокові дані товару |
 | src/lib/constants/product-status.ts | єдине джерело статусів товару (значення/лейбл/колір бейджа), використовує і хедер, і мета-панель |
+| src/components/dev/DevBlockLabel.tsx | dev-мітка блоку/секції (спільна, ui-kit.md) |
+| src/lib/dev/dev-flags.ts | прапорець показу dev-міток по модулях |
 
 ## Використовує з ui-kit
 Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, DropdownMenu (з DropdownMenuCheckboxItem), Tooltip, StatTile, DetailRow, Select, SelectRow, Textarea, Input
@@ -40,6 +42,8 @@ Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, D
 Від нього залежать: —
 
 ## Зроблено
+- 2026-07-29 — усі секції сторінки (`ProductHeader`, `ProductTabs`, `ProductInfoPanel`, `ProductPhotoGallery`, `ProductMetaPanel`, `ProductSkuSection`, `ProductStatsBar`) обгорнуто `DevBlockLabel` (жовта мітка з назвою + пунктирна рамка), прапорець `DEV_BLOCK_LABELS.products = true` у `lib/dev/dev-flags.ts` — вимкнути, коли статус UI стане `готово`
+- 2026-07-29 — SEO-каркас: `products/layout.tsx` отримав `metadata.robots = { index: false, follow: false }` (CRM-дані не індексуються); сторінка товару — `generateMetadata` повертає `title` з `mockProduct.name` (тимчасово однаковий для будь-якого id, замінити на реальні дані разом з підключенням БД); кореневий `layout.tsx` — title template `%s · Clotch CRM`; доданий `src/app/robots.ts` (`disallow: "/"` — публічного контенту ще нема)
 - 2026-07-28 — «Інструкція по догляду»: emoji замінено на монохромні іконки lucide-react (`text-foreground`, без кольору). Вибір — через `DropdownMenu` з чекбоксами (`DropdownMenuCheckboxItem`, 8 варіантів на свій смак — прання/відбілювання/прасування/хімчистка/сушіння), у рядку відображаються лише іконки вибраних пунктів з підказкою (Tooltip) при наведенні. Список варіантів тимчасовий, замінити на довідник з БД
 - 2026-07-28 — виправлено `ProductTabs`: `variant="line"` замість дефолтного (активна вкладка була залитою кнопкою, кастомні класи цілились на неіснуючий `data-[state=active]` замість реального `data-active`); вкладки більше не розтягуються на всю ширину; активна — колір `primary`, `font-semibold`, підкреслення знизу того ж кольору, без зміни кольору при наведенні на неактивні
 - 2026-07-28 — поле «Опис» (`ProductInfoPanel`) було статичним текстом — замінено на `Textarea` (ui-kit, доданий через shadcn); фокус без синього ring, бордер той самий, лише трохи темніший (`focus-visible:border-muted-foreground/40`)
@@ -56,3 +60,5 @@ Sidebar, Button, Badge (variant success/warning/secondary), Card, Tabs, Table, D
 - [ ] логіка вкладок (зараз лише «Основне» наповнена)
 - [ ] підключення БД замість моків
 - [ ] список товарів (сторінка `/products` без id)
+- [ ] `generateMetadata` — замінити `mockProduct.name` на реальний title за `id`, коли з'явиться fetch з БД
+- [ ] вимкнути `DEV_BLOCK_LABELS.products` (`lib/dev/dev-flags.ts`), коли статус UI стане `готово`

@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clotch CRM",
+  title: {
+    default: "Clotch CRM",
+    template: "%s · Clotch CRM",
+  },
   description: "CRM для магазинів одягу",
 };
 

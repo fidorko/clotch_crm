@@ -26,6 +26,7 @@
 | Sidebar | layout/Sidebar.tsx | вузький сайдбар з іконками, активний пункт підсвічено accent-кольором |
 | Select | ui/select.tsx | shadcn/base-ui випадаючий список; в inline-рядках (напр. `ProductInfoPanel`) trigger стилізується без рамки (`border-transparent`, `hover:border-input`), щоб виглядати як звичайний текст до наведення |
 | SelectRow | ui/select-row.tsx | рядок «лейбл (фіксована ширина `w-40`) — inline `Select` зліва одразу після» (без рамки до наведення); винесено з `ProductInfoPanel`, коли той самий патерн знадобився в `ProductMetaPanel` — 2+ використання = ui-kit (правило 9.2 CLAUDE.md) |
+| DevBlockLabel | dev/DevBlockLabel.tsx | dev-режим: обгортка блоку/секції сторінки, показує жовту мітку з назвою компонента + пунктирну рамку, поки UI модуля `в роботі`. Прапорець на модуль — `lib/dev/dev-flags.ts`. Деталі — `conventions.md` |
 
 ## Палітра й тема
 Див. `design.md`. Кольори підключені як CSS-змінні в `src/app/globals.css` (`:root` світла, `.dark` темна), додано `--success`/`--success-foreground` поза стандартним набором shadcn.
