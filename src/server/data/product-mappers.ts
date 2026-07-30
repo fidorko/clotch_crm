@@ -76,6 +76,7 @@ export function mapProductRow(
     name: product.name,
     category: product.category,
     categoryPath: product.categoryPath,
+    categoryId: product.categoryId,
     status: product.status,
     modelCode: product.modelCode,
     brand: product.brand,

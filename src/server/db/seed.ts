@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { mockProduct } from "@/lib/mocks/products";
+import { mockCategories } from "@/lib/mocks/categories";
 import * as schema from "./schema";
 
 /**
@@ -130,6 +131,49 @@ async function main() {
         .insert(schema.productTags)
         .values({ productId: product.id, tagId, tenantId: devTenantId })
         .onConflictDoNothing();
+    }
+  }
+
+  // Категорії: мок має ієрархію через власні (не-UUID) id — вставляємо
+  // "згори вниз" (батьки перед дітьми), мапуючи мок-id -> реальний uuid.
+  if (mockCategories.length > 0) {
+    const idMap = new Map<string, string>();
+    const remaining = [...mockCategories];
+    while (remaining.length > 0) {
+      const insertable = remaining.filter(
+        (c) => c.parentId === null || idMap.has(c.parentId)
+      );
+      if (insertable.length === 0) break;
+
+      for (const mockCategory of insertable) {
+        const [existing] = await db
+          .select({ id: schema.categories.id })
+          .from(schema.categories)
+          .where(
+            and(
+              eq(schema.categories.tenantId, devTenantId),
+              eq(schema.categories.name, mockCategory.name)
+            )
+          );
+        const realId = existing
+          ? existing.id
+          : (
+              await db
+                .insert(schema.categories)
+                .values({
+                  tenantId: devTenantId,
+                  parentId: mockCategory.parentId ? (idMap.get(mockCategory.parentId) ?? null) : null,
+                  name: mockCategory.name,
+                  isActive: mockCategory.isActive,
+                })
+                .returning({ id: schema.categories.id })
+            )[0].id;
+        idMap.set(mockCategory.id, realId);
+      }
+
+      for (const c of insertable) {
+        remaining.splice(remaining.indexOf(c), 1);
+      }
     }
   }
 

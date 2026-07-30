@@ -9,8 +9,17 @@ import { ProductStatsBar } from "@/components/products/ProductStatsBar";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
+import type { CategoryRow } from "@/server/data/categories";
 
-export function ProductGeneralTab({ product, dev }: { product: Product; dev: boolean }) {
+export function ProductGeneralTab({
+  product,
+  categories,
+  dev,
+}: {
+  product: Product;
+  categories: CategoryRow[];
+  dev: boolean;
+}) {
   const [pricing, setPricing] = useState(product.pricing);
   const [variantsEnabled, setVariantsEnabled] = useState(true);
 
@@ -45,6 +54,7 @@ export function ProductGeneralTab({ product, dev }: { product: Product; dev: boo
         <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
           <ProductInfoPanel
             product={product}
+            categories={categories}
             pricing={pricing}
             onPricingChange={updatePricing}
             variantsEnabled={variantsEnabled}

@@ -15,9 +15,17 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import type { CategoryRow } from "@/server/data/categories";
+import { getCategoryPath } from "@/lib/categories/tree";
 import { updateProductName } from "@/app/products/[id]/actions";
 
-export function ProductHeader({ product }: { product: Product }) {
+export function ProductHeader({
+  product,
+  categories,
+}: {
+  product: Product;
+  categories: CategoryRow[];
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<ProductStatus>(product.status);
   const [name, setName] = useState(product.name);
@@ -48,7 +56,12 @@ export function ProductHeader({ product }: { product: Product }) {
 
   const current =
     PRODUCT_STATUS_OPTIONS.find((option) => option.value === status) ?? PRODUCT_STATUS_OPTIONS[0];
-  const breadcrumb = ["Товари", product.category, name];
+  // Хлібні крихти йдуть за реальною категорією (повна ієрархія), не за текстовим
+  // product.category — той не оновлюється автоматично при виборі categoryId (db.md).
+  const categoryCrumbs = product.categoryId
+    ? getCategoryPath(categories, product.categoryId).map((c) => c.name)
+    : [product.category];
+  const breadcrumb = ["Товари", ...categoryCrumbs, name];
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">

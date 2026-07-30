@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { updateProductName as updateProductNameInDb } from "@/server/data/products";
+import {
+  updateProductCategory as updateProductCategoryInDb,
+  updateProductName as updateProductNameInDb,
+} from "@/server/data/products";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 export async function updateProductName(productId: string, name: string): Promise<void> {
@@ -14,4 +17,15 @@ export async function updateProductName(productId: string, name: string): Promis
   const tenantId = getDevTenantId();
   await updateProductNameInDb(tenantId, productId, trimmed);
   revalidatePath(`/products/${productId}`);
+}
+
+export async function updateProductCategory(productId: string, categoryId: string): Promise<void> {
+  if (!categoryId) {
+    throw new Error("Оберіть категорію");
+  }
+
+  const tenantId = getDevTenantId();
+  await updateProductCategoryInDb(tenantId, productId, categoryId);
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/settings");
 }

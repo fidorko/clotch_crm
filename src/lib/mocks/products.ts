@@ -5,6 +5,7 @@ export const mockProduct: Product = {
   name: "Футболка Basic Oversize",
   category: "Футболки",
   categoryPath: "Чоловічий одяг/Футболки/Футболки oversize",
+  categoryId: null,
   status: "active",
   modelCode: "TS-201",
   brand: "TrendStyle",

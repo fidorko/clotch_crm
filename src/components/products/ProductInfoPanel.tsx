@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Ban,
   BrushCleaning,
@@ -26,19 +27,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SelectRow } from "@/components/ui/select-row";
+import { EditableSelectRow } from "@/components/ui/editable-select-row";
 import { NumberRow } from "@/components/ui/number-row";
 import { PriceModeRow } from "@/components/ui/price-mode-row";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
+import { getCategoryPath } from "@/lib/categories/tree";
 import { COLOR_OPTIONS, SIZE_OPTIONS } from "@/lib/constants/sku-variant-options";
 import type { Product } from "@/lib/types/product";
+import type { CategoryRow } from "@/server/data/categories";
+import { updateProductCategory } from "@/app/products/[id]/actions";
 
 const COLOR_NAME_OPTIONS = COLOR_OPTIONS.map((color) => color.name);
 
@@ -106,42 +105,6 @@ function CareInstructionsRow({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
-  );
-}
-
-// Тимчасовий довідник категорій (шлях: тип одягу/категорія/підкатегорія). Планово — довідник з БД.
-const CATEGORY_OPTIONS = [
-  "Чоловічий одяг/Футболки/Футболки oversize",
-  "Чоловічий одяг/Футболки/Футболки слімс",
-  "Чоловічий одяг/Худі/Худі з капюшоном",
-  "Жіночий одяг/Футболки/Футболки oversize",
-  "Жіночий одяг/Сукні/Літні сукні",
-  "Унісекс/Футболки/Базові футболки",
-] as const;
-
-function CategorySelectRow({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">Категорія</span>
-      <Select value={value} onValueChange={(v) => onChange(v as string)}>
-        <SelectTrigger className="min-w-0 flex-1 justify-between border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
-          <SelectValue className="truncate" />
-        </SelectTrigger>
-        <SelectContent align="start">
-          {CATEGORY_OPTIONS.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   );
 }
@@ -292,11 +255,13 @@ const INFO_LABELS: Record<InfoField, string> = {
 
 export function ProductInfoPanel({
   product,
+  categories,
   pricing,
   onPricingChange,
   variantsEnabled,
 }: {
   product: Product;
+  categories: CategoryRow[];
   pricing: Product["pricing"];
   onPricingChange: <K extends keyof Product["pricing"]>(
     field: K,
@@ -304,8 +269,37 @@ export function ProductInfoPanel({
   ) => void;
   variantsEnabled: boolean;
 }) {
+  const router = useRouter();
+  const [isSavingCategory, startCategoryTransition] = useTransition();
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+
   const [info, setInfo] = useState(product.info);
-  const [categoryPath, setCategoryPath] = useState(product.categoryPath);
+  // product.categoryId — реальний збережений вибір; якщо ще не обирали (null, старі
+  // дані до цієї функції) — найкраще наближення за назвою, інакше перша в списку.
+  const [categoryId, setCategoryId] = useState(
+    () =>
+      product.categoryId ??
+      categories.find((c) => c.name === product.category)?.id ??
+      categories[0]?.id ??
+      ""
+  );
+
+  function handleCategoryChange(nextCategoryId: string) {
+    const previous = categoryId;
+    setCategoryId(nextCategoryId);
+    setCategoryError(null);
+    startCategoryTransition(async () => {
+      try {
+        await updateProductCategory(product.id, nextCategoryId);
+        router.refresh();
+      } catch (err) {
+        setCategoryId(previous);
+        setCategoryError(err instanceof Error ? err.message : "Не вдалося зберегти категорію");
+      }
+    });
+  }
+
   const [collection, setCollection] = useState(product.collection);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
   const [singleColor, setSingleColor] = useState(COLOR_NAME_OPTIONS[0]);
@@ -337,7 +331,43 @@ export function ProductInfoPanel({
   return (
     <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
-        <CategorySelectRow value={categoryPath} onChange={setCategoryPath} />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-4 py-1.5">
+            <span className="w-40 shrink-0 text-sm text-muted-foreground">Категорія</span>
+            {isEditingCategory ? (
+              <CategoryTreeSelect
+                categories={categories}
+                value={categoryId}
+                onChange={handleCategoryChange}
+                defaultOpen
+                onOpenChange={(open) => {
+                  if (!open) setIsEditingCategory(false);
+                }}
+                triggerClassName="min-w-0 flex-1 justify-between"
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-between">
+                <span className={cn("text-sm text-foreground", isSavingCategory && "opacity-60")}>
+                  {/* Повна ієрархія (Батьківська / Дитина), не тільки кінцева категорія */}
+                  {categoryId
+                    ? getCategoryPath(categories, categoryId)
+                        .map((c) => c.name)
+                        .join(" / ")
+                    : "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCategory(true)}
+                  aria-label="Редагувати категорію"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+          {categoryError && <span className="pb-1.5 text-xs text-destructive">{categoryError}</span>}
+        </div>
         {!variantsEnabled && (
           <>
             <SelectRow
@@ -354,14 +384,14 @@ export function ProductInfoPanel({
             />
           </>
         )}
-        <SelectRow
+        <EditableSelectRow
           label="Колекція"
           value={collection}
           options={COLLECTION_OPTIONS}
           onChange={setCollection}
         />
         {(Object.keys(INFO_OPTIONS) as InfoField[]).map((field) => (
-          <SelectRow
+          <EditableSelectRow
             key={field}
             label={INFO_LABELS[field]}
             value={info[field]}

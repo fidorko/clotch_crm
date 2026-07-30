@@ -39,6 +39,9 @@ export interface Product {
   name: string;
   category: string;
   categoryPath: string;
+  // Реальний зв'язок із деревом categories (settings) — null, поки не обрано.
+  // category/categoryPath лишаються окремо (вільний текст, хлібні крихти) — db.md.
+  categoryId: string | null;
   status: ProductStatus;
   modelCode: string;
   brand: string;

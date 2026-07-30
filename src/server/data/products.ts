@@ -82,3 +82,16 @@ export async function updateProductName(
       .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
   });
 }
+
+export async function updateProductCategory(
+  tenantId: string,
+  productId: string,
+  categoryId: string
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(products)
+      .set({ categoryId, updatedAt: sql`now()` })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+  });
+}

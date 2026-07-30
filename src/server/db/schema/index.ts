@@ -5,6 +5,7 @@ import { productPhotos } from "./product-photos";
 import { productMeasurements } from "./product-measurements";
 import { productTags, tags } from "./tags";
 import { tenants } from "./tenants";
+import { categories } from "./categories";
 
 export * from "./tenants";
 export * from "./products";
@@ -12,6 +13,7 @@ export * from "./product-skus";
 export * from "./product-photos";
 export * from "./product-measurements";
 export * from "./tags";
+export * from "./categories";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -43,4 +45,10 @@ export const productTagsRelations = relations(productTags, ({ one }) => ({
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   products: many(products),
+  categories: many(categories),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, { fields: [categories.parentId], references: [categories.id] }),
+  children: many(categories),
 }));

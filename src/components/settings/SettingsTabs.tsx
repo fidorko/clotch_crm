@@ -24,7 +24,7 @@ export function SettingsTabs() {
         <TabsTrigger
           key={tab.value}
           value={tab.value}
-          className="flex-none rounded-none px-1 py-3.5 text-sm font-medium text-muted-foreground after:-bottom-2.25 after:bg-primary hover:text-muted-foreground dark:hover:text-muted-foreground data-active:font-semibold data-active:text-primary"
+          className="flex-none rounded-none px-1 py-3.5 text-sm font-medium text-muted-foreground after:-bottom-2.25 after:bg-primary hover:text-foreground dark:hover:text-foreground data-active:font-semibold data-active:text-primary"
         >
           {tab.label}
         </TabsTrigger>

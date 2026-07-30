@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
+import { categories } from "./categories";
 
 export const productStatusEnum = pgEnum("product_status", ["active", "inactive", "archived"]);
 export const priceModeEnum = pgEnum("price_mode", ["amount", "percent"]);
@@ -25,9 +26,14 @@ export const products = pgTable(
       .notNull()
       .references(() => tenants.id),
     name: text("name").notNull(),
-    // category — коротка назва ("Футболки"), categoryPath — повний шлях довідника категорій.
+    // category/categoryPath — вільний текст (стара схема, дубльована для сумісності з UI,
+    // напр. хлібні крихти в ProductHeader). categoryId — реальний зв'язок із деревом
+    // categories (settings), звідки й береться кількість товарів на категорію.
+    // ON DELETE SET NULL — видалення категорії не повинно блокуватись через товари,
+    // на відміну від categories.parent_id (там RESTRICT — інша семантика, розділ db.md).
     category: text("category").notNull(),
     categoryPath: text("category_path").notNull(),
+    categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
     status: productStatusEnum("status").notNull().default("active"),
     modelCode: text("model_code").notNull(),
     brand: text("brand").notNull(),
@@ -78,6 +84,7 @@ export const products = pgTable(
   (table) => [
     index("products_tenant_created_idx").on(table.tenantId, table.createdAt),
     index("products_tenant_status_idx").on(table.tenantId, table.status),
+    index("products_tenant_category_idx").on(table.tenantId, table.categoryId),
     unique("products_tenant_model_code_key").on(table.tenantId, table.modelCode),
     tenantIsolationPolicy(table.tenantId),
   ]

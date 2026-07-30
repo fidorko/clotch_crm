@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# завантажені користувачем файли (поза webroot, локальне сховище — див. docs/db.md)
+/storage/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

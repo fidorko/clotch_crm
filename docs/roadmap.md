@@ -12,3 +12,4 @@
 - [ ] Авторизація (email + пароль), сесії
 - [ ] Список товарів (сторінка `/products`)
 - [x] Підключення PostgreSQL + Drizzle, таблиці products/product_skus (+ product_photos/product_measurements/tags), RLS — див. `db.md`
+- [x] Категорії товару (settings): таблиця `categories` (ієрархія, RLS), повний CRUD (створення/редагування/видалення/зображення), зв'язок `products.category_id`, реальний лічильник товарів на категорію, хлібні крихти й вибір категорії товару за реальним деревом — див. `modules/settings.md`, `modules/products.md`

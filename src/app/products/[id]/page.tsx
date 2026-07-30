@@ -10,6 +10,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductById } from "@/server/data/products";
+import { listCategories } from "@/server/data/categories";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -28,11 +29,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product = await loadProduct(id);
   if (!product) notFound();
   const dev = DEV_BLOCK_LABELS.products;
+  const categories = await listCategories(getDevTenantId());
 
   return (
     <div className="flex flex-1 flex-col">
       <DevBlockLabel name="ProductHeader" enabled={dev}>
-        <ProductHeader product={product} />
+        <ProductHeader product={product} categories={categories} />
       </DevBlockLabel>
       <Tabs defaultValue="general" className="flex flex-1 flex-col">
         <DevBlockLabel name="ProductTabs" enabled={dev}>
@@ -40,7 +42,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </DevBlockLabel>
 
         <TabsContent value="general" className="flex flex-col gap-4 p-6">
-          <ProductGeneralTab product={product} dev={dev} />
+          <ProductGeneralTab product={product} categories={categories} dev={dev} />
         </TabsContent>
 
         <TabsContent value="sizes" className="flex flex-col gap-4 p-6">
