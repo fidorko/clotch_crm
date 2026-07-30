@@ -7,10 +7,12 @@ import { ProductMetaPanel } from "@/components/products/ProductMetaPanel";
 import { ProductSkuSection } from "@/components/products/ProductSkuSection";
 import { ProductStatsBar } from "@/components/products/ProductStatsBar";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
+import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 
 export function ProductGeneralTab({ product, dev }: { product: Product; dev: boolean }) {
   const [pricing, setPricing] = useState(product.pricing);
+  const [variantsEnabled, setVariantsEnabled] = useState(true);
 
   function updatePricing<K extends keyof typeof pricing>(field: K, value: (typeof pricing)[K]) {
     setPricing((prev) => ({ ...prev, [field]: value }));
@@ -41,30 +43,47 @@ export function ProductGeneralTab({ product, dev }: { product: Product; dev: boo
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr_1fr]">
         <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
-          <ProductInfoPanel product={product} pricing={pricing} onPricingChange={updatePricing} />
+          <ProductInfoPanel
+            product={product}
+            pricing={pricing}
+            onPricingChange={updatePricing}
+            variantsEnabled={variantsEnabled}
+          />
         </DevBlockLabel>
         <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
           <ProductPhotoGallery photos={product.photos} />
         </DevBlockLabel>
         <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
-          <ProductMetaPanel product={product} />
+          <ProductMetaPanel product={product} variantsEnabled={variantsEnabled} />
         </DevBlockLabel>
       </div>
 
-      <DevBlockLabel name="ProductSkuSection" enabled={dev}>
-        <ProductSkuSection
-          skus={product.skus}
-          measurements={product.measurements}
-          pricing={{
-            purchasePrice: pricing.purchasePrice,
-            retail: retailAmount,
-            oldPrice: pricing.oldPrice,
-            wholesale: wholesaleAmount,
-            dropship: dropshipAmount,
-            retailDiscount: retailDiscountAmount,
-          }}
-        />
-      </DevBlockLabel>
+      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-foreground">Варіації Колір / Розмір</span>
+          <span className="text-xs text-muted-foreground">
+            Якщо вимкнено — товар веде облік як єдиний SKU, поля якого перенесені на панель метаданих
+          </span>
+        </div>
+        <Switch checked={variantsEnabled} onCheckedChange={setVariantsEnabled} />
+      </div>
+
+      {variantsEnabled && (
+        <DevBlockLabel name="ProductSkuSection" enabled={dev}>
+          <ProductSkuSection
+            modelCode={product.modelCode}
+            measurements={product.measurements}
+            pricing={{
+              purchasePrice: pricing.purchasePrice,
+              retail: retailAmount,
+              oldPrice: pricing.oldPrice,
+              wholesale: wholesaleAmount,
+              dropship: dropshipAmount,
+              retailDiscount: retailDiscountAmount,
+            }}
+          />
+        </DevBlockLabel>
+      )}
     </>
   );
 }

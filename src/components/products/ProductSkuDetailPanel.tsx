@@ -145,13 +145,28 @@ export function ProductSkuDetailPanel({
   measurements,
   pricing,
 }: {
-  sku: SkuDetail;
+  sku?: SkuDetail;
   measurements: ProductMeasurement[];
   pricing: SkuPricing;
 }) {
   const [codeOverride, setCodeOverride] = useState<string | null>(null);
   const [isEditingCode, setIsEditingCode] = useState(false);
-  const displayedCode = codeOverride ?? sku.code;
+  const displayedCode = codeOverride ?? sku?.code ?? "";
+
+  if (!sku) {
+    return (
+      <Card className="h-full gap-3 py-4">
+        <CardHeader className="px-4">
+          <CardTitle className="text-sm font-medium">Деталі SKU</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4">
+          <p className="text-sm text-muted-foreground">
+            Оберіть SKU в таблиці або додайте новий, натиснувши «+» на перетині кольору й розміру.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full gap-3 py-4">

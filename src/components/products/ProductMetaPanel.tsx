@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowRightLeft, History, Pencil, Plus, Printer, RefreshCw, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SelectRow } from "@/components/ui/select-row";
+import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
 import { TextRow } from "@/components/ui/text-row";
 import { Textarea } from "@/components/ui/textarea";
+import { selectedSku } from "@/lib/mocks/products";
 import type { Product } from "@/lib/types/product";
 
 // Тимчасові довідники. Планово — довідники з БД (див. db.md).
@@ -186,7 +188,109 @@ function TagsSection({
   );
 }
 
-export function ProductMetaPanel({ product }: { product: Product }) {
+function SkuCodeRow({ value }: { value: string }) {
+  const [code, setCode] = useState(value);
+  const [isEditing, setIsEditing] = useState(false);
+
+  return (
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">SKU</span>
+      {isEditing ? (
+        <Input
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onBlur={() => setIsEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setIsEditing(false);
+          }}
+          className="h-7 flex-1 px-2 text-sm"
+        />
+      ) : (
+        <div className="flex flex-1 items-center gap-1.5">
+          <span className="text-sm text-foreground">{code}</span>
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            aria-label="Редагувати SKU"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkuBarcodeRow({ value }: { value: string }) {
+  const [barcode, setBarcode] = useState(value);
+  const [isEditing, setIsEditing] = useState(false);
+
+  function generate() {
+    const digits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join("");
+    setBarcode(`482${digits}`);
+  }
+
+  return (
+    <div className="flex items-center gap-4 py-1.5">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Штрихкод (EAN)</span>
+      {isEditing ? (
+        <div className="flex flex-1 items-center gap-1">
+          <Input
+            autoFocus
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            onBlur={() => setIsEditing(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") setIsEditing(false);
+            }}
+            className="h-7 flex-1 px-2 text-sm"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Згенерувати штрихкод"
+            onClick={generate}
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center gap-1">
+          <span className="text-sm text-foreground">{barcode}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Редагувати штрихкод"
+            onClick={() => setIsEditing(true)}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Згенерувати штрихкод"
+            onClick={generate}
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProductMetaPanel({
+  product,
+  variantsEnabled,
+}: {
+  product: Product;
+  variantsEnabled: boolean;
+}) {
   const { meta } = product;
 
   const [supplier, setSupplier] = useState(meta.supplier);
@@ -244,6 +348,52 @@ export function ProductMetaPanel({ product }: { product: Product }) {
         />
         <TextRow label="Внутрішній артикул" value={internalCode} onChange={setInternalCode} />
         <TextRow label="Артикул постачальника" value={supplierCode} onChange={setSupplierCode} />
+        {!variantsEnabled && (
+          <>
+            <SkuCodeRow value={selectedSku.code} />
+            <SkuBarcodeRow value={selectedSku.barcode} />
+            <DetailRow
+              align="left"
+              label="Залишок"
+              value={selectedSku.reserve + selectedSku.available}
+            />
+            <DetailRow align="left" label="Резерв" value={selectedSku.reserve} />
+            <DetailRow
+              align="left"
+              label="Доступно"
+              value={<span className="font-semibold text-primary">{selectedSku.available}</span>}
+            />
+            <DetailRow
+              align="left"
+              label="Комірки"
+              value={
+                <div className="flex flex-col gap-0.5">
+                  {selectedSku.cells.map((cell) => (
+                    <span key={cell.code}>
+                      {cell.code} ({cell.qty} шт)
+                    </span>
+                  ))}
+                </div>
+              }
+            />
+            <DetailRow align="left" label="Партія" value={selectedSku.batch} />
+            <div className="flex flex-wrap items-center gap-2 py-2">
+              <Button variant="outline">
+                <History className="size-3.5" />
+                Історія руху
+              </Button>
+              <Button variant="outline">
+                <ArrowRightLeft className="size-3.5" />
+                Перемістити
+              </Button>
+              <SkuMeasurementsDialog measurements={product.measurements} />
+              <Button variant="outline">
+                <Printer className="size-3.5" />
+                Друк SKU
+              </Button>
+            </div>
+          </>
+        )}
         <PackageDimensionsRow
           length={packageLength}
           width={packageWidth}

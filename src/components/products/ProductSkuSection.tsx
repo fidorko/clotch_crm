@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ProductSkuTable } from "@/components/products/ProductSkuTable";
 import { ProductSkuDetailPanel } from "@/components/products/ProductSkuDetailPanel";
+import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductMeasurement, ProductSku } from "@/lib/types/product";
 import { selectedSku as defaultSelectedSku } from "@/lib/mocks/products";
 
@@ -15,30 +16,104 @@ export interface SkuPricing {
   retailDiscount: number;
 }
 
+export interface SkuColor {
+  id: string;
+  name: string;
+  hex: string;
+}
+
+function colorCode(name: string) {
+  const letters = name.replace(/[^a-zA-Zа-яА-ЯіІїЇєЄ]/g, "").toUpperCase();
+  return letters.slice(0, 3) || "COL";
+}
+
+function buildSkuCode(modelCode: string, color: SkuColor, size: string) {
+  return `${modelCode.replace(/-/g, "")}-${colorCode(color.name)}-${size}`;
+}
+
 export function ProductSkuSection({
-  skus,
+  modelCode,
   measurements,
   pricing,
 }: {
-  skus: ProductSku[];
+  modelCode: string;
   measurements: ProductMeasurement[];
   pricing: SkuPricing;
 }) {
-  const [selectedSkuId, setSelectedSkuId] = useState<string | undefined>("s3");
+  const [colors, setColors] = useState<SkuColor[]>([]);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [skus, setSkus] = useState<ProductSku[]>([]);
+  const [selectedSkuId, setSelectedSkuId] = useState<string | undefined>(undefined);
+
+  function addColor(color: ColorOption) {
+    setColors((prev) => [...prev, { id: `c-${crypto.randomUUID()}`, ...color }]);
+  }
+
+  function addSize(size: string) {
+    setSizes((prev) => [...prev, size]);
+  }
+
+  function addSku(color: SkuColor, size: string) {
+    const sku: ProductSku = {
+      id: `sku-${crypto.randomUUID()}`,
+      code: buildSkuCode(modelCode, color, size),
+      color: color.name,
+      colorHex: color.hex,
+      size,
+      barcode: "",
+      stock: 0,
+      cell: "",
+    };
+    setSkus((prev) => [...prev, sku]);
+    setSelectedSkuId(sku.id);
+  }
+
+  function deleteSku(skuId: string) {
+    setSkus((prev) => prev.filter((s) => s.id !== skuId));
+    setSelectedSkuId((prev) => (prev === skuId ? undefined : prev));
+  }
+
+  function autoGenerate() {
+    setSkus((prev) => {
+      const existing = new Set(prev.map((s) => `${s.color}__${s.size}`));
+      const generated: ProductSku[] = [];
+      for (const color of colors) {
+        for (const size of sizes) {
+          if (existing.has(`${color.name}__${size}`)) continue;
+          generated.push({
+            id: `sku-${crypto.randomUUID()}`,
+            code: buildSkuCode(modelCode, color, size),
+            color: color.name,
+            colorHex: color.hex,
+            size,
+            barcode: "",
+            stock: 0,
+            cell: "",
+          });
+        }
+      }
+      return [...prev, ...generated];
+    });
+  }
+
   const activeSku = skus.find((s) => s.id === selectedSkuId);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
       <ProductSkuTable
+        colors={colors}
+        sizes={sizes}
         skus={skus}
         selectedSkuId={selectedSkuId}
         onSelect={setSelectedSkuId}
+        onAddColor={addColor}
+        onAddSize={addSize}
+        onAddSku={addSku}
+        onDeleteSku={deleteSku}
+        onAutoGenerate={autoGenerate}
       />
       <ProductSkuDetailPanel
-        sku={{
-          ...defaultSelectedSku,
-          code: activeSku?.code ?? defaultSelectedSku.code,
-        }}
+        sku={activeSku ? { ...defaultSelectedSku, code: activeSku.code } : undefined}
         measurements={measurements}
         pricing={pricing}
       />

@@ -37,7 +37,10 @@ import { SelectRow } from "@/components/ui/select-row";
 import { NumberRow } from "@/components/ui/number-row";
 import { PriceModeRow } from "@/components/ui/price-mode-row";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { COLOR_OPTIONS, SIZE_OPTIONS } from "@/lib/constants/sku-variant-options";
 import type { Product } from "@/lib/types/product";
+
+const COLOR_NAME_OPTIONS = COLOR_OPTIONS.map((color) => color.name);
 
 // Тимчасовий довідник інструкцій по догляду. Планово — довідник з БД (див. db.md).
 interface CareOption {
@@ -291,6 +294,7 @@ export function ProductInfoPanel({
   product,
   pricing,
   onPricingChange,
+  variantsEnabled,
 }: {
   product: Product;
   pricing: Product["pricing"];
@@ -298,9 +302,12 @@ export function ProductInfoPanel({
     field: K,
     value: Product["pricing"][K]
   ) => void;
+  variantsEnabled: boolean;
 }) {
   const [info, setInfo] = useState(product.info);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
+  const [singleColor, setSingleColor] = useState(COLOR_NAME_OPTIONS[0]);
+  const [singleSize, setSingleSize] = useState(SIZE_OPTIONS[0]);
 
   function updateField(field: InfoField, value: string) {
     setInfo((prev) => ({ ...prev, [field]: value }));
@@ -333,6 +340,22 @@ export function ProductInfoPanel({
     <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
         <CategorySelectRow value={info.category} onChange={updateCategory} />
+        {!variantsEnabled && (
+          <>
+            <SelectRow
+              label="Колір"
+              value={singleColor}
+              options={COLOR_NAME_OPTIONS}
+              onChange={setSingleColor}
+            />
+            <SelectRow
+              label="Розмір"
+              value={singleSize}
+              options={SIZE_OPTIONS}
+              onChange={setSingleSize}
+            />
+          </>
+        )}
         {(Object.keys(INFO_OPTIONS) as InfoField[]).map((field) => (
           <SelectRow
             key={field}
