@@ -263,8 +263,9 @@ function MarginRow({
 }
 
 // Тимчасові варіанти для випадаючих списків. Планово — довідники з БД (див. db.md).
+const COLLECTION_OPTIONS = ["Summer 2026", "Autumn 2026"];
+
 const INFO_OPTIONS = {
-  collection: ["Summer 2026", "Autumn 2026"],
   gender: ["Унісекс", "Чоловіча", "Жіноча", "Дитяча"],
   seasonType: ["Літо", "Зима", "Демісезон", "Всесезонний"],
   fit: ["Oversize", "Regular", "Slim", "Relaxed"],
@@ -281,7 +282,6 @@ const INFO_OPTIONS = {
 type InfoField = keyof typeof INFO_OPTIONS;
 
 const INFO_LABELS: Record<InfoField, string> = {
-  collection: "Колекція",
   gender: "Стать",
   seasonType: "Сезон",
   fit: "Посадка",
@@ -305,16 +305,14 @@ export function ProductInfoPanel({
   variantsEnabled: boolean;
 }) {
   const [info, setInfo] = useState(product.info);
+  const [categoryPath, setCategoryPath] = useState(product.categoryPath);
+  const [collection, setCollection] = useState(product.collection);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
   const [singleColor, setSingleColor] = useState(COLOR_NAME_OPTIONS[0]);
   const [singleSize, setSingleSize] = useState(SIZE_OPTIONS[0]);
 
   function updateField(field: InfoField, value: string) {
     setInfo((prev) => ({ ...prev, [field]: value }));
-  }
-
-  function updateCategory(value: string) {
-    setInfo((prev) => ({ ...prev, category: value }));
   }
 
   function toggleCareId(id: string) {
@@ -339,7 +337,7 @@ export function ProductInfoPanel({
   return (
     <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
-        <CategorySelectRow value={info.category} onChange={updateCategory} />
+        <CategorySelectRow value={categoryPath} onChange={setCategoryPath} />
         {!variantsEnabled && (
           <>
             <SelectRow
@@ -356,6 +354,12 @@ export function ProductInfoPanel({
             />
           </>
         )}
+        <SelectRow
+          label="Колекція"
+          value={collection}
+          options={COLLECTION_OPTIONS}
+          onChange={setCollection}
+        />
         {(Object.keys(INFO_OPTIONS) as InfoField[]).map((field) => (
           <SelectRow
             key={field}

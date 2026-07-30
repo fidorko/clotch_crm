@@ -73,6 +73,26 @@ export function ProductSkuSection({
     setSelectedSkuId((prev) => (prev === skuId ? undefined : prev));
   }
 
+  function deleteColor(colorId: string) {
+    const color = colors.find((c) => c.id === colorId);
+    if (!color) return;
+    setColors((prev) => prev.filter((c) => c.id !== colorId));
+    setSkus((prev) => prev.filter((s) => s.color !== color.name));
+    setSelectedSkuId((prev) => {
+      const removed = skus.find((s) => s.id === prev);
+      return removed && removed.color === color.name ? undefined : prev;
+    });
+  }
+
+  function deleteSize(size: string) {
+    setSizes((prev) => prev.filter((s) => s !== size));
+    setSkus((prev) => prev.filter((s) => s.size !== size));
+    setSelectedSkuId((prev) => {
+      const removed = skus.find((s) => s.id === prev);
+      return removed && removed.size === size ? undefined : prev;
+    });
+  }
+
   function autoGenerate() {
     setSkus((prev) => {
       const existing = new Set(prev.map((s) => `${s.color}__${s.size}`));
@@ -110,6 +130,8 @@ export function ProductSkuSection({
         onAddSize={addSize}
         onAddSku={addSku}
         onDeleteSku={deleteSku}
+        onDeleteColor={deleteColor}
+        onDeleteSize={deleteSize}
         onAutoGenerate={autoGenerate}
       />
       <ProductSkuDetailPanel

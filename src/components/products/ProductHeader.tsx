@@ -18,18 +18,15 @@ export function ProductHeader({ product }: { product: Product }) {
   const [status, setStatus] = useState<ProductStatus>(product.status);
   const current =
     PRODUCT_STATUS_OPTIONS.find((option) => option.value === status) ?? PRODUCT_STATUS_OPTIONS[0];
+  const breadcrumb = ["Товари", product.category, product.name];
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-        {product.breadcrumb.map((crumb, i) => (
+        {breadcrumb.map((crumb, i) => (
           <span key={crumb} className="flex items-center gap-1">
             {i > 0 && <ChevronRight className="size-3.5" />}
-            <span
-              className={
-                i === product.breadcrumb.length - 1 ? "text-foreground" : ""
-              }
-            >
+            <span className={i === breadcrumb.length - 1 ? "text-foreground" : ""}>
               {crumb}
             </span>
           </span>

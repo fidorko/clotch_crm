@@ -90,7 +90,18 @@ function BarcodeDetailRow({ value }: { value: string }) {
 
   return (
     <div className="flex items-center justify-between gap-2 py-1.5">
-      <span className="text-sm text-muted-foreground">Штрихкод (EAN)</span>
+      <span className="text-sm text-muted-foreground">Штрихкод (EAN)
+              <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Згенерувати штрихкод"
+            onClick={generate}
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
+      </span>
+
       {isEditing ? (
         <div className="flex items-center gap-1">
           <Input
@@ -103,15 +114,7 @@ function BarcodeDetailRow({ value }: { value: string }) {
             }}
             className="h-7 w-32 px-1.5 text-right text-sm"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Згенерувати штрихкод"
-            onClick={generate}
-          >
-            <RefreshCw className="size-3.5" />
-          </Button>
+          
         </div>
       ) : (
         <div className="flex items-center gap-1">
@@ -124,15 +127,6 @@ function BarcodeDetailRow({ value }: { value: string }) {
             onClick={() => setIsEditing(true)}
           >
             <Pencil className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Згенерувати штрихкод"
-            onClick={generate}
-          >
-            <RefreshCw className="size-3.5" />
           </Button>
         </div>
       )}
@@ -203,10 +197,11 @@ export function ProductSkuDetailPanel({
             <BarcodeDetailRow value={sku.barcode} />
             <EditablePriceRow label="Закупівельна ціна" value={pricing.purchasePrice} />
             <EditablePriceRow label="Моя роздрібна ціна" value={pricing.retail} emphasis />
+            <EditablePriceRow label="Ціна зі знижкою(роздріб)" value={pricing.retailDiscount} />
             <EditablePriceRow label="Перечеркнута ціна" value={pricing.oldPrice} />
             <EditablePriceRow label="Моя оптова ціна" value={pricing.wholesale} />
             <EditablePriceRow label="Моя ціна дропшипперам" value={pricing.dropship} />
-            <EditablePriceRow label="Знижка роздрібна" value={pricing.retailDiscount} />
+            
           </div>
 
           <div className="flex flex-col divide-y divide-border">

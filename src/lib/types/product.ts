@@ -38,15 +38,13 @@ export interface Product {
   id: string;
   name: string;
   category: string;
-  breadcrumb: string[];
+  categoryPath: string;
   status: ProductStatus;
   modelCode: string;
   brand: string;
   collection: string;
   season: string;
   info: {
-    category: string;
-    collection: string;
     gender: string;
     seasonType: string;
     fit: string;

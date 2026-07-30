@@ -64,6 +64,88 @@ function DeleteSkuButton({ code, onConfirm }: { code: string; onConfirm: () => v
   );
 }
 
+function DeleteColorButton({
+  name,
+  skuCount,
+  onConfirm,
+}: {
+  name: string;
+  skuCount: number;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Видалити колір ${name}`}
+            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive"
+          />
+        }
+      >
+        <Trash2 className="size-3.5" />
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Видалити колір?</DialogTitle>
+          <DialogDescription>
+            Колір «{name}»{skuCount > 0 ? ` і ${skuCount} SKU з ним` : ""} буде видалено. Цю дію не
+            можна скасувати.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>Скасувати</DialogClose>
+          <DialogClose render={<Button type="button" variant="destructive" onClick={onConfirm} />}>
+            Видалити
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteSizeButton({
+  size,
+  skuCount,
+  onConfirm,
+}: {
+  size: string;
+  skuCount: number;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Видалити розмір ${size}`}
+            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive"
+          />
+        }
+      >
+        <Trash2 className="size-3.5" />
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Видалити розмір?</DialogTitle>
+          <DialogDescription>
+            Розмір «{size}»{skuCount > 0 ? ` і ${skuCount} SKU з ним` : ""} буде видалено. Цю дію не
+            можна скасувати.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>Скасувати</DialogClose>
+          <DialogClose render={<Button type="button" variant="destructive" onClick={onConfirm} />}>
+            Видалити
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const ADD_TRIGGER_CLASS =
   "flex items-center gap-1 text-xs font-normal text-primary hover:underline";
 
@@ -131,6 +213,8 @@ export function ProductSkuTable({
   onAddSize,
   onAddSku,
   onDeleteSku,
+  onDeleteColor,
+  onDeleteSize,
   onAutoGenerate,
 }: {
   colors: SkuColor[];
@@ -142,12 +226,15 @@ export function ProductSkuTable({
   onAddSize: (size: string) => void;
   onAddSku: (color: SkuColor, size: string) => void;
   onDeleteSku: (skuId: string) => void;
+  onDeleteColor: (colorId: string) => void;
+  onDeleteSize: (size: string) => void;
   onAutoGenerate: () => void;
 }) {
   const skuByColorSize = new Map(skus.map((sku) => [`${sku.color}__${sku.size}`, sku]));
   const remainingColors = COLOR_OPTIONS.filter((c) => !colors.some((added) => added.name === c.name));
   const remainingSizes = SIZE_OPTIONS.filter((s) => !sizes.includes(s));
   const hasAddSizeColumn = remainingSizes.length > 0;
+  const canAutoGenerate = colors.length > 0 && sizes.length > 0;
 
   const gridCell = "border border-border";
 
@@ -156,7 +243,12 @@ export function ProductSkuTable({
       <CardHeader className="flex flex-row items-center justify-between px-4">
         <CardTitle className="text-sm font-medium">Варіанти (SKU)</CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onAutoGenerate}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAutoGenerate}
+            disabled={!canAutoGenerate}
+          >
             Автогенерація SKU
           </Button>
           <Button variant="outline" size="sm">
@@ -173,7 +265,14 @@ export function ProductSkuTable({
                 <TableHead className={gridCell}>Колір \ Розмір</TableHead>
                 {sizes.map((size) => (
                   <TableHead key={size} className={cn(gridCell, "text-center")}>
-                    {size}
+                    <div className="flex items-center justify-center gap-1">
+                      {size}
+                      <DeleteSizeButton
+                        size={size}
+                        skuCount={skus.filter((s) => s.size === size).length}
+                        onConfirm={() => onDeleteSize(size)}
+                      />
+                    </div>
                   </TableHead>
                 ))}
                 {hasAddSizeColumn && (
@@ -193,6 +292,11 @@ export function ProductSkuTable({
                         style={{ backgroundColor: color.hex }}
                       />
                       {color.name}
+                      <DeleteColorButton
+                        name={color.name}
+                        skuCount={skus.filter((s) => s.color === color.name).length}
+                        onConfirm={() => onDeleteColor(color.id)}
+                      />
                     </div>
                   </TableCell>
                   {sizes.map((size) => {

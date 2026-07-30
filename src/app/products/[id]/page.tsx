@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { cache } from "react";
+import { notFound } from "next/navigation";
 import { ProductHeader } from "@/components/products/ProductHeader";
 import { ProductTabs } from "@/components/products/ProductTabs";
 import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
@@ -7,14 +9,24 @@ import { ProductMeasurements } from "@/components/products/ProductMeasurements";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
-import { mockProduct } from "@/lib/mocks/products";
+import { getProductById } from "@/server/data/products";
+import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: mockProduct.name };
+type PageProps = { params: Promise<{ id: string }> };
+
+// cache() дедуплікує запит між generateMetadata і сторінкою в межах одного рендеру.
+const loadProduct = cache((id: string) => getProductById(getDevTenantId(), id));
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const product = await loadProduct(id);
+  return { title: product?.name ?? "Товар не знайдено" };
 }
 
-export default function ProductDetailPage() {
-  const product = mockProduct;
+export default async function ProductDetailPage({ params }: PageProps) {
+  const { id } = await params;
+  const product = await loadProduct(id);
+  if (!product) notFound();
   const dev = DEV_BLOCK_LABELS.products;
 
   return (

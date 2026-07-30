@@ -10,4 +10,4 @@
 
 - [ ] Авторизація (email + пароль), сесії
 - [ ] Список товарів (сторінка `/products`)
-- [ ] Підключення PostgreSQL + Drizzle, таблиці products/product_skus
+- [x] Підключення PostgreSQL + Drizzle, таблиці products/product_skus (+ product_photos/product_measurements/tags), RLS — див. `db.md`
