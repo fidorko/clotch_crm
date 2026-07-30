@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SettingsHeader } from "@/components/settings/SettingsHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { ReferencesList } from "@/components/settings/ReferencesList";
+import { CategoriesTab } from "@/components/settings/CategoriesTab";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 export const metadata: Metadata = {
@@ -12,8 +13,12 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-1 flex-col">
       <SettingsHeader />
-      <Tabs defaultValue="references" className="flex flex-1 flex-col">
+      <Tabs defaultValue="categories" className="flex flex-1 flex-col">
         <SettingsTabs />
+
+        <TabsContent value="categories" className="flex flex-col gap-4 p-6">
+          <CategoriesTab />
+        </TabsContent>
 
         <TabsContent value="references" className="flex flex-col gap-4 p-6">
           <ReferencesList />
