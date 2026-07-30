@@ -1,11 +1,11 @@
 # Модуль: settings
 
 **Статус:** UI `в роботі` · Логіка `—` · Бек `в роботі` · БД `в роботі`
-**Маршрут:** /settings, /settings/categories/new, /settings/categories/[id]
-**Оновлено:** 2026-07-30
+**Маршрут:** /settings, /settings/categories/new, /settings/categories/[id], /settings/references/colors
+**Оновлено:** 2026-07-30 (довідник «Кольори»)
 
 ## Призначення
-Сторінка налаштувань магазину: вкладки-розділи (вітрина, загальні, категорії товару, замовлення, довідники, склади, доставка, оплата, тарифний план). «Категорії товару» — повний CRUD з реальною БД (список/створення/редагування/видалення, ієрархія, зображення). «Довідники» — список-навігація на 14 пунктів, ще без даних (сторінки самих довідників не зроблені).
+Сторінка налаштувань магазину: вкладки-розділи (вітрина, загальні, категорії товару, замовлення, довідники, склади, доставка, оплата, тарифний план). «Категорії товару» — повний CRUD з реальною БД (список/створення/редагування/видалення, ієрархія, зображення). «Довідники» — список-навігація на 14 пунктів; «Кольори» — перший із реальною сторінкою й БД, решта 13 ще без даних.
 
 ## Файли
 | Шлях | Роль |
@@ -22,7 +22,12 @@
 | src/server/data/categories.ts | тенант-скоупований data-access шар: `listCategories`, `getCategoryById`, `createCategory`, `updateCategory`, `deleteCategory` (ловить FK-порушення `error.cause.code === '23503'` → дружній текст), `toggleCategoryActive`, `getProductCountsByCategory` (`GROUP BY category_id`, повертає `Record`, не `Map` — Map не серіалізується через RSC-проп) |
 | src/server/storage/category-images.ts, src/app/api/uploads/categories/[filename]/route.ts | реальне файлове сховище (не blob-прев'ю) — диск поза webroot, per-tenant теки, валідація типу/розміру, роздача через route handler із `tenantId` із сесії (не з URL). Деталі — `db.md` |
 | src/lib/categories/tree.ts | спільна утиліта дерева категорій (`buildCategoryTree`, `isDescendantCategory`, `getDescendantIds`, `categoryDepth`) — використовують `CategoriesTab`, `CategoryForm`, `CategoryTreeSelect`, `actions.ts` |
-| src/components/settings/ReferencesList.tsx | вкладка «Довідники» — одна картка, рядки `divide-y` (іконка + назва + шеврон), `href="#"` — сторінки довідників ще не зроблені |
+| src/components/settings/ReferencesList.tsx | вкладка «Довідники» — одна картка, рядки `divide-y` (іконка + назва + шеврон); кожен пункт має `href` — «Кольори» веде на `/settings/references/colors`, решта 13 ще `href="#"` |
+| src/app/settings/references/colors/page.tsx | сторінка довідника кольорів — тягне `listColors(tenantId)`, рендерить `ColorsList`, «Назад до довідників» на `/settings` |
+| src/app/settings/references/colors/actions.ts | Server Actions: `createColorAction`, `updateColorAction`, `deleteColorAction` — валідація на сервері (назва обов'язкова, hex — regex `^#[0-9a-fA-F]{6}$`), тенант-скоуповано через `server/data/colors.ts`, `revalidatePath("/settings/references/colors")` |
+| src/server/data/colors.ts | тенант-скоупований data-access шар: `listColors`, `createColor`, `updateColor` (ловить `UNIQUE(tenant_id, name)`, код `23505`, → «Колір з такою назвою вже існує»), `deleteColor` |
+| src/components/settings/ColorsList.tsx | Client Component: «Додати колір» створює рядок одразу (плейсхолдер «Новий колір» / `#CCCCCC`, редагується на місці — той самий патерн quick-create, що й «Додати товар» у products); кожен рядок — `<input type="color">` (квадратик-зразок, клік відкриває нативний спектр браузера, стилізований без webkit/moz внутрішньої рамки), текстове поле з HEX-кодом (ручний ввід, синхронізовано зі зразком в обидва боки) і поле назви — обидва зберігаються одразу по blur/Enter (`updateColorAction`); кошик → підтвердження `Dialog` → `deleteColorAction` |
+| src/lib/mocks/colors.ts | 30 найпоширеніших кольорів одягу, назви англійською — джерело для `db:seed` |
 | src/lib/mocks/categories.ts | джерело для `db:seed` (не для UI — той тепер читає БД): ієрархія 3 батьківські групи (Одяг, Сукні та боді, Аксесуари) + окремий «Архів одягу»; групування ілюстративне, не звірене з реальною таксономією |
 | src/components/ui/checkbox.tsx | базовий компонент (shadcn CLI), перше використання — масове виділення в `CategoriesTab` |
 
@@ -30,7 +35,8 @@
 Card, Tabs, Table, Select, Input, Button, Badge, Checkbox, Dialog, Switch, Textarea
 
 ## Дані
-«Категорії товару» — таблиця `categories` у PostgreSQL (повний CRUD через `server/data/categories.ts` + Server Actions), тенант-скоуповано, RLS. `products.category_id` (FK на `categories.id`, `ON DELETE SET NULL`) — реальний зв'язок товару з категорією, звідки рахується «Товарів» у списку. Довідники — статичний масив у `ReferencesList.tsx` (14 пунктів, поки без переходу нікуди, без БД). Деталі схеми — `db.md`.
+«Категорії товару» — таблиця `categories` у PostgreSQL (повний CRUD через `server/data/categories.ts` + Server Actions), тенант-скоуповано, RLS. `products.category_id` (FK на `categories.id`, `ON DELETE SET NULL`) — реальний зв'язок товару з категорією, звідки рахується «Товарів» у списку. Довідники — статичний масив у `ReferencesList.tsx` (14 пунктів); «Кольори» — таблиця `colors` у PostgreSQL (тенант-скоуповано, RLS, UNIQUE `(tenant_id, name)`), 13 решти — без переходу нікуди, без БД. Деталі схеми — `db.md`.
+Картка товару (`/products/[id]`) тепер читає `listColors(tenantId)` і пробрасовує в `ProductGeneralTab` → `ProductInfoPanel` (поле «Колір» без варіацій) та `ProductSkuSection` → `ProductSkuTable` (конструктор SKU-матриці, дропдаун «+Колір») — раніше обидва брали хардкод `COLOR_OPTIONS` з `lib/constants/sku-variant-options.ts` (тепер видалено, лишився тільки тип `ColorOption`).
 
 **Нюанс Select з ui-kit:** якщо `value` опції не збігається з людським лейблом (напр. `"all"`/`"active"`, а не сам текст), `SelectValue` треба явно дати render-функцію (`<SelectValue>{(value) => label}</SelectValue>`) — інакше показує сирий `value`. У `CategorySelectRow` (`ProductInfoPanel`) цього не було видно, бо там `value` і лейбл — той самий рядок.
 
@@ -42,6 +48,7 @@ Card, Tabs, Table, Select, Input, Button, Badge, Checkbox, Dialog, Switch, Texta
 Від нього залежать: —
 
 ## Зроблено
+- 2026-07-30 — довідник «Кольори» (`/settings/references/colors`, перший реальний пункт «Довідників»): нова таблиця `colors` (`tenant_id`, `name`, `hex`, `is_active`, `position`, RLS, UNIQUE `(tenant_id, name)` — `db.md`), тенант-скоупований data-access шар + Server Actions (create/update/delete, дружня помилка на дублікат назви — код `23505`). `ColorsList`: «Додати колір» створює рядок одразу (плейсхолдер, редагується на місці), кожен рядок — квадратик-зразок (`<input type="color">`, клік відкриває нативний спектр браузера) + текстове поле HEX (ручний ввід, синхронізовано зі зразком в обидва боки) + поле назви, усе зберігається одразу по blur/Enter. Dev-сід заповнює 30 найпоширеніших кольорів одягу англійською (`lib/mocks/colors.ts`). Картка товару (`ProductInfoPanel`, `ProductSkuTable`) тепер бере кольори з цього довідника замість хардкоду `COLOR_OPTIONS` (видалено з `lib/constants/sku-variant-options.ts`)
 - 2026-07-30 — реальний зв'язок товар↔категорія: `products.category_id` (FK, `SET NULL`), «Товарів» у списку категорій тепер справжня кількість (`getProductCountsByCategory`, рекурсивна сума для батьківських — `effectiveProductCount`). Категорія товару в `ProductInfoPanel` тепер зберігається в БД (раніше — лише локальний React-стан, перше поле в цій панелі, що персистить). Спільний піклер `CategoryTreeSelect` винесено з `CategoryForm` для повторного використання. Назва категорії в таблиці — клікабельна, веде на редагування
 - 2026-07-30 — «Категорії товару»: масове видалення тепер справді працює, включно з випадком «вибрав батьківську й дітей разом» (раніше FK `ON DELETE RESTRICT` заблокував би це, якщо видаляти в довільному порядку — `deleteCategoriesAction` сортує вибране за глибиною й видаляє найглибші першими). Виділення батьківської категорії каскадно виділяє всіх нащадків у таблиці (`getDescendantIds`). Перевірено в браузері: вибрав категорію з дитиною, обидва чекбокси відмітились, масове видалення прибрало обидві одним запитом (12 → 10 рядків у БД)
 - 2026-07-30 — «Категорії товару» підключено до PostgreSQL (окрема гілка `feat/categories-crud`, rollback-точка `47b13d5`): нова таблиця `categories` (самопосилання `parent_id` з `ON DELETE RESTRICT`, RLS, індекси — `db.md`), тенант-скоупований data-access шар + Server Actions, повний CRUD (список читає БД, створення/редагування — спільна `CategoryForm` на `/settings/categories/new` і `/[id]`, видалення блокується на рівні БД, якщо є діти — з дружнім повідомленням). Реальне файлове сховище для зображень категорій (перше в проєкті, не blob-прев'ю — окреме рішення від фото товару, `decisions.md`). Перевірено: create/edit/delete/upload у браузері, ізоляція тенантів (read+write) окремо для `categories`, захист від циклу в ієрархії при зміні батьківської категорії. Дорогою знайдено й виправлено баг: Drizzle ховає код помилки Postgres у `error.cause.code`, не `error.code` — без фіксу користувач бачив сирий SQL замість «Спочатку видаліть дочірні категорії»
@@ -57,4 +64,5 @@ Card, Tabs, Table, Select, Input, Button, Badge, Checkbox, Dialog, Switch, Texta
 - [ ] drag-and-drop сортування (`position` у БД уже є, `GripVertical` у UI) — досі лише візуальний, перетягування не реалізоване
 - [ ] «Переглянути» (іконка зовнішнього посилання) на рядку категорії — декоративна, нема публічної вітрини, куди вести
 - [ ] `tenant_id` для категорій і для зображень — тимчасово з dev-константи (`TODO(auth)`, як і для товарів)
-- [ ] пункти «Довідники» ведуть в нікуди (`href="#"`) — самі сторінки довідників (Колекції, Сезон тощо) ще не зроблені, без БД
+- [ ] 13 із 14 пунктів «Довідники» ведуть в нікуди (`href="#"`) — самі сторінки довідників (Колекції, Сезон тощо), крім «Кольори», ще не зроблені, без БД
+- [ ] «Кольори» — немає перемикача `is_active`/сортування (`position` у БД є, drag-and-drop не реалізовано, як і в «Категоріях товару»); дубльована назва серед seed-кольорів іншого тенанта не конфліктує (UNIQUE у межах тенанта), але сам список 30 кольорів ілюстративний, не звірений з реальним асортиментом

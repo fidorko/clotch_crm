@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { mockProduct } from "@/lib/mocks/products";
 import { mockCategories } from "@/lib/mocks/categories";
+import { mockColors } from "@/lib/mocks/colors";
 import * as schema from "./schema";
 
 /**
@@ -175,6 +176,20 @@ async function main() {
         remaining.splice(remaining.indexOf(c), 1);
       }
     }
+  }
+
+  if (mockColors.length > 0) {
+    await db
+      .insert(schema.colors)
+      .values(
+        mockColors.map((color, index) => ({
+          tenantId: devTenantId,
+          name: color.name,
+          hex: color.hex,
+          position: index,
+        }))
+      )
+      .onConflictDoNothing();
   }
 
   console.log("Seed завершено. /products/" + (product?.id ?? "(вже існував)"), "тенант:", devTenantId);

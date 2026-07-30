@@ -12,6 +12,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductById } from "@/server/data/products";
 import { listCategories } from "@/server/data/categories";
+import { listColors } from "@/server/data/colors";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -30,7 +31,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product = await loadProduct(id);
   if (!product) notFound();
   const dev = DEV_BLOCK_LABELS.products;
-  const categories = await listCategories(getDevTenantId());
+  const [categories, colors] = await Promise.all([
+    listCategories(getDevTenantId()),
+    listColors(getDevTenantId()),
+  ]);
+  const colorOptions = colors.map((color) => ({ name: color.name, hex: color.hex }));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -44,7 +49,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
           </DevBlockLabel>
 
           <TabsContent value="general" className="flex flex-col gap-4 p-6">
-            <ProductGeneralTab product={product} categories={categories} dev={dev} />
+            <ProductGeneralTab
+              product={product}
+              categories={categories}
+              colorOptions={colorOptions}
+              dev={dev}
+            />
           </TabsContent>
 
           <TabsContent value="sizes" className="flex flex-col gap-4 p-6">

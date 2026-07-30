@@ -10,15 +10,18 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
+import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 export function ProductGeneralTab({
   product,
   categories,
+  colorOptions,
   dev,
 }: {
   product: Product;
   categories: CategoryRow[];
+  colorOptions: ColorOption[];
   dev: boolean;
 }) {
   const { form, setField } = useProductEditor();
@@ -57,6 +60,7 @@ export function ProductGeneralTab({
           <ProductInfoPanel
             product={product}
             categories={categories}
+            colorOptions={colorOptions}
             pricing={pricing}
             onPricingChange={updatePricing}
             variantsEnabled={variantsEnabled}
@@ -85,6 +89,7 @@ export function ProductGeneralTab({
           <ProductSkuSection
             modelCode={product.modelCode}
             measurements={product.measurements}
+            colorOptions={colorOptions}
             pricing={{
               purchasePrice: pricing.purchasePrice,
               retail: retailAmount,

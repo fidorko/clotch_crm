@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { COLOR_OPTIONS, SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
+import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductSku } from "@/lib/types/product";
 import type { SkuColor } from "@/components/products/ProductSkuSection";
 
@@ -205,6 +205,7 @@ function AddSizeControl({
 
 export function ProductSkuTable({
   colors,
+  colorOptions,
   sizes,
   skus,
   selectedSkuId,
@@ -218,6 +219,7 @@ export function ProductSkuTable({
   onAutoGenerate,
 }: {
   colors: SkuColor[];
+  colorOptions: ColorOption[];
   sizes: string[];
   skus: ProductSku[];
   selectedSkuId?: string;
@@ -231,7 +233,7 @@ export function ProductSkuTable({
   onAutoGenerate: () => void;
 }) {
   const skuByColorSize = new Map(skus.map((sku) => [`${sku.color}__${sku.size}`, sku]));
-  const remainingColors = COLOR_OPTIONS.filter((c) => !colors.some((added) => added.name === c.name));
+  const remainingColors = colorOptions.filter((c) => !colors.some((added) => added.name === c.name));
   const remainingSizes = SIZE_OPTIONS.filter((s) => !sizes.includes(s));
   const hasAddSizeColumn = remainingSizes.length > 0;
   const canAutoGenerate = colors.length > 0 && sizes.length > 0;

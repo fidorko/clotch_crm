@@ -35,10 +35,12 @@ export function ProductSkuSection({
   modelCode,
   measurements,
   pricing,
+  colorOptions,
 }: {
   modelCode: string;
   measurements: ProductMeasurement[];
   pricing: SkuPricing;
+  colorOptions: ColorOption[];
 }) {
   const [colors, setColors] = useState<SkuColor[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
@@ -122,6 +124,7 @@ export function ProductSkuSection({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
       <ProductSkuTable
         colors={colors}
+        colorOptions={colorOptions}
         sizes={sizes}
         skus={skus}
         selectedSkuId={selectedSkuId}

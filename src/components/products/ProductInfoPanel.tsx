@@ -34,13 +34,11 @@ import { PriceModeRow } from "@/components/ui/price-mode-row";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
 import { getCategoryPath } from "@/lib/categories/tree";
-import { COLOR_OPTIONS, SIZE_OPTIONS } from "@/lib/constants/sku-variant-options";
+import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import { updateProductCategory } from "@/app/products/[id]/actions";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
-
-const COLOR_NAME_OPTIONS = COLOR_OPTIONS.map((color) => color.name);
 
 // Тимчасовий довідник інструкцій по догляду. Планово — довідник з БД (див. db.md).
 interface CareOption {
@@ -257,12 +255,14 @@ const INFO_LABELS: Record<InfoField, string> = {
 export function ProductInfoPanel({
   product,
   categories,
+  colorOptions,
   pricing,
   onPricingChange,
   variantsEnabled,
 }: {
   product: Product;
   categories: CategoryRow[];
+  colorOptions: ColorOption[];
   pricing: Product["pricing"];
   onPricingChange: <K extends keyof Product["pricing"]>(
     field: K,
@@ -299,8 +299,9 @@ export function ProductInfoPanel({
   }
 
   const collection = form.collection;
+  const colorNameOptions = colorOptions.map((color) => color.name);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
-  const [singleColor, setSingleColor] = useState(COLOR_NAME_OPTIONS[0]);
+  const [singleColor, setSingleColor] = useState(colorNameOptions[0]);
   const [singleSize, setSingleSize] = useState(SIZE_OPTIONS[0]);
 
   function setCollection(value: string) {
@@ -375,7 +376,7 @@ export function ProductInfoPanel({
             <SelectRow
               label="Колір"
               value={singleColor}
-              options={COLOR_NAME_OPTIONS}
+              options={colorNameOptions}
               onChange={setSingleColor}
             />
             <SelectRow

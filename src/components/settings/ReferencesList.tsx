@@ -23,23 +23,24 @@ interface ReferenceItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  href: string;
 }
 
 const REFERENCE_ITEMS: ReferenceItem[] = [
-  { id: "collections", label: "Колекції", icon: Layers },
-  { id: "seasons", label: "Сезон", icon: CalendarDays },
-  { id: "fabric-materials", label: "Тип тканини та матеріал", icon: Scissors },
-  { id: "manufacturers", label: "Виробники", icon: Factory },
-  { id: "suppliers", label: "Постачальники", icon: Truck },
-  { id: "care-instructions", label: "Інструкція по догляду", icon: WashingMachine },
-  { id: "measurements", label: "Розміри та заміри", icon: Ruler },
-  { id: "brands", label: "Бренди", icon: Tag },
-  { id: "countries", label: "Країни", icon: Globe },
-  { id: "currencies", label: "Валюти", icon: Coins },
-  { id: "colors", label: "Кольори", icon: Palette },
-  { id: "units", label: "Одиниці виміру", icon: Scale },
-  { id: "tags", label: "Теги", icon: Tags },
-  { id: "fit", label: "Посадка", icon: Shirt },
+  { id: "collections", label: "Колекції", icon: Layers, href: "#" },
+  { id: "seasons", label: "Сезон", icon: CalendarDays, href: "#" },
+  { id: "fabric-materials", label: "Тип тканини та матеріал", icon: Scissors, href: "#" },
+  { id: "manufacturers", label: "Виробники", icon: Factory, href: "#" },
+  { id: "suppliers", label: "Постачальники", icon: Truck, href: "#" },
+  { id: "care-instructions", label: "Інструкція по догляду", icon: WashingMachine, href: "#" },
+  { id: "measurements", label: "Розміри та заміри", icon: Ruler, href: "#" },
+  { id: "brands", label: "Бренди", icon: Tag, href: "#" },
+  { id: "countries", label: "Країни", icon: Globe, href: "#" },
+  { id: "currencies", label: "Валюти", icon: Coins, href: "#" },
+  { id: "colors", label: "Кольори", icon: Palette, href: "/settings/references/colors" },
+  { id: "units", label: "Одиниці виміру", icon: Scale, href: "#" },
+  { id: "tags", label: "Теги", icon: Tags, href: "#" },
+  { id: "fit", label: "Посадка", icon: Shirt, href: "#" },
 ];
 
 export function ReferencesList() {
@@ -49,7 +50,7 @@ export function ReferencesList() {
         {REFERENCE_ITEMS.map((item) => (
           <Link
             key={item.id}
-            href="#"
+            href={item.href}
             className="flex items-center gap-3 px-4 py-3 text-sm text-foreground transition-colors hover:bg-accent/50"
           >
             <item.icon className="size-4.5 shrink-0 text-muted-foreground" />
