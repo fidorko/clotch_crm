@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Star, ChevronDown, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { HeaderActions } from "@/components/layout/HeaderActions";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -72,16 +73,19 @@ export function ProductHeader({
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-        {breadcrumb.map((crumb, i) => (
-          <span key={crumb} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="size-3.5" />}
-            <span className={i === breadcrumb.length - 1 ? "text-foreground" : ""}>
-              {crumb}
+      <div className="flex items-center justify-between gap-3">
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+          {breadcrumb.map((crumb, i) => (
+            <span key={crumb} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight className="size-3.5" />}
+              <span className={i === breadcrumb.length - 1 ? "text-foreground" : ""}>
+                {crumb}
+              </span>
             </span>
-          </span>
-        ))}
-      </nav>
+          ))}
+        </nav>
+        <HeaderActions />
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
