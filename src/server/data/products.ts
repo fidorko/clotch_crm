@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
 import {
   productMeasurements,
@@ -63,5 +63,22 @@ export async function getProductById(
     ]);
 
     return mapProductRow(productRow, skuRows, photoRows, measurementRows, tagRows);
+  });
+}
+
+/**
+ * WHERE tenant_id + id разом — навіть якщо productId підсунуть чужий (правило 7
+ * розділу 6 CLAUDE.md), запит просто не знайде рядок і нічого не оновить.
+ */
+export async function updateProductName(
+  tenantId: string,
+  productId: string,
+  name: string
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(products)
+      .set({ name, updatedAt: sql`now()` })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
   });
 }

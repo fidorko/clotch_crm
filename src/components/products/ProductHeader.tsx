@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronRight, Star, ChevronDown } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Star, ChevronDown, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +15,40 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import { updateProductName } from "@/app/products/[id]/actions";
 
 export function ProductHeader({ product }: { product: Product }) {
+  const router = useRouter();
   const [status, setStatus] = useState<ProductStatus>(product.status);
+  const [name, setName] = useState(product.name);
+  const [nameDraft, setNameDraft] = useState(product.name);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSavingName, startSavingName] = useTransition();
+
+  function commitName() {
+    const trimmed = nameDraft.trim();
+    setIsEditingName(false);
+    if (!trimmed || trimmed === name) {
+      setNameDraft(name);
+      return;
+    }
+    setNameError(null);
+    startSavingName(async () => {
+      try {
+        await updateProductName(product.id, trimmed);
+        setName(trimmed);
+        router.refresh();
+      } catch {
+        setNameError("Не вдалося зберегти назву");
+        setNameDraft(name);
+      }
+    });
+  }
+
   const current =
     PRODUCT_STATUS_OPTIONS.find((option) => option.value === status) ?? PRODUCT_STATUS_OPTIONS[0];
-  const breadcrumb = ["Товари", product.category, product.name];
+  const breadcrumb = ["Товари", product.category, name];
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
@@ -35,9 +65,39 @@ export function ProductHeader({ product }: { product: Product }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">
-            {product.name}
-          </h1>
+          {isEditingName ? (
+            <Input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                if (e.key === "Escape") {
+                  setNameDraft(name);
+                  setIsEditingName(false);
+                }
+              }}
+              className="h-9 max-w-md text-2xl font-semibold"
+            />
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-semibold text-foreground">{name}</h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(name);
+                  setIsEditingName(true);
+                }}
+                aria-label="Редагувати назву товару"
+                disabled={isSavingName}
+                className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                <Pencil className="size-4" />
+              </button>
+            </div>
+          )}
+          {nameError && <span className="text-xs text-destructive">{nameError}</span>}
           <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
             <SelectTrigger className="w-fit gap-1 border-transparent bg-transparent px-1.5 py-1 shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
               <Badge variant={current.badgeVariant}>{current.label}</Badge>
