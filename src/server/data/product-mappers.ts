@@ -1,5 +1,6 @@
 import type {
   Product,
+  ProductColorPhotos,
   ProductMeasurement,
   ProductPhoto,
   ProductSku,
@@ -31,7 +32,8 @@ export function mapProductRow(
   skuRows: ProductSkuRow[],
   photoRows: ProductPhotoRow[],
   measurementRows: ProductMeasurementRow[],
-  tagRows: TagRow[]
+  tagRows: TagRow[],
+  colorPhotosByColor: Map<string, ProductPhoto[]> = new Map()
 ): Product {
   const skus: ProductSku[] = skuRows.map((s) => ({
     id: s.id,
@@ -49,6 +51,10 @@ export function mapProductRow(
     url: p.url,
     alt: p.alt ?? "",
   }));
+
+  const colorPhotos: ProductColorPhotos[] = [...colorPhotosByColor.entries()].map(
+    ([color, colorPhotoList]) => ({ color, photos: colorPhotoList })
+  );
 
   const measurements: ProductMeasurement[] = measurementRows.map((m) => ({
     id: m.id,
@@ -118,6 +124,7 @@ export function mapProductRow(
       },
     },
     photos,
+    colorPhotos,
     measurements,
     meta: {
       createdAt: formatDateTime(product.createdAt),

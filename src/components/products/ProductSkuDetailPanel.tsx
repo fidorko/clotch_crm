@@ -211,6 +211,7 @@ export function ProductSkuDetailPanel({
               label="Доступно"
               value={<span className="font-semibold text-primary">{sku.available}</span>}
             />
+            <DetailRow label="Партія" value={sku.batch} />
             <DetailRow
               label="Комірки"
               value={
@@ -223,7 +224,7 @@ export function ProductSkuDetailPanel({
                 </div>
               }
             />
-            <DetailRow label="Партія" value={sku.batch} />
+            
           </div>
         </div>
 

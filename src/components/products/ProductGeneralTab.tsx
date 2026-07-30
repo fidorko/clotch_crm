@@ -67,7 +67,7 @@ export function ProductGeneralTab({
           />
         </DevBlockLabel>
         <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
-          <ProductPhotoGallery photos={product.photos} />
+          <ProductPhotoGallery productId={product.id} photos={product.photos} />
         </DevBlockLabel>
         <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
           <ProductMetaPanel product={product} variantsEnabled={variantsEnabled} />
@@ -87,9 +87,12 @@ export function ProductGeneralTab({
       {variantsEnabled && (
         <DevBlockLabel name="ProductSkuSection" enabled={dev}>
           <ProductSkuSection
+            productId={product.id}
             modelCode={product.modelCode}
             measurements={product.measurements}
             colorOptions={colorOptions}
+            initialSkus={product.skus}
+            initialColorPhotos={product.colorPhotos}
             pricing={{
               purchasePrice: pricing.purchasePrice,
               retail: retailAmount,

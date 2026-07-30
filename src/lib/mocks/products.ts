@@ -40,6 +40,7 @@ export const mockProduct: Product = {
     { id: "p6", url: "", alt: "Деталь: тканина" },
     { id: "p7", url: "", alt: "Деталь: рукав" },
   ],
+  colorPhotos: [],
   measurements: [
     { id: "m1", type: "Довжина переду виробу, см", valueCm: 48 },
     { id: "m2", type: "Довжина рукава від горловини, см", valueCm: 65 },

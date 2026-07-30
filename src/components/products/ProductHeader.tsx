@@ -165,6 +165,10 @@ export function ProductHeader({
           <span className="font-medium text-foreground">{product.modelCode}</span>
         </span>
         <span className="text-muted-foreground">
+          Внутрішній артикул:{" "}
+          <span className="font-medium text-foreground">{form.meta.internalCode || "—"}</span>
+        </span>
+        <span className="text-muted-foreground">
           Бренд: <span className="font-medium text-foreground">{product.brand}</span>
         </span>
         <span className="text-muted-foreground">

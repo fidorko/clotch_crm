@@ -1,9 +1,11 @@
 "use client";
 
-import { Plus, Printer, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { ImageIcon, Loader2, Plus, Printer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDeleteIconButton } from "@/components/ui/confirm-delete-button";
 import {
   Dialog,
   DialogClose,
@@ -28,8 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { deleteColorPhotoAction, uploadColorPhotoAction } from "@/app/products/[id]/actions";
+import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
 import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
-import type { ProductSku } from "@/lib/types/product";
+import type { ProductPhoto, ProductSku } from "@/lib/types/product";
 import type { SkuColor } from "@/components/products/ProductSkuSection";
 
 function DeleteSkuButton({ code, onConfirm }: { code: string; onConfirm: () => void }) {
@@ -203,7 +207,93 @@ function AddSizeControl({
   );
 }
 
+function ColorPhotosControl({
+  productId,
+  color,
+  disabled,
+  onPhotosChange,
+}: {
+  productId: string;
+  color: SkuColor;
+  disabled?: boolean;
+  onPhotosChange: (photos: ProductPhoto[]) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const photos = color.photos;
+
+  function handleFileSelected(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setError(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("file", file);
+      try {
+        const photo = await uploadColorPhotoAction(productId, color.name, fd);
+        onPhotosChange([...photos, photo]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не вдалося завантажити фото");
+      }
+    });
+  }
+
+  function handleDelete(photoId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteColorPhotoAction(photoId, productId);
+        onPhotosChange(photos.filter((p) => p.id !== photoId));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не вдалося видалити фото");
+      }
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {photos.map((photo) => (
+        <div key={photo.id} className="group relative size-8 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element -- зберігається поза webroot, next/image не роздає такі шляхи */}
+          <img src={photo.url} alt="" className="size-full rounded border border-border object-cover" />
+          <ConfirmDeleteIconButton
+            ariaLabel={`Видалити фото кольору ${color.name}`}
+            title="Видалити фото?"
+            description="Фото кольору буде видалено. Цю дію не можна скасувати."
+            onConfirm={() => handleDelete(photo.id)}
+            className="absolute -top-1.5 -right-1.5 rounded-full bg-background p-0.5 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border transition-opacity group-hover:opacity-100 hover:text-destructive [&_svg]:size-2.5"
+          />
+        </div>
+      ))}
+      {photos.length < MAX_COLOR_PHOTOS && (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || isPending}
+          className={cn(ADD_TRIGGER_CLASS, "disabled:opacity-50")}
+        >
+          {isPending ? <Loader2 className="size-3 animate-spin" /> : <ImageIcon className="size-3" />}
+          Додати фото
+        </button>
+      )}
+      {error && <span className="basis-full text-xs text-destructive">{error}</span>}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          handleFileSelected(e.target.files);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 export function ProductSkuTable({
+  productId,
   colors,
   colorOptions,
   sizes,
@@ -217,7 +307,10 @@ export function ProductSkuTable({
   onDeleteColor,
   onDeleteSize,
   onAutoGenerate,
+  onColorPhotosChange,
+  disabled,
 }: {
+  productId: string;
   colors: SkuColor[];
   colorOptions: ColorOption[];
   sizes: string[];
@@ -231,12 +324,14 @@ export function ProductSkuTable({
   onDeleteColor: (colorId: string) => void;
   onDeleteSize: (size: string) => void;
   onAutoGenerate: () => void;
+  onColorPhotosChange: (colorId: string, photos: ProductPhoto[]) => void;
+  disabled?: boolean;
 }) {
   const skuByColorSize = new Map(skus.map((sku) => [`${sku.color}__${sku.size}`, sku]));
   const remainingColors = colorOptions.filter((c) => !colors.some((added) => added.name === c.name));
   const remainingSizes = SIZE_OPTIONS.filter((s) => !sizes.includes(s));
   const hasAddSizeColumn = remainingSizes.length > 0;
-  const canAutoGenerate = colors.length > 0 && sizes.length > 0;
+  const canAutoGenerate = colors.length > 0 && sizes.length > 0 && !disabled;
 
   const gridCell = "border border-border";
 
@@ -253,14 +348,14 @@ export function ProductSkuTable({
           >
             Автогенерація SKU
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled={disabled}>
             <Printer className="size-3.5" />
             Друк всіх SKU
           </Button>
         </div>
       </CardHeader>
       <CardContent className="px-4">
-        <div className="overflow-x-auto">
+        <div className={cn("overflow-x-auto", disabled && "pointer-events-none opacity-60")}>
           <Table className="w-auto border-collapse">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -288,16 +383,24 @@ export function ProductSkuTable({
               {colors.map((color) => (
                 <TableRow key={color.id} className="hover:bg-transparent">
                   <TableCell className={gridCell}>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="size-3.5 shrink-0 rounded-full border border-border"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      {color.name}
-                      <DeleteColorButton
-                        name={color.name}
-                        skuCount={skus.filter((s) => s.color === color.name).length}
-                        onConfirm={() => onDeleteColor(color.id)}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="size-3.5 shrink-0 rounded-full border border-border"
+                          style={{ backgroundColor: color.hex }}
+                        />
+                        {color.name}
+                        <DeleteColorButton
+                          name={color.name}
+                          skuCount={skus.filter((s) => s.color === color.name).length}
+                          onConfirm={() => onDeleteColor(color.id)}
+                        />
+                      </div>
+                      <ColorPhotosControl
+                        productId={productId}
+                        color={color}
+                        disabled={disabled}
+                        onPhotosChange={(photos) => onColorPhotosChange(color.id, photos)}
                       />
                     </div>
                   </TableCell>

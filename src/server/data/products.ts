@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import {
+  productColorPhotos,
   productMeasurements,
   productPhotos,
   products,
@@ -71,7 +72,20 @@ export async function getProductById(
         .where(and(eq(productTags.tenantId, tenantId), eq(productTags.productId, productId))),
     ]);
 
-    return mapProductRow(productRow, skuRows, photoRows, measurementRows, tagRows);
+    const colorPhotoRows = await tx
+      .select()
+      .from(productColorPhotos)
+      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.productId, productId)))
+      .orderBy(productColorPhotos.position);
+
+    const colorPhotosByColor = new Map<string, { id: string; url: string; alt: string }[]>();
+    for (const row of colorPhotoRows) {
+      const list = colorPhotosByColor.get(row.color) ?? [];
+      list.push({ id: row.id, url: row.url, alt: "" });
+      colorPhotosByColor.set(row.color, list);
+    }
+
+    return mapProductRow(productRow, skuRows, photoRows, measurementRows, tagRows, colorPhotosByColor);
   });
 }
 
@@ -242,10 +256,14 @@ export async function deleteProduct(tenantId: string, id: string): Promise<void>
  * Швидке створення чернетки товару — заповнює лише обов'язкові (NOT NULL) поля
  * плейсхолдерами, решту редагують одразу на сторінці товару (вона це вже вміє).
  * modelCode — унікальний у межах тенанта (UNIQUE(tenant_id, model_code)).
+ * internalCode — теж автогенерується (не UNIQUE, тому колізія не критична),
+ * редагується вручну одразу на картці товару (олівчик, ProductMetaPanel).
  */
 export async function createProduct(tenantId: string): Promise<string> {
   return withTenant(tenantId, async (tx) => {
-    const modelCode = `NEW-${Date.now().toString(36).toUpperCase()}`;
+    const suffix = Date.now().toString(36).toUpperCase();
+    const modelCode = `NEW-${suffix}`;
+    const internalCode = `IN-${suffix}`;
     const [row] = await tx
       .insert(products)
       .values({
@@ -255,6 +273,7 @@ export async function createProduct(tenantId: string): Promise<string> {
         categoryPath: "",
         modelCode,
         brand: "",
+        internalCode,
         isDraft: true,
       })
       .returning({ id: products.id });

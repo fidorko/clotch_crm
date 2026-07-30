@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import { products } from "./products";
 import { productSkus } from "./product-skus";
 import { productPhotos } from "./product-photos";
+import { productColorPhotos } from "./product-color-photos";
 import { productMeasurements } from "./product-measurements";
 import { productTags, tags } from "./tags";
 import { tenants } from "./tenants";
@@ -12,6 +13,7 @@ export * from "./tenants";
 export * from "./products";
 export * from "./product-skus";
 export * from "./product-photos";
+export * from "./product-color-photos";
 export * from "./product-measurements";
 export * from "./tags";
 export * from "./categories";
@@ -20,12 +22,17 @@ export * from "./colors";
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
   photos: many(productPhotos),
+  colorPhotos: many(productColorPhotos),
   measurements: many(productMeasurements),
   productTags: many(productTags),
 }));
 
 export const productSkusRelations = relations(productSkus, ({ one }) => ({
   product: one(products, { fields: [productSkus.productId], references: [products.id] }),
+}));
+
+export const productColorPhotosRelations = relations(productColorPhotos, ({ one }) => ({
+  product: one(products, { fields: [productColorPhotos.productId], references: [products.id] }),
 }));
 
 export const productPhotosRelations = relations(productPhotos, ({ one }) => ({

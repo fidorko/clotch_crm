@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EditableTextRow } from "@/components/ui/editable-text-row";
 import { Input } from "@/components/ui/input";
 import { SelectRow } from "@/components/ui/select-row";
 import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
@@ -368,7 +369,7 @@ export function ProductMetaPanel({
           options={COUNTRY_OF_ORIGIN_OPTIONS}
           onChange={setCountryOfOrigin}
         />
-        <TextRow label="Внутрішній артикул" value={internalCode} onChange={setInternalCode} />
+        <EditableTextRow label="Внутрішній артикул" value={internalCode} onChange={setInternalCode} />
         <TextRow label="Артикул постачальника" value={supplierCode} onChange={setSupplierCode} />
         {!variantsEnabled && (
           <>

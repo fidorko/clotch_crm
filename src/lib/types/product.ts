@@ -17,6 +17,13 @@ export interface ProductSku {
   cell: string;
 }
 
+// Фото прив'язане до кольору товару (усі розміри цього кольору виглядають
+// однаково на фото), не до окремого SKU — див. db.md.
+export interface ProductColorPhotos {
+  color: string;
+  photos: ProductPhoto[];
+}
+
 export interface ProductTag {
   id: string;
   label: string;
@@ -67,6 +74,7 @@ export interface Product {
     retailDiscount: PriceModeValue;
   };
   photos: ProductPhoto[];
+  colorPhotos: ProductColorPhotos[];
   measurements: ProductMeasurement[];
   meta: {
     createdAt: string;
