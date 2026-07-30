@@ -18,6 +18,7 @@ import type { Product, ProductStatus } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import { getCategoryPath } from "@/lib/categories/tree";
 import { updateProductName } from "@/app/products/[id]/actions";
+import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 export function ProductHeader({
   product,
@@ -27,13 +28,17 @@ export function ProductHeader({
   categories: CategoryRow[];
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<ProductStatus>(product.status);
-  const [name, setName] = useState(product.name);
+  const { form, setField, isDraft, isSaving, error: saveError, save } = useProductEditor();
+  const name = form.name;
+  const status = form.status;
   const [nameDraft, setNameDraft] = useState(product.name);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isSavingName, startSavingName] = useTransition();
 
+  // Ім'я/статус живуть у спільній формі (ProductEditorContext) — саме її зберігає
+  // кнопка «Створити товар»/«Редагувати». Для вже наявного товару назва додатково
+  // зберігається одразу по blur/Enter (як і раніше) — не чекаючи натискання кнопки.
   function commitName() {
     const trimmed = nameDraft.trim();
     setIsEditingName(false);
@@ -42,13 +47,15 @@ export function ProductHeader({
       return;
     }
     setNameError(null);
+    setField("name", trimmed);
+    if (isDraft) return;
     startSavingName(async () => {
       try {
         await updateProductName(product.id, trimmed);
-        setName(trimmed);
         router.refresh();
       } catch {
         setNameError("Не вдалося зберегти назву");
+        setField("name", name);
         setNameDraft(name);
       }
     });
@@ -111,7 +118,7 @@ export function ProductHeader({
             </div>
           )}
           {nameError && <span className="text-xs text-destructive">{nameError}</span>}
-          <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
+          <Select value={status} onValueChange={(v) => setField("status", v as ProductStatus)}>
             <SelectTrigger className="w-fit gap-1 border-transparent bg-transparent px-1.5 py-1 shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input">
               <Badge variant={current.badgeVariant}>{current.label}</Badge>
             </SelectTrigger>
@@ -125,25 +132,30 @@ export function ProductHeader({
           </Select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" aria-label="Додати в обране">
-            <Star className="size-4" />
-          </Button>
-          <Button variant="outline">Дублювати</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Дії
-              <ChevronDown className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Архівувати</DropdownMenuItem>
-              <DropdownMenuItem>Експортувати</DropdownMenuItem>
-              <DropdownMenuItem variant="destructive">Видалити</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button>Редагувати</Button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" aria-label="Додати в обране">
+              <Star className="size-4" />
+            </Button>
+            <Button variant="outline">Дублювати</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Дії
+                <ChevronDown className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Архівувати</DropdownMenuItem>
+                <DropdownMenuItem>Експортувати</DropdownMenuItem>
+                <DropdownMenuItem variant="destructive">Видалити</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={save} disabled={isSaving}>
+              {isDraft ? "Створити товар" : "Редагувати"}
+            </Button>
+          </div>
+          {saveError && <span className="text-xs text-destructive">{saveError}</span>}
         </div>
       </div>
 

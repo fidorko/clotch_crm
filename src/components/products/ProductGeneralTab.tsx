@@ -10,6 +10,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
+import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 export function ProductGeneralTab({
   product,
@@ -20,11 +21,12 @@ export function ProductGeneralTab({
   categories: CategoryRow[];
   dev: boolean;
 }) {
-  const [pricing, setPricing] = useState(product.pricing);
+  const { form, setField } = useProductEditor();
+  const pricing = form.pricing;
   const [variantsEnabled, setVariantsEnabled] = useState(true);
 
   function updatePricing<K extends keyof typeof pricing>(field: K, value: (typeof pricing)[K]) {
-    setPricing((prev) => ({ ...prev, [field]: value }));
+    setField("pricing", { ...pricing, [field]: value });
   }
 
   const retailAmount =

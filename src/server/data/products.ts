@@ -1,5 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
-import { withTenant } from "@/server/db/client";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { db, withTenant } from "@/server/db/client";
 import {
   productMeasurements,
   productPhotos,
@@ -8,10 +8,19 @@ import {
   productTags,
   tags,
 } from "@/server/db/schema";
-import type { Product } from "@/lib/types/product";
+import type { Product, ProductStatus } from "@/lib/types/product";
 import { mapProductRow } from "./product-mappers";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toAmount(value: string | null): number {
+  return value ? Number(value) : 0;
+}
+
+function formatDate(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+}
 
 /**
  * tenantId — обов'язковий типізований параметр (правило 6 розділу 6 CLAUDE.md):
@@ -93,5 +102,292 @@ export async function updateProductCategory(
       .update(products)
       .set({ categoryId, updatedAt: sql`now()` })
       .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+  });
+}
+
+export type ProductStockFilter = "all" | "in_stock" | "out_of_stock";
+
+export interface ListProductsFilters {
+  search?: string;
+  categoryId?: string | null;
+  status?: ProductStatus | "all";
+  stock?: ProductStockFilter;
+  page: number;
+  pageSize: number;
+}
+
+export interface ProductListItem {
+  id: string;
+  name: string;
+  modelCode: string;
+  status: ProductStatus;
+  categoryId: string | null;
+  purchasePrice: number;
+  retailPrice: number;
+  totalStock: number;
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+export interface ProductListResult {
+  items: ProductListItem[];
+  total: number;
+}
+
+/**
+ * Список товарів для /products. Залишок фільтрується корельованим підзапитом
+ * (не постфактум у JS) — інакше LIMIT/OFFSET і total розійшлись би з видимими
+ * рядками. Індекси під WHERE — products_tenant_created_idx (сортування),
+ * products_tenant_status_idx, products_tenant_category_idx, і
+ * product_skus_tenant_product_idx під підзапит залишку — усі вже є в схемі.
+ */
+export async function listProducts(
+  tenantId: string,
+  filters: ListProductsFilters
+): Promise<ProductListResult> {
+  return withTenant(tenantId, async (tx) => {
+    const conditions = [eq(products.tenantId, tenantId)];
+
+    const search = filters.search?.trim();
+    if (search) {
+      const q = `%${search}%`;
+      conditions.push(or(ilike(products.name, q), ilike(products.modelCode, q))!);
+    }
+    if (filters.categoryId) {
+      conditions.push(eq(products.categoryId, filters.categoryId));
+    }
+    if (filters.status && filters.status !== "all") {
+      conditions.push(eq(products.status, filters.status));
+    }
+    if (filters.stock === "in_stock") {
+      conditions.push(
+        sql`exists (select 1 from ${productSkus} where ${productSkus.tenantId} = ${tenantId} and ${productSkus.productId} = ${products.id} group by ${productSkus.productId} having sum(${productSkus.stock}) > 0)`
+      );
+    } else if (filters.stock === "out_of_stock") {
+      conditions.push(
+        sql`not exists (select 1 from ${productSkus} where ${productSkus.tenantId} = ${tenantId} and ${productSkus.productId} = ${products.id} group by ${productSkus.productId} having sum(${productSkus.stock}) > 0)`
+      );
+    }
+    const where = and(...conditions);
+
+    const [{ total }] = await tx.select({ total: count() }).from(products).where(where);
+
+    const rows = await tx
+      .select()
+      .from(products)
+      .where(where)
+      .orderBy(desc(products.createdAt))
+      .limit(filters.pageSize)
+      .offset((filters.page - 1) * filters.pageSize);
+
+    const ids = rows.map((r) => r.id);
+    const [stockRows, photoRows] =
+      ids.length === 0
+        ? [[], []]
+        : await Promise.all([
+            tx
+              .select({ productId: productSkus.productId, stock: productSkus.stock })
+              .from(productSkus)
+              .where(and(eq(productSkus.tenantId, tenantId), inArray(productSkus.productId, ids))),
+            tx
+              .select({ productId: productPhotos.productId, url: productPhotos.url })
+              .from(productPhotos)
+              .where(
+                and(eq(productPhotos.tenantId, tenantId), inArray(productPhotos.productId, ids))
+              )
+              .orderBy(asc(productPhotos.position)),
+          ]);
+
+    const stockByProduct = new Map<string, number>();
+    for (const row of stockRows) {
+      stockByProduct.set(row.productId, (stockByProduct.get(row.productId) ?? 0) + row.stock);
+    }
+    const photoByProduct = new Map<string, string>();
+    for (const row of photoRows) {
+      if (!photoByProduct.has(row.productId)) photoByProduct.set(row.productId, row.url);
+    }
+
+    const items: ProductListItem[] = rows.map((row) => {
+      const purchasePrice = toAmount(row.purchasePrice);
+      const retailPrice =
+        row.retailMode === "percent"
+          ? purchasePrice * (1 + toAmount(row.retailPercent) / 100)
+          : toAmount(row.retailAmount);
+      return {
+        id: row.id,
+        name: row.name,
+        modelCode: row.modelCode,
+        status: row.status,
+        categoryId: row.categoryId,
+        purchasePrice,
+        retailPrice,
+        totalStock: stockByProduct.get(row.id) ?? 0,
+        photoUrl: photoByProduct.get(row.id) ?? null,
+        createdAt: formatDate(row.createdAt),
+      };
+    });
+
+    return { items, total };
+  });
+}
+
+/** WHERE tenant_id + id разом (правило 7 розділу 6 CLAUDE.md) — чужий товар просто не знайдеться. */
+export async function deleteProduct(tenantId: string, id: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx.delete(products).where(and(eq(products.tenantId, tenantId), eq(products.id, id)));
+  });
+}
+
+/**
+ * Швидке створення чернетки товару — заповнює лише обов'язкові (NOT NULL) поля
+ * плейсхолдерами, решту редагують одразу на сторінці товару (вона це вже вміє).
+ * modelCode — унікальний у межах тенанта (UNIQUE(tenant_id, model_code)).
+ */
+export async function createProduct(tenantId: string): Promise<string> {
+  return withTenant(tenantId, async (tx) => {
+    const modelCode = `NEW-${Date.now().toString(36).toUpperCase()}`;
+    const [row] = await tx
+      .insert(products)
+      .values({
+        tenantId,
+        name: "Новий товар",
+        category: "",
+        categoryPath: "",
+        modelCode,
+        brand: "",
+        isDraft: true,
+      })
+      .returning({ id: products.id });
+    return row.id;
+  });
+}
+
+export interface SaveProductInput {
+  name: string;
+  status: ProductStatus;
+  categoryId: string | null;
+  collection: string;
+  info: {
+    gender: string;
+    seasonType: string;
+    fit: string;
+    countryOfOrigin: string;
+    manufacturer: string;
+    material: string;
+    fabricType: string;
+    description: string;
+  };
+  pricing: Product["pricing"];
+  meta: {
+    supplier: string;
+    brandCountry: string;
+    internalCode: string;
+    supplierCode: string;
+    packageLengthCm: number;
+    packageWidthCm: number;
+    packageHeightCm: number;
+    packageWeightKg: number;
+  };
+  tags: string[];
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Замінює весь набір тегів товару: знайти-або-створити тег за міткою (tenant-скоуповано), перезаписати product_tags. */
+async function syncProductTags(
+  tx: Tx,
+  tenantId: string,
+  productId: string,
+  labels: string[]
+): Promise<void> {
+  await tx
+    .delete(productTags)
+    .where(and(eq(productTags.tenantId, tenantId), eq(productTags.productId, productId)));
+
+  const uniqueLabels = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
+  if (uniqueLabels.length === 0) return;
+
+  const tagIds: string[] = [];
+  for (const label of uniqueLabels) {
+    const [existing] = await tx
+      .select({ id: tags.id })
+      .from(tags)
+      .where(and(eq(tags.tenantId, tenantId), eq(tags.label, label)));
+    const tagId = existing
+      ? existing.id
+      : (await tx.insert(tags).values({ tenantId, label }).returning({ id: tags.id }))[0].id;
+    tagIds.push(tagId);
+  }
+
+  await tx
+    .insert(productTags)
+    .values(tagIds.map((tagId) => ({ tenantId, productId, tagId })))
+    .onConflictDoNothing();
+}
+
+/**
+ * Зберігає всю форму картки товару одним запитом (кнопка "Створити товар"/"Редагувати")
+ * і знімає прапорець чернетки. WHERE tenant_id + id (правило 7 розділу 6 CLAUDE.md).
+ */
+export async function saveProduct(
+  tenantId: string,
+  productId: string,
+  input: SaveProductInput
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(products)
+      .set({
+        name: input.name,
+        status: input.status,
+        categoryId: input.categoryId,
+        collection: input.collection,
+        gender: input.info.gender,
+        seasonType: input.info.seasonType,
+        fit: input.info.fit,
+        countryOfOrigin: input.info.countryOfOrigin,
+        manufacturer: input.info.manufacturer,
+        material: input.info.material,
+        fabricType: input.info.fabricType,
+        description: input.info.description,
+        purchasePrice: String(input.pricing.purchasePrice),
+        oldPrice: String(input.pricing.oldPrice),
+        retailMode: input.pricing.retail.mode,
+        retailAmount: String(input.pricing.retail.amount),
+        retailPercent: String(input.pricing.retail.percent),
+        wholesaleMode: input.pricing.wholesale.mode,
+        wholesaleAmount: String(input.pricing.wholesale.amount),
+        wholesalePercent: String(input.pricing.wholesale.percent),
+        dropshipMode: input.pricing.dropship.mode,
+        dropshipAmount: String(input.pricing.dropship.amount),
+        dropshipPercent: String(input.pricing.dropship.percent),
+        retailDiscountMode: input.pricing.retailDiscount.mode,
+        retailDiscountAmount: String(input.pricing.retailDiscount.amount),
+        retailDiscountPercent: String(input.pricing.retailDiscount.percent),
+        supplier: input.meta.supplier,
+        brandCountry: input.meta.brandCountry,
+        internalCode: input.meta.internalCode,
+        supplierCode: input.meta.supplierCode,
+        packageLengthCm: input.meta.packageLengthCm,
+        packageWidthCm: input.meta.packageWidthCm,
+        packageHeightCm: input.meta.packageHeightCm,
+        packageWeightKg: String(input.meta.packageWeightKg),
+        isDraft: false,
+        updatedAt: sql`now()`,
+      })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+
+    await syncProductTags(tx, tenantId, productId, input.tags);
+  });
+}
+
+export async function deleteProducts(tenantId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  return withTenant(tenantId, async (tx) => {
+    const deleted = await tx
+      .delete(products)
+      .where(and(eq(products.tenantId, tenantId), inArray(products.id, ids)))
+      .returning({ id: products.id });
+    return deleted.length;
   });
 }

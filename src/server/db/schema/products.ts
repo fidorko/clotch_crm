@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   numeric,
   pgEnum,
@@ -35,6 +36,9 @@ export const products = pgTable(
     categoryPath: text("category_path").notNull(),
     categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
     status: productStatusEnum("status").notNull().default("active"),
+    // Чернетка (створена кнопкою "Додати товар") — картка товару показує "Створити
+    // товар" замість "Редагувати" й зберігає всю форму одним запитом, поки true.
+    isDraft: boolean("is_draft").notNull().default(false),
     modelCode: text("model_code").notNull(),
     brand: text("brand").notNull(),
     collection: text("collection"),

@@ -38,6 +38,7 @@ import { COLOR_OPTIONS, SIZE_OPTIONS } from "@/lib/constants/sku-variant-options
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import { updateProductCategory } from "@/app/products/[id]/actions";
+import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 const COLOR_NAME_OPTIONS = COLOR_OPTIONS.map((color) => color.name);
 
@@ -270,43 +271,44 @@ export function ProductInfoPanel({
   variantsEnabled: boolean;
 }) {
   const router = useRouter();
+  const { form, setField: setFormField, isDraft } = useProductEditor();
   const [isSavingCategory, startCategoryTransition] = useTransition();
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isEditingCategory, setIsEditingCategory] = useState(false);
 
-  const [info, setInfo] = useState(product.info);
-  // product.categoryId — реальний збережений вибір; якщо ще не обирали (null, старі
-  // дані до цієї функції) — найкраще наближення за назвою, інакше перша в списку.
-  const [categoryId, setCategoryId] = useState(
-    () =>
-      product.categoryId ??
-      categories.find((c) => c.name === product.category)?.id ??
-      categories[0]?.id ??
-      ""
-  );
+  const info = form.info;
+  // Категорія — в спільній формі (ProductEditorContext), як і решта полів. Для вже
+  // наявного товару вибір додатково зберігається одразу (як і раніше) — не чекаючи
+  // натискання кнопки «Редагувати».
+  const categoryId = form.categoryId;
 
   function handleCategoryChange(nextCategoryId: string) {
     const previous = categoryId;
-    setCategoryId(nextCategoryId);
+    setFormField("categoryId", nextCategoryId);
     setCategoryError(null);
+    if (isDraft) return;
     startCategoryTransition(async () => {
       try {
         await updateProductCategory(product.id, nextCategoryId);
         router.refresh();
       } catch (err) {
-        setCategoryId(previous);
+        setFormField("categoryId", previous);
         setCategoryError(err instanceof Error ? err.message : "Не вдалося зберегти категорію");
       }
     });
   }
 
-  const [collection, setCollection] = useState(product.collection);
+  const collection = form.collection;
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
   const [singleColor, setSingleColor] = useState(COLOR_NAME_OPTIONS[0]);
   const [singleSize, setSingleSize] = useState(SIZE_OPTIONS[0]);
 
+  function setCollection(value: string) {
+    setFormField("collection", value);
+  }
+
   function updateField(field: InfoField, value: string) {
-    setInfo((prev) => ({ ...prev, [field]: value }));
+    setFormField("info", { ...info, [field]: value });
   }
 
   function toggleCareId(id: string) {

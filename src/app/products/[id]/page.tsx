@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { ProductHeader } from "@/components/products/ProductHeader";
+import { ProductEditorProvider } from "@/components/products/ProductEditorContext";
 import { ProductTabs } from "@/components/products/ProductTabs";
 import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
 import { ProductSizeChart } from "@/components/products/ProductSizeChart";
@@ -33,29 +34,31 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <DevBlockLabel name="ProductHeader" enabled={dev}>
-        <ProductHeader product={product} categories={categories} />
-      </DevBlockLabel>
-      <Tabs defaultValue="general" className="flex flex-1 flex-col">
-        <DevBlockLabel name="ProductTabs" enabled={dev}>
-          <ProductTabs />
+      <ProductEditorProvider product={product} categories={categories}>
+        <DevBlockLabel name="ProductHeader" enabled={dev}>
+          <ProductHeader product={product} categories={categories} />
         </DevBlockLabel>
+        <Tabs defaultValue="general" className="flex flex-1 flex-col">
+          <DevBlockLabel name="ProductTabs" enabled={dev}>
+            <ProductTabs />
+          </DevBlockLabel>
 
-        <TabsContent value="general" className="flex flex-col gap-4 p-6">
-          <ProductGeneralTab product={product} categories={categories} dev={dev} />
-        </TabsContent>
+          <TabsContent value="general" className="flex flex-col gap-4 p-6">
+            <ProductGeneralTab product={product} categories={categories} dev={dev} />
+          </TabsContent>
 
-        <TabsContent value="sizes" className="flex flex-col gap-4 p-6">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-            <DevBlockLabel name="ProductSizeChart" enabled={dev}>
-              <ProductSizeChart />
-            </DevBlockLabel>
-            <DevBlockLabel name="ProductMeasurements" enabled={dev}>
-              <ProductMeasurements measurements={product.measurements} />
-            </DevBlockLabel>
-          </div>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="sizes" className="flex flex-col gap-4 p-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+              <DevBlockLabel name="ProductSizeChart" enabled={dev}>
+                <ProductSizeChart />
+              </DevBlockLabel>
+              <DevBlockLabel name="ProductMeasurements" enabled={dev}>
+                <ProductMeasurements measurements={product.measurements} />
+              </DevBlockLabel>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </ProductEditorProvider>
     </div>
   );
 }

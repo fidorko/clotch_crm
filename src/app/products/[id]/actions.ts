@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  saveProduct as saveProductInDb,
   updateProductCategory as updateProductCategoryInDb,
   updateProductName as updateProductNameInDb,
+  type SaveProductInput,
 } from "@/server/data/products";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
@@ -28,4 +30,20 @@ export async function updateProductCategory(productId: string, categoryId: strin
   await updateProductCategoryInDb(tenantId, productId, categoryId);
   revalidatePath(`/products/${productId}`);
   revalidatePath("/settings");
+}
+
+/** Кнопка «Створити товар»/«Редагувати» в ProductHeader — зберігає всю форму разом. */
+export async function saveProductAction(
+  productId: string,
+  input: SaveProductInput
+): Promise<void> {
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    throw new Error("Назва товару не може бути порожньою");
+  }
+
+  const tenantId = getDevTenantId();
+  await saveProductInDb(tenantId, productId, { ...input, name: trimmedName });
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/products");
 }

@@ -43,6 +43,7 @@ export interface Product {
   // category/categoryPath лишаються окремо (вільний текст, хлібні крихти) — db.md.
   categoryId: string | null;
   status: ProductStatus;
+  isDraft: boolean;
   modelCode: string;
   brand: string;
   collection: string;

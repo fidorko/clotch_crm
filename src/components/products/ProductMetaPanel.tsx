@@ -22,6 +22,7 @@ import { TextRow } from "@/components/ui/text-row";
 import { Textarea } from "@/components/ui/textarea";
 import { selectedSku } from "@/lib/mocks/products";
 import type { Product } from "@/lib/types/product";
+import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 // Тимчасові довідники. Планово — довідники з БД (див. db.md).
 const SUPPLIER_OPTIONS = ["Textile Group", "FabricPro", "UkrLen", "Prime Textile"];
@@ -291,43 +292,64 @@ export function ProductMetaPanel({
   product: Product;
   variantsEnabled: boolean;
 }) {
-  const { meta } = product;
+  const { form, setField } = useProductEditor();
+  const meta = form.meta;
+  const info = form.info;
 
-  const [supplier, setSupplier] = useState(meta.supplier);
-  const [brandCountry, setBrandCountry] = useState(meta.brandCountry);
-  const [countryOfOrigin, setCountryOfOrigin] = useState(product.info.countryOfOrigin);
-  const [description, setDescription] = useState(product.info.description);
-  const [internalCode, setInternalCode] = useState(meta.internalCode);
-  const [supplierCode, setSupplierCode] = useState(meta.supplierCode);
-  const [packageLength, setPackageLength] = useState(meta.packageLengthCm);
-  const [packageWidth, setPackageWidth] = useState(meta.packageWidthCm);
-  const [packageHeight, setPackageHeight] = useState(meta.packageHeightCm);
-  const [packageWeight, setPackageWeight] = useState(meta.packageWeightKg);
-  const [tags, setTags] = useState<string[]>(product.tags.map((tag) => tag.label));
+  const supplier = meta.supplier;
+  const brandCountry = meta.brandCountry;
+  const countryOfOrigin = info.countryOfOrigin;
+  const description = info.description;
+  const internalCode = meta.internalCode;
+  const supplierCode = meta.supplierCode;
+  const packageLength = meta.packageLengthCm;
+  const packageWidth = meta.packageWidthCm;
+  const packageHeight = meta.packageHeightCm;
+  const packageWeight = meta.packageWeightKg;
+  const tags = form.tags;
   const [customTag, setCustomTag] = useState("");
 
+  function setMeta<K extends keyof typeof meta>(key: K, value: (typeof meta)[K]) {
+    setField("meta", { ...meta, [key]: value });
+  }
+
+  function setInfo<K extends keyof typeof info>(key: K, value: (typeof info)[K]) {
+    setField("info", { ...info, [key]: value });
+  }
+
+  const setSupplier = (value: string) => setMeta("supplier", value);
+  const setBrandCountry = (value: string) => setMeta("brandCountry", value);
+  const setCountryOfOrigin = (value: string) => setInfo("countryOfOrigin", value);
+  const setDescription = (value: string) => setInfo("description", value);
+  const setInternalCode = (value: string) => setMeta("internalCode", value);
+  const setSupplierCode = (value: string) => setMeta("supplierCode", value);
+  const setPackageLength = (value: number) => setMeta("packageLengthCm", value);
+  const setPackageWidth = (value: number) => setMeta("packageWidthCm", value);
+  const setPackageHeight = (value: number) => setMeta("packageHeightCm", value);
+  const setPackageWeight = (value: number) => setMeta("packageWeightKg", value);
+
   function toggleTag(tag: string) {
-    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    setField("tags", tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]);
   }
 
   function removeTag(tag: string) {
-    setTags((prev) => prev.filter((t) => t !== tag));
+    setField("tags", tags.filter((t) => t !== tag));
   }
 
   function addCustomTag() {
     const value = customTag.trim();
     if (!value || tags.includes(value)) return;
-    setTags((prev) => [...prev, value]);
+    setField("tags", [...tags, value]);
     setCustomTag("");
   }
 
   return (
     <Card className="h-full gap-0 py-4">
       <CardContent className="flex flex-col divide-y divide-border px-4">
-        <DetailRow align="left" label="Створено" value={meta.createdAt} />
-        <DetailRow align="left" label="Оновлено" value={meta.updatedAt} />
-        <DetailRow align="left" label="Створив" value={meta.createdBy} />
-        <DetailRow align="left" label="Останній редагував" value={meta.updatedBy} />
+        <DetailRow align="left" label="Створено" value={product.meta.createdAt} />
+        <DetailRow align="left" label="Оновлено" value={product.meta.updatedAt} />
+        <DetailRow align="left" label="Створив" value={product.meta.createdBy} />
+        <DetailRow align="left" label="Останній редагував" value={product.meta.updatedBy} />
         <SelectRow
           label="Постачальник"
           value={supplier}
