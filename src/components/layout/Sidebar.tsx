@@ -1,89 +1,160 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Shirt,
-  LayoutGrid,
-  ShoppingCart,
-  Users,
-  Boxes,
-  FolderKanban,
   BarChart3,
+  Boxes,
+  BookOpen,
+  CreditCard,
+  FolderTree,
+  Gem,
+  Home,
+  LayoutGrid,
+  LogOut,
+  Megaphone,
   Settings,
+  Shirt,
+  ShoppingCart,
+  SlidersHorizontal,
+  Store,
+  Truck,
+  User,
+  Users,
+  Warehouse,
+  type LucideIcon,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+// "Головна" — виняток: єдиний пункт з exact-match активністю (href "/" відразу
+// редіректить на /products, startsWith зробив би його активним завжди).
+const PRIMARY_NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "Головна", icon: Home },
   { href: "/products", label: "Товари", icon: LayoutGrid },
   { href: "#", label: "Замовлення", icon: ShoppingCart },
   { href: "#", label: "Клієнти", icon: Users },
+  { href: "#", label: "Постачальники", icon: Truck },
   { href: "#", label: "Склад", icon: Boxes },
-  { href: "#", label: "Постачальники", icon: FolderKanban },
   { href: "#", label: "Аналітика", icon: BarChart3 },
+  { href: "#", label: "Маркетинг", icon: Megaphone },
 ];
+
+// Підменю налаштувань — та сама навігація, що раніше жила в SettingsTabs
+// (горизонтальні вкладки на /settings), тепер вертикально під «Налаштування»
+// (розгортається інлайн, решта пунктів сайдбару лишається на місці); вибір
+// розділу — через ?tab=, читає server component page.tsx.
+const SETTINGS_NAV_ITEMS: NavItem[] = [
+  { href: "/settings?tab=storefront", label: "Вітрина магазину", icon: Store },
+  { href: "/settings?tab=general", label: "Загальні", icon: SlidersHorizontal },
+  { href: "/settings?tab=categories", label: "Категорії товару", icon: FolderTree },
+  { href: "/settings?tab=orders", label: "Замовлення", icon: ShoppingCart },
+  { href: "/settings?tab=references", label: "Довідники", icon: BookOpen },
+  { href: "/settings?tab=warehouses", label: "Склади", icon: Warehouse },
+  { href: "/settings?tab=delivery", label: "Доставка", icon: Truck },
+  { href: "/settings?tab=payment", label: "Оплата", icon: CreditCard },
+  { href: "/settings?tab=plan", label: "Тарифний план", icon: Gem },
+];
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "#") return false;
+  if (href === "/") return pathname === "/";
+  return pathname.startsWith(href);
+}
+
+function isTabActive(pathname: string, searchTab: string | null, href: string): boolean {
+  const [path, query] = href.split("?tab=");
+  if (!pathname.startsWith(path)) return false;
+  return (searchTab ?? "categories") === query;
+}
+
+function NavLink({
+  item,
+  active,
+  compact,
+}: {
+  item: NavItem;
+  active: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2.5 rounded-lg text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        compact ? "px-2.5 py-1.5 text-[0.8rem]" : "px-3 py-2",
+        active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+      )}
+    >
+      <item.icon className={cn("shrink-0", compact ? "size-4" : "size-4.5")} />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchTab = useSearchParams().get("tab");
+  const inSettings = pathname.startsWith("/settings");
 
   return (
-    <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-sidebar-border bg-sidebar py-4">
-      <Link
-        href="/products"
-        className="mb-4 flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
-      >
-        <Shirt className="size-5" />
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4">
+      <Link href="/" className="mb-4 flex shrink-0 items-center gap-2 px-4">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+          <Shirt className="size-4.5" />
+        </span>
+        <span className="truncate text-sm font-semibold tracking-wide text-sidebar-foreground uppercase">
+          CRM Одягу
+        </span>
       </Link>
 
-      <nav className="flex flex-1 flex-col items-center gap-1">
-        {navItems.map((item) => {
-          const active = item.href !== "#" && pathname.startsWith(item.href);
-          return (
-            <Tooltip key={item.label}>
-              <TooltipTrigger
-                render={
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      active &&
-                        "bg-sidebar-accent text-sidebar-primary hover:text-sidebar-primary"
-                    )}
-                  >
-                    <item.icon className="size-5" />
-                  </Link>
-                }
-              />
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </nav>
+      <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">
+        {PRIMARY_NAV_ITEMS.map((item) => (
+          <NavLink key={item.label} item={item} active={isActive(pathname, item.href)} />
+        ))}
 
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Link
-              href="/settings"
-              aria-current={pathname.startsWith("/settings") ? "page" : undefined}
-              className={cn(
-                "flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                pathname.startsWith("/settings") &&
-                  "bg-sidebar-accent text-sidebar-primary hover:text-sidebar-primary"
-              )}
-            >
-              <Settings className="size-5" />
-            </Link>
-          }
-        />
-        <TooltipContent side="right">Налаштування</TooltipContent>
-      </Tooltip>
+        <div className="mt-1 flex flex-col gap-1 border-t border-sidebar-border pt-3">
+          <NavLink
+            item={{ href: "/settings", label: "Налаштування", icon: Settings }}
+            active={inSettings}
+          />
+          {inSettings && (
+            <div className="ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
+              {SETTINGS_NAV_ITEMS.map((item) => (
+                <NavLink
+                  key={item.label}
+                  item={item}
+                  active={isTabActive(pathname, searchTab, item.href)}
+                  compact
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-1 border-t border-sidebar-border px-2 pt-3">
+        <Link
+          href="#"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <User className="size-4.5 shrink-0" />
+          Обліковий запис
+        </Link>
+        <Link
+          href="#"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <LogOut className="size-4.5 shrink-0" />
+          Вихід
+        </Link>
+      </div>
     </aside>
   );
 }

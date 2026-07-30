@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { Sidebar } from "@/components/layout/Sidebar";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Sidebar тепер глобальний (кореневий src/app/layout.tsx) — цей layout лишається
+// лише заради robots-метаданих розділу (мультитенантні дані не індексуються).
 export default function ProductsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex min-h-screen w-full bg-background">
-      <Sidebar />
-      <main className="flex flex-1 flex-col overflow-x-hidden">{children}</main>
-    </div>
-  );
+  return children;
 }

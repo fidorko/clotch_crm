@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -32,7 +34,14 @@ export default function RootLayout({
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <div className="flex h-screen w-full overflow-hidden bg-background">
+            <Suspense fallback={null}>
+              <Sidebar />
+            </Suspense>
+            <main className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">{children}</main>
+          </div>
+        </TooltipProvider>
       </body>
     </html>
   );
