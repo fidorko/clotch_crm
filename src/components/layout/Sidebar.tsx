@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Shirt,
   LayoutGrid,
@@ -17,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/products", label: "Товари", icon: LayoutGrid, active: true },
+  { href: "/products", label: "Товари", icon: LayoutGrid },
   { href: "#", label: "Замовлення", icon: ShoppingCart },
   { href: "#", label: "Клієнти", icon: Users },
   { href: "#", label: "Склад", icon: Boxes },
@@ -26,6 +29,8 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-sidebar-border bg-sidebar py-4">
       <Link
@@ -36,34 +41,42 @@ export function Sidebar() {
       </Link>
 
       <nav className="flex flex-1 flex-col items-center gap-1">
-        {navItems.map((item) => (
-          <Tooltip key={item.label}>
-            <TooltipTrigger
-              render={
-                <Link
-                  href={item.href}
-                  aria-current={item.active ? "page" : undefined}
-                  className={cn(
-                    "flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    item.active &&
-                      "bg-sidebar-accent text-sidebar-primary hover:text-sidebar-primary"
-                  )}
-                >
-                  <item.icon className="size-5" />
-                </Link>
-              }
-            />
-            <TooltipContent side="right">{item.label}</TooltipContent>
-          </Tooltip>
-        ))}
+        {navItems.map((item) => {
+          const active = item.href !== "#" && pathname.startsWith(item.href);
+          return (
+            <Tooltip key={item.label}>
+              <TooltipTrigger
+                render={
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      active &&
+                        "bg-sidebar-accent text-sidebar-primary hover:text-sidebar-primary"
+                    )}
+                  >
+                    <item.icon className="size-5" />
+                  </Link>
+                }
+              />
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
       </nav>
 
       <Tooltip>
         <TooltipTrigger
           render={
             <Link
-              href="#"
-              className="flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              href="/settings"
+              aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+              className={cn(
+                "flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                pathname.startsWith("/settings") &&
+                  "bg-sidebar-accent text-sidebar-primary hover:text-sidebar-primary"
+              )}
             >
               <Settings className="size-5" />
             </Link>
