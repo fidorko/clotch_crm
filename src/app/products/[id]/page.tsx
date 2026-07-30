@@ -13,6 +13,7 @@ import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductById } from "@/server/data/products";
 import { listCategories } from "@/server/data/categories";
 import { listColors } from "@/server/data/colors";
+import { listSuppliers } from "@/server/data/suppliers";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -31,9 +32,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product = await loadProduct(id);
   if (!product) notFound();
   const dev = DEV_BLOCK_LABELS.products;
-  const [categories, colors] = await Promise.all([
+  const [categories, colors, suppliers] = await Promise.all([
     listCategories(getDevTenantId()),
     listColors(getDevTenantId()),
+    listSuppliers(getDevTenantId()),
   ]);
   const colorOptions = colors.map((color) => ({ name: color.name, hex: color.hex }));
 
@@ -53,6 +55,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
               product={product}
               categories={categories}
               colorOptions={colorOptions}
+              suppliers={suppliers}
               dev={dev}
             />
           </TabsContent>

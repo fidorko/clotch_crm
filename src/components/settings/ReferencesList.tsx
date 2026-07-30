@@ -75,7 +75,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values">[] = [
     label: "Постачальники",
     description: "Постачальники та партнери",
     icon: Truck,
-    href: "#",
+    href: "/settings/references/suppliers",
     iconClass: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
   },
   {
@@ -204,16 +204,22 @@ function ReferenceTile({ item }: { item: ReferenceItem }) {
   );
 }
 
-export function ReferencesList({ colors = [] }: { colors?: { name: string; hex: string }[] }) {
-  const items: ReferenceItem[] = REFERENCE_DEFS.map((def) =>
-    def.id === "colors"
-      ? {
-          ...def,
-          count: colors.length,
-          values: colors.map((c) => ({ label: c.name, swatch: c.hex })),
-        }
-      : def
-  );
+export function ReferencesList({
+  colors = [],
+  suppliers = [],
+}: {
+  colors?: { name: string; hex: string }[];
+  suppliers?: { name: string }[];
+}) {
+  const items: ReferenceItem[] = REFERENCE_DEFS.map((def) => {
+    if (def.id === "colors") {
+      return { ...def, count: colors.length, values: colors.map((c) => ({ label: c.name, swatch: c.hex })) };
+    }
+    if (def.id === "suppliers") {
+      return { ...def, count: suppliers.length, values: suppliers.map((s) => ({ label: s.name })) };
+    }
+    return def;
+  });
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

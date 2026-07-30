@@ -6,6 +6,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listColors } from "@/server/data/colors";
+import { listSuppliers } from "@/server/data/suppliers";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 export const metadata: Metadata = {
@@ -39,10 +40,10 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const colors = await listColors(tenantId);
+  const [colors, suppliers] = await Promise.all([listColors(tenantId), listSuppliers(tenantId)]);
   return (
     <DevBlockLabel name="ReferencesList" enabled={dev}>
-      <ReferencesList colors={colors} />
+      <ReferencesList colors={colors} suppliers={suppliers} />
     </DevBlockLabel>
   );
 }

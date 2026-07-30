@@ -46,6 +46,8 @@ PostgreSQL 16 (Docker Compose, локально) + Drizzle ORM. Схема: `src
 
 Індекси: `(tenant_id, created_at)`, `(tenant_id, status)`, `(tenant_id, category_id)` (під `GROUP BY category_id` для лічильника товарів на категорію). UNIQUE: `(tenant_id, model_code)` — модель-код унікальний у межах тенанта (підтверджено).
 
+**`supplier_id` (uuid, nullable) — реальний FK на `suppliers.id`, `ON DELETE SET NULL`** (той самий патерн, що `category_id`). Замінив вільнотекстову колонку `supplier` (видалено). Дві окремі міграції (`0010` — DROP `supplier`, `0011` — ADD `supplier_id`), щоб `drizzle-kit generate` не розпізнав це як перейменування колонки в одному проході (та сама гочта, що з таблицями — `product_color_photos`, вище) — non-interactive shell не може відповісти на інтерактивний prompt.
+
 ### product_skus
 `tenant_id`, `product_id` (FK `ON DELETE CASCADE`), `code`, `color`, `color_hex`, `size`, `barcode`, `stock` (CHECK `>= 0`), `cell`. Плюс 6 nullable `*_override` полів (грн, без `mode`/`percent` — SKU-панель має лише резолвнуту суму) — override не прив'язаний до окремого запису історії, `NULL` = успадковує ціну товару.
 
@@ -85,8 +87,24 @@ PostgreSQL 16 (Docker Compose, локально) + Drizzle ORM. Схема: `src
 
 `product_skus.color`/`color_hex` лишаються копією значення на момент створення SKU (не FK на `colors.id`) — як і раніше було задумано для `product_skus` (див. розділ вище): видалення кольору з довідника не ламає вже створені SKU заднім числом. Дев-сід (`npm run db:seed`) заповнює 30 найпоширеніших кольорів одягу (`lib/mocks/colors.ts`) — ідемпотентно (`onConflictDoNothing`, за UNIQUE-обмеженням).
 
+### suppliers / supplier_contacts / supplier_channels / supplier_custom_fields
+Довідник постачальників (`settings` → «Довідники» → «Постачальники»). `suppliers`: `tenant_id`, `name`, `code` (генерується сервером, `SUP-0001`...; UNIQUE `(tenant_id, code)` — генерація рахує поточну кількість +1, при рідкісній гонці `createSupplier` ловить `23505` і повторює з наступним номером, до 5 спроб), `type` (enum `manufacturer`/`distributor`/`wholesaler`/`importer`/`other`), `is_active`, `website`, `country`/`city`/`address`, `notes`. Індекс `(tenant_id, created_at)`.
+
+**`postal_code` видалено** (міграція `0009`, `ALTER TABLE suppliers DROP COLUMN postal_code`) — поле забрали з форми за прямою вказівкою людини («Індекс не потрібен») одразу після створення таблиці, дані ще не встигли з'явитись, тож дропнули колонку, а не лишили осиротілою.
+
+Три дочірні таблиці — усі `supplier_id` FK `ON DELETE CASCADE`, `tenant_id` денормалізовано (як `product_tags`, щоб RLS не залежав від join), індекс `(tenant_id, supplier_id, position)`:
+- `supplier_contacts` — кілька контактних осіб на постачальника: `name`, `job_title`, `phone`, `email`.
+- `supplier_channels` — месенджери й соцмережі одним рядком: `kind` (enum `messenger`/`social`), `channel` (вільний текст: `telegram`/`viber`/`whatsapp`/`facebook`/`instagram`/`tiktok`/`threads` — не enum, бо фіксований набір живе в UI-довіднику `lib/constants/supplier-options.ts`, не є окремою БД-сутністю), `value`.
+- `supplier_custom_fields` — довільні пари «назва поля — значення» в блоці адреси, людина сама називає поле: `label`, `value`.
+
+Збереження форми — **delete-then-insert** для всіх трьох дочірніх колекцій одразу (`updateSupplier`, `server/data/suppliers.ts`), той самий патерн, що `syncProductTags` у `server/data/products.ts`: просто й коректно для «зберегти всю форму одним запитом», без per-рядкового diff.
+
+**Іконки месенджерів/соцмереж — справжні бренд-лого через `react-icons`.** `lucide-react` підтверджено не має брендових іконок (Facebook, Instagram, Telegram, Twitter, Youtube, Linkedin, Github — усі відсутні). Погоджено з людиною (`AskUserQuestion`) додати `react-icons` (набір `fa6`, tree-shakeable) замість самописних SVG — кожна іконка в кольоровому кружечку брендового кольору (`lib/constants/supplier-options.ts`). Деталі — `decisions.md`.
+
 ## Що свідомо НЕ нормалізовано зараз (і чому)
-Розміри (`SIZE_OPTIONS`), типи замірів (`MEASUREMENT_TYPE_OPTIONS`) — лишаються app-константами, не таблицями. Причини: (1) роадмап цього проходу обмежений `products`/`product_skus` + логічно пов'язаним; (2) список поки спільний для всіх тенантів — таблиця зараз стартувала б як ще один глобальний виняток без реальної потреби; (3) `product_skus.size` вже зараз — копія значення на момент створення SKU, не посилання. Кольори вже нормалізовані (`colors`, вище) — той самий перехід, коли знадобиться, підходить і для розмірів: `sizes(id, tenant_id, label)` з FK. Постачальник (`meta.supplier`) — теж проста текстова колонка; найімовірніший майбутній кандидат на власну таблицю (контакти, умови оплати), коли з'явиться екран керування постачальниками.
+Розміри (`SIZE_OPTIONS`), типи замірів (`MEASUREMENT_TYPE_OPTIONS`) — лишаються app-константами, не таблицями. Причини: (1) роадмап цього проходу обмежений `products`/`product_skus` + логічно пов'язаним; (2) список поки спільний для всіх тенантів — таблиця зараз стартувала б як ще один глобальний виняток без реальної потреби; (3) `product_skus.size` вже зараз — копія значення на момент створення SKU, не посилання. Кольори вже нормалізовані (`colors`, вище) — той самий перехід, коли знадобиться, підходить і для розмірів: `sizes(id, tenant_id, label)` з FK.
+
+**Оновлення:** `products.supplier_id` тепер реальний FK на `suppliers.id` (вище, розділ `products`) — раніше тут описувалось як «майбутня задача», зроблено. Фільтра товарів за постачальником у `listProducts` ще нема (окремий індекс `(tenant_id, supplier_id)` не додавали — немає поки запиту, що його потребує).
 
 ## Файлове сховище (завантажені зображення)
 Зображення категорій — перший реальний (не blob-прев'ю) файловий аплоад у проєкті. `src/server/storage/category-images.ts`:

@@ -10,11 +10,12 @@ interface ProductFormState {
   name: string;
   status: ProductStatus;
   categoryId: string;
+  supplierId: string;
+  brand: string;
   collection: string;
   info: Product["info"];
   pricing: Product["pricing"];
   meta: {
-    supplier: string;
     brandCountry: string;
     internalCode: string;
     supplierCode: string;
@@ -77,11 +78,12 @@ export function ProductEditorProvider({
     name: product.name,
     status: product.status,
     categoryId: initialCategoryId(product, categories),
+    supplierId: product.supplierId ?? "",
+    brand: product.brand,
     collection: product.collection,
     info: product.info,
     pricing: product.pricing,
     meta: {
-      supplier: product.meta.supplier,
       brandCountry: product.meta.brandCountry,
       internalCode: product.meta.internalCode,
       supplierCode: product.meta.supplierCode,
@@ -105,6 +107,8 @@ export function ProductEditorProvider({
           name: form.name,
           status: form.status,
           categoryId: form.categoryId || null,
+          supplierId: form.supplierId || null,
+          brand: form.brand,
           collection: form.collection,
           info: form.info,
           pricing: form.pricing,

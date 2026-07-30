@@ -26,10 +26,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { SelectRow } from "@/components/ui/select-row";
 import { EditableSelectRow } from "@/components/ui/editable-select-row";
-import { NumberRow } from "@/components/ui/number-row";
+import { EditableNumberRow } from "@/components/ui/editable-number-row";
 import { PriceModeRow } from "@/components/ui/price-mode-row";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
@@ -108,52 +107,6 @@ function CareInstructionsRow({
   );
 }
 
-// Значення й валюта підтягуються з поставки (БД) — див. модуль "Постачання". Поки моки.
-function PurchasePriceRow({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  return (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">Закупівельна ціна</span>
-      {isEditing ? (
-        <div className="flex items-center gap-1.5">
-          <Input
-            type="number"
-            min={0}
-            autoFocus
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            onBlur={() => setIsEditing(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") setIsEditing(false);
-            }}
-            className="h-7 w-20 px-1.5 text-right text-sm"
-          />
-          <span className="text-sm text-muted-foreground">грн</span>
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-between">
-          <span className="text-sm text-foreground">{value.toFixed(2)} грн</span>
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            aria-label="Редагувати закупівельну ціну"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="size-3.5" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function calcMarginPercent(sellPrice: number, purchasePrice: number) {
   if (sellPrice <= 0) return 0;
   return ((sellPrice - purchasePrice) / sellPrice) * 100;
@@ -226,6 +179,7 @@ function MarginRow({
 
 // Тимчасові варіанти для випадаючих списків. Планово — довідники з БД (див. db.md).
 const COLLECTION_OPTIONS = ["Summer 2026", "Autumn 2026"];
+const BRAND_OPTIONS = ["Zara", "H&M", "Mango", "Bershka", "Pull&Bear"];
 
 const INFO_OPTIONS = {
   gender: ["Унісекс", "Чоловіча", "Жіноча", "Дитяча"],
@@ -299,6 +253,7 @@ export function ProductInfoPanel({
   }
 
   const collection = form.collection;
+  const brand = form.brand;
   const colorNameOptions = colorOptions.map((color) => color.name);
   const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
   const [singleColor, setSingleColor] = useState(colorNameOptions[0]);
@@ -306,6 +261,10 @@ export function ProductInfoPanel({
 
   function setCollection(value: string) {
     setFormField("collection", value);
+  }
+
+  function setBrand(value: string) {
+    setFormField("brand", value);
   }
 
   function updateField(field: InfoField, value: string) {
@@ -371,6 +330,7 @@ export function ProductInfoPanel({
           </div>
           {categoryError && <span className="pb-1.5 text-xs text-destructive">{categoryError}</span>}
         </div>
+        <EditableSelectRow label="Бренд" value={brand} options={BRAND_OPTIONS} onChange={setBrand} />
         {!variantsEnabled && (
           <>
             <SelectRow
@@ -403,7 +363,8 @@ export function ProductInfoPanel({
           />
         ))}
         <CareInstructionsRow selectedIds={careIds} onToggle={toggleCareId} />
-        <PurchasePriceRow
+        <EditableNumberRow
+          label="Закупівельна ціна"
           value={pricing.purchasePrice}
           onChange={(value) => onPricingChange("purchasePrice", value)}
         />
@@ -416,10 +377,9 @@ export function ProductInfoPanel({
             retailAmount < pricing.purchasePrice ? "Ціна нижча за закупівельну" : undefined
           }
         />
-        <NumberRow
+        <EditableNumberRow
           label="Перечеркнута ціна"
           value={pricing.oldPrice}
-          suffix="грн"
           onChange={(value) => onPricingChange("oldPrice", value)}
         />
         <PriceModeRow

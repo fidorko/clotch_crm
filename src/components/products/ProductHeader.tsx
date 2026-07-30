@@ -156,7 +156,7 @@ export function ProductHeader({
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={save} disabled={isSaving}>
-              {isDraft ? "Створити товар" : "Редагувати"}
+              {isDraft ? "Створити товар" : "Зберегти товар"}
             </Button>
           </div>
           {saveError && <span className="text-xs text-destructive">{saveError}</span>}
@@ -165,22 +165,15 @@ export function ProductHeader({
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         <span className="text-muted-foreground">
-          Артикул моделі:{" "}
-          <span className="font-medium text-foreground">{product.modelCode}</span>
-        </span>
-        <span className="text-muted-foreground">
-          Внутрішній артикул:{" "}
+          Внутрішній артикул моделі:{" "}
           <span className="font-medium text-foreground">{form.meta.internalCode || "—"}</span>
         </span>
         <span className="text-muted-foreground">
-          Бренд: <span className="font-medium text-foreground">{product.brand}</span>
+          Бренд: <span className="font-medium text-foreground">{form.brand || "—"}</span>
         </span>
         <span className="text-muted-foreground">
           Колекція:{" "}
           <span className="font-medium text-foreground">{product.collection}</span>
-        </span>
-        <span className="text-muted-foreground">
-          Сезон: <span className="font-medium text-foreground">{product.season}</span>
         </span>
       </div>
     </div>

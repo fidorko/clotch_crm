@@ -60,7 +60,6 @@ async function main() {
       retailDiscountMode: mockProduct.pricing.retailDiscount.mode,
       retailDiscountAmount: String(mockProduct.pricing.retailDiscount.amount),
       retailDiscountPercent: String(mockProduct.pricing.retailDiscount.percent),
-      supplier: mockProduct.meta.supplier,
       brandCountry: mockProduct.meta.brandCountry,
       internalCode: mockProduct.meta.internalCode,
       supplierCode: mockProduct.meta.supplierCode,

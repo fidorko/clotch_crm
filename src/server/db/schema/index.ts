@@ -8,6 +8,10 @@ import { productTags, tags } from "./tags";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
 import { colors } from "./colors";
+import { suppliers } from "./suppliers";
+import { supplierContacts } from "./supplier-contacts";
+import { supplierChannels } from "./supplier-channels";
+import { supplierCustomFields } from "./supplier-custom-fields";
 
 export * from "./tenants";
 export * from "./products";
@@ -18,6 +22,10 @@ export * from "./product-measurements";
 export * from "./tags";
 export * from "./categories";
 export * from "./colors";
+export * from "./suppliers";
+export * from "./supplier-contacts";
+export * from "./supplier-channels";
+export * from "./supplier-custom-fields";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -56,9 +64,28 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   products: many(products),
   categories: many(categories),
   colors: many(colors),
+  suppliers: many(suppliers),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   parent: one(categories, { fields: [categories.parentId], references: [categories.id] }),
   children: many(categories),
+}));
+
+export const suppliersRelations = relations(suppliers, ({ many }) => ({
+  contacts: many(supplierContacts),
+  channels: many(supplierChannels),
+  customFields: many(supplierCustomFields),
+}));
+
+export const supplierContactsRelations = relations(supplierContacts, ({ one }) => ({
+  supplier: one(suppliers, { fields: [supplierContacts.supplierId], references: [suppliers.id] }),
+}));
+
+export const supplierChannelsRelations = relations(supplierChannels, ({ one }) => ({
+  supplier: one(suppliers, { fields: [supplierChannels.supplierId], references: [suppliers.id] }),
+}));
+
+export const supplierCustomFieldsRelations = relations(supplierCustomFields, ({ one }) => ({
+  supplier: one(suppliers, { fields: [supplierCustomFields.supplierId], references: [suppliers.id] }),
 }));

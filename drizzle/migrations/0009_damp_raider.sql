@@ -1,0 +1,1 @@
+ALTER TABLE "suppliers" DROP COLUMN "postal_code";

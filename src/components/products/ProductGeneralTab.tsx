@@ -10,6 +10,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
+import type { SupplierRow } from "@/server/data/suppliers";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
 
@@ -17,11 +18,13 @@ export function ProductGeneralTab({
   product,
   categories,
   colorOptions,
+  suppliers,
   dev,
 }: {
   product: Product;
   categories: CategoryRow[];
   colorOptions: ColorOption[];
+  suppliers: SupplierRow[];
   dev: boolean;
 }) {
   const { form, setField } = useProductEditor();
@@ -70,7 +73,7 @@ export function ProductGeneralTab({
           <ProductPhotoGallery productId={product.id} photos={product.photos} />
         </DevBlockLabel>
         <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
-          <ProductMetaPanel product={product} variantsEnabled={variantsEnabled} />
+          <ProductMetaPanel product={product} variantsEnabled={variantsEnabled} suppliers={suppliers} />
         </DevBlockLabel>
       </div>
 

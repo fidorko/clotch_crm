@@ -13,6 +13,7 @@ import {
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
+import { suppliers } from "./suppliers";
 
 export const productStatusEnum = pgEnum("product_status", ["active", "inactive", "archived"]);
 export const priceModeEnum = pgEnum("price_mode", ["amount", "percent"]);
@@ -71,8 +72,9 @@ export const products = pgTable(
     retailDiscountPercent: numeric("retail_discount_percent", { precision: 5, scale: 2 })
       .notNull()
       .default("0"),
-    // meta.*
-    supplier: text("supplier"),
+    // meta.* — supplierId: реальний FK на suppliers (settings → Довідники), не вільний
+    // текст (як раніше "supplier"). ON DELETE SET NULL, той самий патерн, що categoryId.
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
     brandCountry: text("brand_country"),
     internalCode: text("internal_code"),
     supplierCode: text("supplier_code"),

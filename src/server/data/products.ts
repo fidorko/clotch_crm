@@ -285,6 +285,8 @@ export interface SaveProductInput {
   name: string;
   status: ProductStatus;
   categoryId: string | null;
+  supplierId: string | null;
+  brand: string;
   collection: string;
   info: {
     gender: string;
@@ -298,7 +300,6 @@ export interface SaveProductInput {
   };
   pricing: Product["pricing"];
   meta: {
-    supplier: string;
     brandCountry: string;
     internalCode: string;
     supplierCode: string;
@@ -360,6 +361,8 @@ export async function saveProduct(
         name: input.name,
         status: input.status,
         categoryId: input.categoryId,
+        supplierId: input.supplierId,
+        brand: input.brand,
         collection: input.collection,
         gender: input.info.gender,
         seasonType: input.info.seasonType,
@@ -383,7 +386,6 @@ export async function saveProduct(
         retailDiscountMode: input.pricing.retailDiscount.mode,
         retailDiscountAmount: String(input.pricing.retailDiscount.amount),
         retailDiscountPercent: String(input.pricing.retailDiscount.percent),
-        supplier: input.meta.supplier,
         brandCountry: input.meta.brandCountry,
         internalCode: input.meta.internalCode,
         supplierCode: input.meta.supplierCode,

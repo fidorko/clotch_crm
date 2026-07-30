@@ -18,15 +18,16 @@ import {
 import { EditableTextRow } from "@/components/ui/editable-text-row";
 import { Input } from "@/components/ui/input";
 import { SelectRow } from "@/components/ui/select-row";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
 import { TextRow } from "@/components/ui/text-row";
 import { Textarea } from "@/components/ui/textarea";
 import { selectedSku } from "@/lib/mocks/products";
 import type { Product } from "@/lib/types/product";
+import type { SupplierRow } from "@/server/data/suppliers";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
 
-// Тимчасові довідники. Планово — довідники з БД (див. db.md).
-const SUPPLIER_OPTIONS = ["Textile Group", "FabricPro", "UkrLen", "Prime Textile"];
+// Тимчасовий довідник. Планово — довідник з БД (див. db.md).
 const BRAND_COUNTRY_OPTIONS = ["Україна", "Туреччина", "Польща", "Італія", "Китай", "США"];
 const COUNTRY_OF_ORIGIN_OPTIONS = ["Туреччина", "Україна", "Китай", "Бангладеш", "Узбекистан"];
 const TAG_OPTIONS = [
@@ -286,18 +287,60 @@ function SkuBarcodeRow({ value }: { value: string }) {
   );
 }
 
+// Постачальник тепер обирається з реального довідника (settings → Довідники →
+// Постачальники), не з хардкодженого списку — value/options тут id, не назва
+// (SelectValue отримує render-функцію, як і CategoriesTab, ui-kit.md).
+function SupplierSelectRow({
+  value,
+  suppliers,
+  onChange,
+}: {
+  value: string;
+  suppliers: SupplierRow[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 py-1">
+      <span className="w-40 shrink-0 text-sm text-muted-foreground">Постачальник</span>
+      <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
+        <SelectTrigger
+          size="sm"
+          className="min-w-0 flex-1 justify-between gap-1 border-transparent bg-transparent px-1.5 text-sm font-normal text-foreground shadow-none hover:border-input hover:bg-accent/50 data-[state=open]:border-input"
+        >
+          <SelectValue className="truncate">
+            {(v: string) => suppliers.find((s) => s.id === v)?.name ?? "—"}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent align="start">
+          {suppliers.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">Немає постачальників</div>
+          ) : (
+            suppliers.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export function ProductMetaPanel({
   product,
   variantsEnabled,
+  suppliers,
 }: {
   product: Product;
   variantsEnabled: boolean;
+  suppliers: SupplierRow[];
 }) {
   const { form, setField } = useProductEditor();
   const meta = form.meta;
   const info = form.info;
 
-  const supplier = meta.supplier;
+  const supplierId = form.supplierId;
   const brandCountry = meta.brandCountry;
   const countryOfOrigin = info.countryOfOrigin;
   const description = info.description;
@@ -318,7 +361,7 @@ export function ProductMetaPanel({
     setField("info", { ...info, [key]: value });
   }
 
-  const setSupplier = (value: string) => setMeta("supplier", value);
+  const setSupplierId = (value: string) => setField("supplierId", value);
   const setBrandCountry = (value: string) => setMeta("brandCountry", value);
   const setCountryOfOrigin = (value: string) => setInfo("countryOfOrigin", value);
   const setDescription = (value: string) => setInfo("description", value);
@@ -351,12 +394,7 @@ export function ProductMetaPanel({
         <DetailRow align="left" label="Оновлено" value={product.meta.updatedAt} />
         <DetailRow align="left" label="Створив" value={product.meta.createdBy} />
         <DetailRow align="left" label="Останній редагував" value={product.meta.updatedBy} />
-        <SelectRow
-          label="Постачальник"
-          value={supplier}
-          options={SUPPLIER_OPTIONS}
-          onChange={setSupplier}
-        />
+        <SupplierSelectRow value={supplierId} suppliers={suppliers} onChange={setSupplierId} />
         <SelectRow
           label="Країна бренду"
           value={brandCountry}
@@ -369,7 +407,11 @@ export function ProductMetaPanel({
           options={COUNTRY_OF_ORIGIN_OPTIONS}
           onChange={setCountryOfOrigin}
         />
-        <EditableTextRow label="Внутрішній артикул" value={internalCode} onChange={setInternalCode} />
+        <EditableTextRow
+          label="Внутрішній артикул моделі"
+          value={internalCode}
+          onChange={setInternalCode}
+        />
         <TextRow label="Артикул постачальника" value={supplierCode} onChange={setSupplierCode} />
         {!variantsEnabled && (
           <>

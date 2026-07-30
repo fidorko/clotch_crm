@@ -44,9 +44,10 @@ function EditablePriceRow({
           <Input
             type="number"
             min={0}
+            step={1}
             autoFocus
             value={displayed}
-            onChange={(e) => setOverride(Number(e.target.value))}
+            onChange={(e) => setOverride(Math.round(Number(e.target.value)))}
             onBlur={() => setIsEditing(false)}
             onKeyDown={(e) => {
               if (e.key === "Enter") setIsEditing(false);
@@ -64,7 +65,7 @@ function EditablePriceRow({
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1.5">
         <span className={cn("text-sm text-foreground", emphasis && "font-semibold")}>
-          {displayed.toFixed(2)} грн
+          {Math.round(displayed)} грн
         </span>
         <button
           type="button"

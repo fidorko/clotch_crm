@@ -49,6 +49,8 @@ export interface Product {
   // Реальний зв'язок із деревом categories (settings) — null, поки не обрано.
   // category/categoryPath лишаються окремо (вільний текст, хлібні крихти) — db.md.
   categoryId: string | null;
+  // Реальний FK на suppliers (settings → Довідники) — null, поки не обрано.
+  supplierId: string | null;
   status: ProductStatus;
   isDraft: boolean;
   modelCode: string;
@@ -81,7 +83,6 @@ export interface Product {
     updatedAt: string;
     createdBy: string;
     updatedBy: string;
-    supplier: string;
     brandCountry: string;
     internalCode: string;
     supplierCode: string;
