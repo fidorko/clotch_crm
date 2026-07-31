@@ -87,6 +87,14 @@ PostgreSQL 16 (Docker Compose, локально) + Drizzle ORM. Схема: `src
 
 `product_skus.color`/`color_hex` лишаються копією значення на момент створення SKU (не FK на `colors.id`) — як і раніше було задумано для `product_skus` (див. розділ вище): видалення кольору з довідника не ламає вже створені SKU заднім числом. Дев-сід (`npm run db:seed`) заповнює 30 найпоширеніших кольорів одягу (`lib/mocks/colors.ts`) — ідемпотентно (`onConflictDoNothing`, за UNIQUE-обмеженням).
 
+### reference_items
+Один спільний довідник для 9 «просто назва» пунктів «Довідники» (settings): `collections`/`seasons`/`fabric-materials`/`manufacturers`/`brands`/`countries`/`currencies`/`units`/`fit` — замість окремої таблиці на кожен тип. `tenant_id`, `kind` (enum `reference_item_kind`, той самий список значень, що `REFERENCE_ITEM_KINDS` у `lib/constants/reference-item-kinds.ts` — тримати синхронно вручну, schema-файли навмисно не імпортують з `lib/`), `name`, `position`. UNIQUE `(tenant_id, kind, name)` — дублікат назви в межах одного kind заборонено, той самий кортеж не заважає різним kind мати однакову назву. Індекс `(tenant_id, kind, position)`.
+
+**Свідомо НЕ увійшли в цей спільний довідник:** «Інструкція по догляду» (потрібна ще й іконка на запис — `CARE_OPTIONS` лишається app-константою, `lib/constants/measurement-types.ts`-подібний випадок) і «Розміри та заміри» (не просто список назв, а ціла розмірна сітка — `SIZE_OPTIONS`/`ProductSizeChart` лишаються як є). «Теги» — теж не тут, має власну таблицю `tags` (нижче) ще з першого проходу товарів, довідник лише додав UI поверх наявних даних.
+
+### tags — тепер і як самостійний довідник
+Таблиця `tags` існувала з першого проходу товарів (`product_tags`, синхронізація міток через `syncProductTags`). Розділ «Довідники» → «Теги» (`settings/references/tags`) додав прямий CRUD над тією ж таблицею (`server/data/tags.ts` — `listTags`/`createTag`/`updateTag`/`deleteTag`), без жодних змін схеми. Видалення тегу каскадно прибирає його з `product_tags` (`ON DELETE CASCADE`, уже було в схемі) — товари лишаються, лише без цього тегу; діалог підтвердження явно про це попереджає.
+
 ### suppliers / supplier_contacts / supplier_channels / supplier_custom_fields
 Довідник постачальників (`settings` → «Довідники» → «Постачальники»). `suppliers`: `tenant_id`, `name`, `code` (генерується сервером, `SUP-0001`...; UNIQUE `(tenant_id, code)` — генерація рахує поточну кількість +1, при рідкісній гонці `createSupplier` ловить `23505` і повторює з наступним номером, до 5 спроб), `type` (enum `manufacturer`/`distributor`/`wholesaler`/`importer`/`other`), `is_active`, `website`, `country`/`city`/`address`, `notes`. Індекс `(tenant_id, created_at)`.
 

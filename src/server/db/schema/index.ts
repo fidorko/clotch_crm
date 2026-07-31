@@ -12,6 +12,7 @@ import { suppliers } from "./suppliers";
 import { supplierContacts } from "./supplier-contacts";
 import { supplierChannels } from "./supplier-channels";
 import { supplierCustomFields } from "./supplier-custom-fields";
+import { referenceItems } from "./reference-items";
 
 export * from "./tenants";
 export * from "./products";
@@ -26,6 +27,7 @@ export * from "./suppliers";
 export * from "./supplier-contacts";
 export * from "./supplier-channels";
 export * from "./supplier-custom-fields";
+export * from "./reference-items";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -65,6 +67,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   categories: many(categories),
   colors: many(colors),
   suppliers: many(suppliers),
+  referenceItems: many(referenceItems),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({

@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import {
   suppliers,
@@ -41,6 +41,46 @@ export async function listSuppliers(tenantId: string): Promise<SupplierRow[]> {
       .where(eq(suppliers.tenantId, tenantId))
       .orderBy(asc(suppliers.createdAt))
   );
+}
+
+export interface SupplierListItem extends SupplierRow {
+  primaryContact: { name: string; phone: string | null; email: string | null } | null;
+}
+
+/**
+ * Список для сторінки-таблиці постачальників — разом з першою контактною
+ * особою (за position) кожного. Один батч-запит контактів по всіх id одразу
+ * (не в циклі, правило 7 CLAUDE.md), не окрема функція на кожен рядок.
+ */
+export async function listSuppliersWithPrimaryContact(tenantId: string): Promise<SupplierListItem[]> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.tenantId, tenantId))
+      .orderBy(desc(suppliers.updatedAt));
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const contactRows = await tx
+      .select()
+      .from(supplierContacts)
+      .where(and(eq(supplierContacts.tenantId, tenantId), inArray(supplierContacts.supplierId, ids)))
+      .orderBy(asc(supplierContacts.position));
+
+    const primaryBySupplier = new Map<string, SupplierContactRow>();
+    for (const contact of contactRows) {
+      if (!primaryBySupplier.has(contact.supplierId)) primaryBySupplier.set(contact.supplierId, contact);
+    }
+
+    return rows.map((row) => {
+      const contact = primaryBySupplier.get(row.id);
+      return {
+        ...row,
+        primaryContact: contact ? { name: contact.name, phone: contact.phone, email: contact.email } : null,
+      };
+    });
+  });
 }
 
 export async function getSupplierById(

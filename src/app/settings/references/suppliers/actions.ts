@@ -46,6 +46,7 @@ export async function createSupplierAction(input: SupplierFormInput): Promise<Su
   const clean = normalizeInput(input);
   const supplier = await createSupplierInDb(tenantId, clean);
   revalidatePath("/settings/references/suppliers");
+  revalidatePath("/settings");
   return supplier;
 }
 
@@ -61,4 +62,5 @@ export async function deleteSupplierAction(id: string): Promise<void> {
   const tenantId = getDevTenantId();
   await deleteSupplierInDb(tenantId, id);
   revalidatePath("/settings/references/suppliers");
+  revalidatePath("/settings");
 }

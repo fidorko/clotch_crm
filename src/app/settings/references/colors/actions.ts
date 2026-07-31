@@ -28,6 +28,7 @@ export async function createColorAction(name: string, hex: string): Promise<Colo
   const input = parseColorInput(name, hex);
   const color = await createColorInDb(tenantId, input);
   revalidatePath("/settings/references/colors");
+  revalidatePath("/settings");
   return color;
 }
 

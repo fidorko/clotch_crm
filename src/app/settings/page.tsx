@@ -7,6 +7,9 @@ import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listColors } from "@/server/data/colors";
 import { listSuppliers } from "@/server/data/suppliers";
+import { listReferenceItemsForKinds } from "@/server/data/reference-items";
+import { listTags } from "@/server/data/tags";
+import { REFERENCE_ITEM_KINDS } from "@/lib/constants/reference-item-kinds";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 export const metadata: Metadata = {
@@ -40,10 +43,28 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [colors, suppliers] = await Promise.all([listColors(tenantId), listSuppliers(tenantId)]);
+  const [colors, suppliers, referenceItemsByKind, tags] = await Promise.all([
+    listColors(tenantId),
+    listSuppliers(tenantId),
+    listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
+    listTags(tenantId),
+  ]);
+  const supplierItems = suppliers.map((s) => ({ id: s.id, name: s.name }));
+  const tagItems = tags.map((t) => ({ id: t.id, name: t.label }));
+  const itemsByKind = Object.fromEntries(
+    Object.entries(referenceItemsByKind).map(([kind, rows]) => [
+      kind,
+      rows.map((row) => ({ id: row.id, name: row.name })),
+    ])
+  );
   return (
     <DevBlockLabel name="ReferencesList" enabled={dev}>
-      <ReferencesList colors={colors} suppliers={suppliers} />
+      <ReferencesList
+        colors={colors}
+        suppliers={supplierItems}
+        referenceItemsByKind={itemsByKind}
+        tags={tagItems}
+      />
     </DevBlockLabel>
   );
 }

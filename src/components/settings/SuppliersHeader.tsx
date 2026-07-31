@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 
@@ -24,11 +25,14 @@ export function SuppliersHeader({ total }: { total: number }) {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">Постачальники</h1>
-          <span className="text-sm text-muted-foreground">
-            {total} {total === 1 ? "постачальник" : "постачальників"}
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground">Постачальники</h1>
+            <Badge variant="secondary" className="rounded-full">
+              {total} {total === 1 ? "постачальник" : "постачальників"}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">Керуйте постачальниками та їх інформацією в системі</p>
         </div>
         <Link href="/settings/references/suppliers/new" className={buttonVariants({ variant: "default" })}>
           <Plus className="size-4" />
