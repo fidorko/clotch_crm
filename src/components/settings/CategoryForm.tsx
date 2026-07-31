@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
+import { HeaderActions } from "@/components/layout/HeaderActions";
 import type { CategoryRow } from "@/server/data/categories";
 import { isDescendantCategory } from "@/lib/categories/tree";
 import {
@@ -125,7 +126,28 @@ export function CategoryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Link href="/settings" className="hover:text-foreground">
+              Налаштування
+            </Link>
+            <span>/</span>
+            <Link href="/settings?tab=categories" className="hover:text-foreground">
+              Категорії товару
+            </Link>
+            <span>/</span>
+            <span className="text-foreground">{category ? category.name : "Додати категорію"}</span>
+          </nav>
+          <HeaderActions />
+        </div>
+        <h1 className="text-2xl font-semibold text-foreground">
+          {category ? category.name : "Додати категорію"}
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[1fr_360px]">
       <div className="flex flex-col gap-4">
         <Card className="gap-0 py-4">
           <CardContent className="flex flex-col gap-4 px-4">
@@ -344,12 +366,13 @@ export function CategoryForm({
               <Save className="size-4" />
               {category ? "Зберегти" : "Створити категорію"}
             </Button>
-            <Link href="/settings" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/settings?tab=categories" className={buttonVariants({ variant: "outline" })}>
               Скасувати
             </Link>
           </CardContent>
         </Card>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

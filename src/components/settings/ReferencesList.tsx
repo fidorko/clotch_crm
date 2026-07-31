@@ -222,6 +222,17 @@ function AddSlot({ item }: { item: ReferenceItem }) {
     );
   }
   if (item.id === "tags") return <QuickAddReferenceItemButton source={{ type: "tag" }} />;
+  if (item.id === "currencies") {
+    return (
+      <Link
+        href="/settings/references/currencies"
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+      >
+        <Plus className="size-3" />
+        Додати
+      </Link>
+    );
+  }
   if (!NO_DATA_IDS.has(item.id)) {
     return <QuickAddReferenceItemButton source={{ type: "reference-item", kind: item.id as ReferenceItemKind }} />;
   }
@@ -264,11 +275,13 @@ function ReferenceTile({ item }: { item: ReferenceItem }) {
 
 export function ReferencesList({
   colors = [],
+  currencies = [],
   suppliers = [],
   referenceItemsByKind = {},
   tags = [],
 }: {
   colors?: { name: string; hex: string }[];
+  currencies?: { code: string; symbol: string }[];
   suppliers?: { id: string; name: string }[];
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
   tags?: { id: string; name: string }[];
@@ -279,6 +292,17 @@ export function ReferencesList({
         ...def,
         count: colors.length,
         values: colors.map((c) => ({ label: c.name, swatch: c.hex, href: "/settings/references/colors" })),
+        hasData: true,
+      };
+    }
+    if (def.id === "currencies") {
+      return {
+        ...def,
+        count: currencies.length,
+        values: currencies.map((c) => ({
+          label: c.symbol ? `${c.code} ${c.symbol}` : c.code,
+          href: "/settings/references/currencies",
+        })),
         hasData: true,
       };
     }

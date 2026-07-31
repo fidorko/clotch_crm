@@ -1,6 +1,9 @@
 // Список kind тут МАЄ збігатися з масивом значень reference_item_kind enum у
 // server/db/schema/reference-items.ts (там — окремий літерал, схемні файли не
 // імпортують з lib/, той самий підхід, що й решта schema/*.ts).
+// "currencies" тут НЕМАЄ навмисно — валюти отримали власну таблицю (schema/currencies.ts,
+// потребують коду/символу/курсу, не просто назву), значення "currencies" лишається
+// в pg-enum reference_item_kind (Postgres не вміє DROP VALUE), але не використовується.
 export const REFERENCE_ITEM_KINDS = [
   "collections",
   "seasons",
@@ -8,7 +11,6 @@ export const REFERENCE_ITEM_KINDS = [
   "manufacturers",
   "brands",
   "countries",
-  "currencies",
   "units",
   "fit",
 ] as const;
@@ -22,7 +24,6 @@ export const REFERENCE_ITEM_KIND_LABELS: Record<ReferenceItemKind, string> = {
   manufacturers: "Виробники",
   brands: "Бренди",
   countries: "Країни",
-  currencies: "Валюти",
   units: "Одиниці виміру",
   fit: "Посадка",
 };

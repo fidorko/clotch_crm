@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { TagsReferenceList } from "@/components/settings/TagsReferenceList";
+import { CurrenciesList } from "@/components/settings/CurrenciesList";
 import { HeaderActions } from "@/components/layout/HeaderActions";
-import { listTags } from "@/server/data/tags";
+import { listCurrencies } from "@/server/data/currencies";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 
 export const metadata: Metadata = {
-  title: "Теги",
+  title: "Валюти",
 };
 
-export default async function TagsPage() {
-  const tags = await listTags(getDevTenantId());
+export default async function CurrenciesPage() {
+  const currencies = await listCurrencies(getDevTenantId());
   const dev = DEV_BLOCK_LABELS.settings;
 
   return (
@@ -28,15 +28,15 @@ export default async function TagsPage() {
               Довідники
             </Link>
             <span>/</span>
-            <span className="text-foreground">Теги</span>
+            <span className="text-foreground">Валюти</span>
           </nav>
           <HeaderActions />
         </div>
-        <h1 className="text-2xl font-semibold text-foreground">Теги</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Валюти</h1>
       </div>
 
-      <DevBlockLabel name="TagsReferenceList" enabled={dev}>
-        <TagsReferenceList tags={tags} />
+      <DevBlockLabel name="CurrenciesList" enabled={dev}>
+        <CurrenciesList currencies={currencies} />
       </DevBlockLabel>
     </div>
   );

@@ -4,6 +4,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { mockProduct } from "@/lib/mocks/products";
 import { mockCategories } from "@/lib/mocks/categories";
 import { mockColors } from "@/lib/mocks/colors";
+import { mockBrands } from "@/lib/mocks/brands";
+import { mockCurrencies } from "@/lib/mocks/currencies";
 import * as schema from "./schema";
 
 /**
@@ -185,6 +187,40 @@ async function main() {
           tenantId: devTenantId,
           name: color.name,
           hex: color.hex,
+          position: index,
+        }))
+      )
+      .onConflictDoNothing();
+  }
+
+  if (mockBrands.length > 0) {
+    await db
+      .insert(schema.referenceItems)
+      .values(
+        mockBrands.map((name, index) => ({
+          tenantId: devTenantId,
+          kind: "brands" as const,
+          name,
+          position: index,
+        }))
+      )
+      .onConflictDoNothing();
+  }
+
+  if (mockCurrencies.length > 0) {
+    await db
+      .insert(schema.currencies)
+      .values(
+        mockCurrencies.map((currency, index) => ({
+          tenantId: devTenantId,
+          code: currency.code,
+          name: currency.name,
+          symbol: currency.symbol,
+          symbolPosition: currency.symbolPosition,
+          decimalPlaces: currency.decimalPlaces,
+          isActive: currency.isActive,
+          isDefault: currency.isDefault,
+          autoUpdate: currency.autoUpdate,
           position: index,
         }))
       )

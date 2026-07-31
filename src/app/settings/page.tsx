@@ -6,6 +6,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listColors } from "@/server/data/colors";
+import { listCurrencies } from "@/server/data/currencies";
 import { listSuppliers } from "@/server/data/suppliers";
 import { listReferenceItemsForKinds } from "@/server/data/reference-items";
 import { listTags } from "@/server/data/tags";
@@ -43,12 +44,14 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [colors, suppliers, referenceItemsByKind, tags] = await Promise.all([
+  const [colors, currencies, suppliers, referenceItemsByKind, tags] = await Promise.all([
     listColors(tenantId),
+    listCurrencies(tenantId),
     listSuppliers(tenantId),
     listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
     listTags(tenantId),
   ]);
+  const currencyItems = currencies.map((c) => ({ code: c.code, symbol: c.symbol }));
   const supplierItems = suppliers.map((s) => ({ id: s.id, name: s.name }));
   const tagItems = tags.map((t) => ({ id: t.id, name: t.label }));
   const itemsByKind = Object.fromEntries(
@@ -61,6 +64,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
     <DevBlockLabel name="ReferencesList" enabled={dev}>
       <ReferencesList
         colors={colors}
+        currencies={currencyItems}
         suppliers={supplierItems}
         referenceItemsByKind={itemsByKind}
         tags={tagItems}
