@@ -68,16 +68,34 @@ export function CategoryForm({
     ownShowInHeaderMenu ??
     resolveInheritedField(allCategories, inheritFromId, "showInHeaderMenu") ??
     true;
-  const [defaultWeightKg, setDefaultWeightKg] = useState(category?.defaultWeightKg ?? "");
-  const [defaultLengthCm, setDefaultLengthCm] = useState(
-    category?.defaultLengthCm != null ? String(category.defaultLengthCm) : ""
+  // Той самий принцип, що 3 перемикачі вище: null = не задано на цій
+  // категорії, поле показує ефективне (успадковане) значення, доки людина
+  // сама його не введе — тоді стає власним. Раніше тут був баг: ці 4 поля
+  // мали "сирий" стан без резолву успадкування (лише перемикачі його мали),
+  // тож дочірня категорія ніколи не бачила зміненої ваги/розмірів батька.
+  const [ownDefaultWeightKg, setOwnDefaultWeightKg] = useState<string | null>(
+    category?.defaultWeightKg ?? null
   );
-  const [defaultWidthCm, setDefaultWidthCm] = useState(
-    category?.defaultWidthCm != null ? String(category.defaultWidthCm) : ""
+  const [ownDefaultLengthCm, setOwnDefaultLengthCm] = useState<string | null>(
+    category?.defaultLengthCm != null ? String(category.defaultLengthCm) : null
   );
-  const [defaultHeightCm, setDefaultHeightCm] = useState(
-    category?.defaultHeightCm != null ? String(category.defaultHeightCm) : ""
+  const [ownDefaultWidthCm, setOwnDefaultWidthCm] = useState<string | null>(
+    category?.defaultWidthCm != null ? String(category.defaultWidthCm) : null
   );
+  const [ownDefaultHeightCm, setOwnDefaultHeightCm] = useState<string | null>(
+    category?.defaultHeightCm != null ? String(category.defaultHeightCm) : null
+  );
+  const inheritedDefaultWeightKg = resolveInheritedField(allCategories, inheritFromId, "defaultWeightKg");
+  const inheritedDefaultLengthCm = resolveInheritedField(allCategories, inheritFromId, "defaultLengthCm");
+  const inheritedDefaultWidthCm = resolveInheritedField(allCategories, inheritFromId, "defaultWidthCm");
+  const inheritedDefaultHeightCm = resolveInheritedField(allCategories, inheritFromId, "defaultHeightCm");
+  const defaultWeightKg = ownDefaultWeightKg ?? inheritedDefaultWeightKg ?? "";
+  const defaultLengthCm =
+    ownDefaultLengthCm ?? (inheritedDefaultLengthCm != null ? String(inheritedDefaultLengthCm) : "");
+  const defaultWidthCm =
+    ownDefaultWidthCm ?? (inheritedDefaultWidthCm != null ? String(inheritedDefaultWidthCm) : "");
+  const defaultHeightCm =
+    ownDefaultHeightCm ?? (inheritedDefaultHeightCm != null ? String(inheritedDefaultHeightCm) : "");
   const [seoH1, setSeoH1] = useState(category?.seoH1 ?? "");
   const [seoMetaTitle, setSeoMetaTitle] = useState(category?.seoMetaTitle ?? "");
   const [seoMetaDescription, setSeoMetaDescription] = useState(category?.seoMetaDescription ?? "");
@@ -132,10 +150,14 @@ export function CategoryForm({
     if (ownShowInStorefrontSection !== null)
       fd.set("showInStorefrontSection", String(ownShowInStorefrontSection));
     if (ownShowInHeaderMenu !== null) fd.set("showInHeaderMenu", String(ownShowInHeaderMenu));
-    fd.set("defaultWeightKg", defaultWeightKg);
-    fd.set("defaultLengthCm", defaultLengthCm);
-    fd.set("defaultWidthCm", defaultWidthCm);
-    fd.set("defaultHeightCm", defaultHeightCm);
+    // own (не ефективне) — щоб непорушений inherited-хінт у полі не
+    // "заморозився" у власне значення при простому збереженні форми;
+    // own === null природно стає порожнім рядком → numberOrNull → null
+    // (лишається успадкованим), як і для порожнього поля взагалі.
+    fd.set("defaultWeightKg", ownDefaultWeightKg ?? "");
+    fd.set("defaultLengthCm", ownDefaultLengthCm ?? "");
+    fd.set("defaultWidthCm", ownDefaultWidthCm ?? "");
+    fd.set("defaultHeightCm", ownDefaultHeightCm ?? "");
     fd.set("seoH1", seoH1);
     fd.set("seoMetaTitle", seoMetaTitle);
     fd.set("seoMetaDescription", seoMetaDescription);
@@ -326,7 +348,7 @@ export function CategoryForm({
                 min={0}
                 step={0.01}
                 value={defaultWeightKg}
-                onChange={(e) => setDefaultWeightKg(e.target.value)}
+                onChange={(e) => setOwnDefaultWeightKg(e.target.value)}
                 placeholder="для товарів"
               />
             </div>
@@ -340,7 +362,7 @@ export function CategoryForm({
                   type="number"
                   min={0}
                   value={defaultLengthCm}
-                  onChange={(e) => setDefaultLengthCm(e.target.value)}
+                  onChange={(e) => setOwnDefaultLengthCm(e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -352,7 +374,7 @@ export function CategoryForm({
                   type="number"
                   min={0}
                   value={defaultWidthCm}
-                  onChange={(e) => setDefaultWidthCm(e.target.value)}
+                  onChange={(e) => setOwnDefaultWidthCm(e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -364,7 +386,7 @@ export function CategoryForm({
                   type="number"
                   min={0}
                   value={defaultHeightCm}
-                  onChange={(e) => setDefaultHeightCm(e.target.value)}
+                  onChange={(e) => setOwnDefaultHeightCm(e.target.value)}
                 />
               </div>
             </div>
