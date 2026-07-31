@@ -11,6 +11,7 @@ import { listCustomCharacteristicsWithValues } from "@/server/data/custom-charac
 import { listSuppliers } from "@/server/data/suppliers";
 import { listReferenceItemsForKinds } from "@/server/data/reference-items";
 import { listDictionaryFlags } from "@/server/data/reference-dictionary-flags";
+import { listFabricTypesWithDetails } from "@/server/data/fabric-types";
 import { REFERENCE_ITEM_KINDS } from "@/lib/constants/reference-item-kinds";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
@@ -45,7 +46,7 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [colors, currencies, suppliers, referenceItemsByKind, customCharacteristics, dictionaryFlags] =
+  const [colors, currencies, suppliers, referenceItemsByKind, customCharacteristics, dictionaryFlags, fabricTypes] =
     await Promise.all([
       listColors(tenantId),
       listCurrencies(tenantId),
@@ -53,9 +54,11 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
       listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
       listCustomCharacteristicsWithValues(tenantId),
       listDictionaryFlags(tenantId, ["colors", "fabric-materials", "care-instructions", "measurements"]),
+      listFabricTypesWithDetails(tenantId),
     ]);
   const currencyItems = currencies.map((c) => ({ code: c.code, symbol: c.symbol }));
   const supplierItems = suppliers.map((s) => ({ id: s.id, name: s.name }));
+  const fabricTypeItems = fabricTypes.map((f) => ({ id: f.id, name: f.name }));
   const itemsByKind = Object.fromEntries(
     Object.entries(referenceItemsByKind).map(([kind, rows]) => [
       kind,
@@ -71,6 +74,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
         referenceItemsByKind={itemsByKind}
         customCharacteristics={customCharacteristics}
         dictionaryFlags={dictionaryFlags}
+        fabricTypes={fabricTypeItems}
       />
     </DevBlockLabel>
   );

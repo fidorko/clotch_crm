@@ -205,9 +205,9 @@ function AddSlot({ item }: { item: ReferenceItem }) {
       </Link>
     );
   }
-  if (item.id === "currencies") {
+  if (item.id === "currencies" || item.id === "fabric-materials") {
     return (
-      <Link href="/settings/references/currencies" className={ADD_LINK_CLASS}>
+      <Link href={item.href} className={ADD_LINK_CLASS}>
         <Plus className="size-3" />
         Додати
       </Link>
@@ -261,6 +261,7 @@ export function ReferencesList({
   referenceItemsByKind = {},
   customCharacteristics = [],
   dictionaryFlags = {},
+  fabricTypes = [],
 }: {
   colors?: ColorRow[];
   currencies?: { code: string; symbol: string }[];
@@ -268,6 +269,7 @@ export function ReferencesList({
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
   customCharacteristics?: CustomCharacteristicWithValues[];
   dictionaryFlags?: Record<string, DictionaryFlags>;
+  fabricTypes?: { id: string; name: string }[];
 }) {
   const items: ReferenceItem[] = REFERENCE_DEFS.map((def) => {
     if (def.id === "currencies") {
@@ -289,6 +291,14 @@ export function ReferencesList({
           label: s.name,
           href: `/settings/references/suppliers/${s.id}`,
         })),
+        hasData: true,
+      };
+    }
+    if (def.id === "fabric-materials") {
+      return {
+        ...def,
+        count: fabricTypes.length,
+        values: fabricTypes.map((f) => ({ label: f.name, href: def.href })),
         hasData: true,
       };
     }

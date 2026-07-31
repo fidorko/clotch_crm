@@ -16,6 +16,15 @@ import { supplierChannels } from "./supplier-channels";
 import { supplierCustomFields } from "./supplier-custom-fields";
 import { referenceItems } from "./reference-items";
 import { referenceDictionaryFlags } from "./reference-dictionary-flags";
+import { materials } from "./materials";
+import { careInstructions } from "./care-instructions";
+import {
+  fabricTypeCareInstructions,
+  fabricTypeComposition,
+  fabricTypePossibleMaterials,
+  fabricTypeSeasons,
+  fabricTypes,
+} from "./fabric-types";
 
 export * from "./tenants";
 export * from "./products";
@@ -34,6 +43,9 @@ export * from "./supplier-channels";
 export * from "./supplier-custom-fields";
 export * from "./reference-items";
 export * from "./reference-dictionary-flags";
+export * from "./materials";
+export * from "./care-instructions";
+export * from "./fabric-types";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -76,6 +88,34 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   referenceItems: many(referenceItems),
   customCharacteristics: many(customCharacteristics),
   referenceDictionaryFlags: many(referenceDictionaryFlags),
+  materials: many(materials),
+  careInstructions: many(careInstructions),
+  fabricTypes: many(fabricTypes),
+}));
+
+export const fabricTypesRelations = relations(fabricTypes, ({ many }) => ({
+  composition: many(fabricTypeComposition),
+  possibleMaterials: many(fabricTypePossibleMaterials),
+  seasons: many(fabricTypeSeasons),
+  careInstructions: many(fabricTypeCareInstructions),
+}));
+
+export const fabricTypeCompositionRelations = relations(fabricTypeComposition, ({ one }) => ({
+  fabricType: one(fabricTypes, { fields: [fabricTypeComposition.fabricTypeId], references: [fabricTypes.id] }),
+  material: one(materials, { fields: [fabricTypeComposition.materialId], references: [materials.id] }),
+}));
+
+export const fabricTypePossibleMaterialsRelations = relations(fabricTypePossibleMaterials, ({ one }) => ({
+  fabricType: one(fabricTypes, { fields: [fabricTypePossibleMaterials.fabricTypeId], references: [fabricTypes.id] }),
+  material: one(materials, { fields: [fabricTypePossibleMaterials.materialId], references: [materials.id] }),
+}));
+
+export const fabricTypeCareInstructionsRelations = relations(fabricTypeCareInstructions, ({ one }) => ({
+  fabricType: one(fabricTypes, { fields: [fabricTypeCareInstructions.fabricTypeId], references: [fabricTypes.id] }),
+  careInstruction: one(careInstructions, {
+    fields: [fabricTypeCareInstructions.careInstructionId],
+    references: [careInstructions.id],
+  }),
 }));
 
 export const customCharacteristicsRelations = relations(customCharacteristics, ({ many }) => ({

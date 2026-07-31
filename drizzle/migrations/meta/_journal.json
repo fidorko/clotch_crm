@@ -127,6 +127,13 @@
       "when": 1785497117148,
       "tag": "0017_marvelous_garia",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785499481054,
+      "tag": "0018_flimsy_excalibur",
+      "breakpoints": true
     }
   ]
 }
