@@ -6,6 +6,7 @@ import { mockCategories } from "@/lib/mocks/categories";
 import { mockColors } from "@/lib/mocks/colors";
 import { mockBrands } from "@/lib/mocks/brands";
 import { mockCurrencies } from "@/lib/mocks/currencies";
+import { mockMaterials } from "@/lib/mocks/materials";
 import * as schema from "./schema";
 
 /**
@@ -271,6 +272,22 @@ async function main() {
         }))
       )
       .onConflictDoNothing();
+  }
+
+  if (mockMaterials.length > 0) {
+    // onConflictDoUpdate (лише category), не onConflictDoNothing — щоб материал,
+    // уже створений людиною вручну з тим самим ім'ям (напр. під час тестування
+    // UI), отримав категорію заднім числом, а не лишився назавжди без неї;
+    // color/position наявного рядка навмисно не чіпаємо.
+    for (const [index, material] of mockMaterials.entries()) {
+      await db
+        .insert(schema.materials)
+        .values({ tenantId: devTenantId, name: material.name, category: material.category, position: index })
+        .onConflictDoUpdate({
+          target: [schema.materials.tenantId, schema.materials.name],
+          set: { category: material.category },
+        });
+    }
   }
 
   console.log("Seed завершено. /products/" + (product?.id ?? "(вже існував)"), "тенант:", devTenantId);

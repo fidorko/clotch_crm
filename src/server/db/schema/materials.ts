@@ -1,6 +1,20 @@
-import { index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
+
+// Невеликий фіксований набір категорій матеріалу (той самий підхід, що
+// fabric_stretch/fabric_season у fabric-types.ts — розробник задає значення,
+// не людина через попап). UI-групування/фільтр за категорією поки не
+// побудовано (не просили) — колонка лише зберігає дані, `modules/settings.md`.
+export const materialCategoryEnum = pgEnum("material_category", [
+  "natural",
+  "cellulose",
+  "synthetic",
+  "leather",
+  "fur",
+  "rubber",
+  "other",
+]);
 
 // Довідник матеріалів (settings → Довідники → Тип тканини та матеріал →
 // вкладка "Матеріали") — з нього обираються значення в "Типовому складі" й
@@ -17,6 +31,7 @@ export const materials = pgTable(
       .references(() => tenants.id),
     name: text("name").notNull(),
     color: text("color"),
+    category: materialCategoryEnum("category"),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

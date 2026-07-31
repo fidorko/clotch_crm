@@ -1,0 +1,2 @@
+CREATE TYPE "public"."material_category" AS ENUM('natural', 'cellulose', 'synthetic', 'leather', 'fur', 'rubber', 'other');--> statement-breakpoint
+ALTER TABLE "materials" ADD COLUMN "category" "material_category";
