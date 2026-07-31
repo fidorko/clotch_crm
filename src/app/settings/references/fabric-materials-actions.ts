@@ -22,22 +22,18 @@ import {
   type MaterialInput,
   type MaterialRow,
 } from "@/server/data/materials";
-import { saveFabricTypeImage } from "@/server/storage/fabric-type-images";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
+// Немає окремої сторінки "Тип тканини та матеріал" — усе керується попапами
+// прямо з плитки "Довідники" (`FabricTypesTile`, settings/page.tsx), тож
+// ревалідуємо лише /settings.
 function revalidateFabricMaterials() {
-  revalidatePath("/settings/references/fabric-materials");
   revalidatePath("/settings");
 }
 
 function parseFabricTypeInput(raw: FabricTypeInput): FabricTypeInput {
   const name = raw.name.trim();
   if (!name) throw new Error("Назва типу тканини обов'язкова");
-  for (const item of raw.composition) {
-    if (item.percent < 0 || item.percent > 100) {
-      throw new Error("Відсоток у складі має бути від 0 до 100");
-    }
-  }
   return { ...raw, name, description: raw.description?.trim() || null };
 }
 
@@ -58,16 +54,6 @@ export async function deleteFabricTypeAction(id: string): Promise<void> {
   const tenantId = getDevTenantId();
   await deleteFabricTypeInDb(tenantId, id);
   revalidateFabricMaterials();
-}
-
-export async function uploadFabricTypeImageAction(formData: FormData): Promise<string> {
-  const tenantId = getDevTenantId();
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    throw new Error("Файл не передано");
-  }
-  const { url } = await saveFabricTypeImage(tenantId, file);
-  return url;
 }
 
 function parseMaterialInput(input: MaterialInput): MaterialInput {

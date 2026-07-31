@@ -7,7 +7,6 @@ import {
   Plus,
   Ruler,
   Scale,
-  Scissors,
   Truck,
   WashingMachine,
   type LucideIcon,
@@ -18,10 +17,13 @@ import { QuickAddReferenceItemButton } from "@/components/settings/QuickAddRefer
 import { CustomCharacteristicFormDialog } from "@/components/settings/CustomCharacteristicFormDialog";
 import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
 import { ColorsTile } from "@/components/settings/ColorsTile";
+import { FabricTypesTile } from "@/components/settings/FabricTypesTile";
 import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDictionaryFlagsRow";
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
 import type { ColorRow } from "@/server/data/colors";
+import type { FabricTypeDetail } from "@/server/data/fabric-types";
+import type { MaterialRow } from "@/server/data/materials";
 import type { DictionaryFlags } from "@/server/data/reference-dictionary-flags";
 
 const DEFAULT_DICTIONARY_FLAGS: DictionaryFlags = {
@@ -31,10 +33,11 @@ const DEFAULT_DICTIONARY_FLAGS: DictionaryFlags = {
 };
 
 // Довідники поза custom_characteristics, яким теж потрібні 3 перемикачі —
-// "colors" має власну плитку/попап (ColorsTile), решта — тут. reference_dictionary_flags
-// не залежить від наявності реальних даних у довіднику (лише dictionary_key), тож
-// перемикачі є і на "care-instructions"/"measurements", хоч там ще нема БД-списку значень.
-const DICTIONARY_FLAG_IDS = new Set(["fabric-materials", "care-instructions", "measurements"]);
+// "colors"/"fabric-materials" мають власну плитку/попап (ColorsTile/FabricTypesTile),
+// решта — тут. reference_dictionary_flags не залежить від наявності реальних
+// даних у довіднику (лише dictionary_key), тож перемикачі є і на
+// "care-instructions"/"measurements", хоч там ще нема БД-списку значень.
+const DICTIONARY_FLAG_IDS = new Set(["care-instructions", "measurements"]);
 
 type ReferenceGroup = "characteristics" | "system";
 
@@ -69,15 +72,6 @@ const GROUP_TITLES: Record<ReferenceGroup, string> = {
 // group — за прямою вказівкою: "Характеристики товару" (описують сам товар) і
 // "Системні" (довідники бізнес-процесу, не характеристики виробу).
 const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
-  {
-    id: "fabric-materials",
-    label: "Тип тканини та матеріал",
-    description: "Типи тканин та матеріали виробів",
-    icon: Scissors,
-    href: "/settings/references/fabric-materials",
-    iconClass: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-    group: "characteristics",
-  },
   {
     id: "care-instructions",
     label: "Інструкція по догляду",
@@ -205,7 +199,7 @@ function AddSlot({ item }: { item: ReferenceItem }) {
       </Link>
     );
   }
-  if (item.id === "currencies" || item.id === "fabric-materials") {
+  if (item.id === "currencies") {
     return (
       <Link href={item.href} className={ADD_LINK_CLASS}>
         <Plus className="size-3" />
@@ -262,6 +256,7 @@ export function ReferencesList({
   customCharacteristics = [],
   dictionaryFlags = {},
   fabricTypes = [],
+  materials = [],
 }: {
   colors?: ColorRow[];
   currencies?: { code: string; symbol: string }[];
@@ -269,7 +264,8 @@ export function ReferencesList({
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
   customCharacteristics?: CustomCharacteristicWithValues[];
   dictionaryFlags?: Record<string, DictionaryFlags>;
-  fabricTypes?: { id: string; name: string }[];
+  fabricTypes?: FabricTypeDetail[];
+  materials?: MaterialRow[];
 }) {
   const items: ReferenceItem[] = REFERENCE_DEFS.map((def) => {
     if (def.id === "currencies") {
@@ -294,14 +290,6 @@ export function ReferencesList({
         hasData: true,
       };
     }
-    if (def.id === "fabric-materials") {
-      return {
-        ...def,
-        count: fabricTypes.length,
-        values: fabricTypes.map((f) => ({ label: f.name, href: def.href })),
-        hasData: true,
-      };
-    }
     if (!NO_DATA_IDS.has(def.id)) {
       const values = referenceItemsByKind[def.id] ?? [];
       return {
@@ -322,6 +310,11 @@ export function ReferencesList({
         <h2 className="text-sm font-semibold text-foreground">{GROUP_TITLES.characteristics}</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <ColorsTile colors={colors} flags={dictionaryFlags.colors ?? DEFAULT_DICTIONARY_FLAGS} />
+          <FabricTypesTile
+            fabricTypes={fabricTypes}
+            materials={materials}
+            flags={dictionaryFlags["fabric-materials"] ?? DEFAULT_DICTIONARY_FLAGS}
+          />
           {items
             .filter((item) => item.group === "characteristics")
             .map((item) => (

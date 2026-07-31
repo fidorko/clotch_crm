@@ -18,13 +18,7 @@ import { referenceItems } from "./reference-items";
 import { referenceDictionaryFlags } from "./reference-dictionary-flags";
 import { materials } from "./materials";
 import { careInstructions } from "./care-instructions";
-import {
-  fabricTypeCareInstructions,
-  fabricTypeComposition,
-  fabricTypePossibleMaterials,
-  fabricTypeSeasons,
-  fabricTypes,
-} from "./fabric-types";
+import { fabricTypePossibleMaterials, fabricTypes } from "./fabric-types";
 
 export * from "./tenants";
 export * from "./products";
@@ -94,28 +88,12 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
 }));
 
 export const fabricTypesRelations = relations(fabricTypes, ({ many }) => ({
-  composition: many(fabricTypeComposition),
   possibleMaterials: many(fabricTypePossibleMaterials),
-  seasons: many(fabricTypeSeasons),
-  careInstructions: many(fabricTypeCareInstructions),
-}));
-
-export const fabricTypeCompositionRelations = relations(fabricTypeComposition, ({ one }) => ({
-  fabricType: one(fabricTypes, { fields: [fabricTypeComposition.fabricTypeId], references: [fabricTypes.id] }),
-  material: one(materials, { fields: [fabricTypeComposition.materialId], references: [materials.id] }),
 }));
 
 export const fabricTypePossibleMaterialsRelations = relations(fabricTypePossibleMaterials, ({ one }) => ({
   fabricType: one(fabricTypes, { fields: [fabricTypePossibleMaterials.fabricTypeId], references: [fabricTypes.id] }),
   material: one(materials, { fields: [fabricTypePossibleMaterials.materialId], references: [materials.id] }),
-}));
-
-export const fabricTypeCareInstructionsRelations = relations(fabricTypeCareInstructions, ({ one }) => ({
-  fabricType: one(fabricTypes, { fields: [fabricTypeCareInstructions.fabricTypeId], references: [fabricTypes.id] }),
-  careInstruction: one(careInstructions, {
-    fields: [fabricTypeCareInstructions.careInstructionId],
-    references: [careInstructions.id],
-  }),
 }));
 
 export const customCharacteristicsRelations = relations(customCharacteristics, ({ many }) => ({

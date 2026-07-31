@@ -12,7 +12,7 @@ import {
   createMaterialAction,
   deleteMaterialAction,
   updateMaterialAction,
-} from "@/app/settings/references/fabric-materials/actions";
+} from "@/app/settings/references/fabric-materials-actions";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -21,14 +21,15 @@ const SWATCH_CLASS =
 
 function MaterialRowItem({
   material,
+  onSave,
   onDelete,
   isDeleting,
 }: {
   material: MaterialRow;
+  onSave: (id: string, name: string, color: string) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
-  const router = useRouter();
   const [name, setName] = useState(material.name);
   const [color, setColor] = useState(material.color ?? "#CCCCCC");
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ function MaterialRowItem({
     startSaving(async () => {
       try {
         await updateMaterialAction(material.id, { name: nextName, color: nextColor });
-        router.refresh();
+        onSave(material.id, nextName, nextColor);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Не вдалося зберегти матеріал");
       }
@@ -95,7 +96,7 @@ function MaterialRowItem({
       <ConfirmDeleteIconButton
         ariaLabel={`Видалити матеріал ${material.name}`}
         title="Видалити матеріал?"
-        description={`Матеріал «${material.name}» буде видалено з довідника й прибраний зі складу та можливих матеріалів усіх типів тканини, де він використовувався.`}
+        description={`Матеріал «${material.name}» буде видалено з довідника й прибраний з можливих матеріалів усіх типів тканини, де він використовувався.`}
         onConfirm={() => onDelete(material.id)}
         className="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
       />
@@ -103,7 +104,20 @@ function MaterialRowItem({
   );
 }
 
-export function MaterialsTab({ materials }: { materials: MaterialRow[] }) {
+/**
+ * Повний CRUD довідника матеріалів — раніше окрема вкладка на сторінці, тепер
+ * вбудований усередину `FabricTypeFormDialog` (немає більше сторінки "Тип
+ * тканини та матеріал", decisions.md). `onMaterialsChange` тримає синхронним
+ * `localMaterials` попапу-батька, `router.refresh()` — дані плитки в гріді
+ * «Довідники» поза попапом.
+ */
+export function MaterialsManager({
+  materials,
+  onMaterialsChange,
+}: {
+  materials: MaterialRow[];
+  onMaterialsChange: (next: MaterialRow[]) => void;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [isCreating, setIsCreating] = useState(false);
@@ -115,7 +129,8 @@ export function MaterialsTab({ materials }: { materials: MaterialRow[] }) {
     setIsCreating(true);
     startTransition(async () => {
       try {
-        await createMaterialAction({ name: "Новий матеріал", color: "#CCCCCC" });
+        const created = await createMaterialAction({ name: "Новий матеріал", color: "#CCCCCC" });
+        onMaterialsChange([...materials, created]);
         router.refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Не вдалося створити матеріал");
@@ -125,12 +140,18 @@ export function MaterialsTab({ materials }: { materials: MaterialRow[] }) {
     });
   }
 
+  function handleSave(id: string, name: string, color: string) {
+    onMaterialsChange(materials.map((m) => (m.id === id ? { ...m, name, color } : m)));
+    router.refresh();
+  }
+
   function handleDelete(id: string) {
     setActionError(null);
     setPendingDeleteId(id);
     startTransition(async () => {
       try {
         await deleteMaterialAction(id);
+        onMaterialsChange(materials.filter((m) => m.id !== id));
         router.refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Не вдалося видалити матеріал");
@@ -141,25 +162,24 @@ export function MaterialsTab({ materials }: { materials: MaterialRow[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Довідник матеріалів — використовується в типовому складі й можливих матеріалах типів тканини.
-        </p>
-        <Button onClick={handleCreate} disabled={isCreating} className="cursor-pointer">
-          <Plus className="size-4" />
+        <p className="text-xs text-muted-foreground">Довідник матеріалів — назва + колір-зразок.</p>
+        <Button size="sm" onClick={handleCreate} disabled={isCreating} className="cursor-pointer">
+          <Plus className="size-3.5" />
           Додати матеріал
         </Button>
       </div>
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-      <Card className="gap-0 py-2">
+      <Card className="max-h-64 gap-0 overflow-y-auto py-2">
         <CardContent className="flex flex-col divide-y divide-border px-0">
           {materials.map((material) => (
             <MaterialRowItem
               key={material.id}
               material={material}
+              onSave={handleSave}
               onDelete={handleDelete}
               isDeleting={pendingDeleteId === material.id}
             />

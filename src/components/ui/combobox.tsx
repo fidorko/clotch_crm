@@ -86,6 +86,30 @@ function ComboboxContent({
   )
 }
 
+function ComboboxGroup({ className, ...props }: ComboboxPrimitive.Group.Props) {
+  return (
+    <ComboboxPrimitive.Group
+      data-slot="combobox-group"
+      className={cn("scroll-my-1 p-1", className)}
+      {...props}
+    />
+  )
+}
+
+function ComboboxGroupLabel({ className, ...props }: ComboboxPrimitive.GroupLabel.Props) {
+  return (
+    <ComboboxPrimitive.GroupLabel
+      data-slot="combobox-group-label"
+      className={cn("px-1.5 py-1 text-sm font-semibold text-primary", className)}
+      {...props}
+    />
+  )
+}
+
+function ComboboxCollection(props: ComboboxPrimitive.Collection.Props) {
+  return <ComboboxPrimitive.Collection {...props} />
+}
+
 function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.Props) {
   return (
     <ComboboxPrimitive.Item
@@ -110,5 +134,8 @@ export {
   ComboboxInput,
   ComboboxTrigger,
   ComboboxContent,
+  ComboboxGroup,
+  ComboboxGroupLabel,
+  ComboboxCollection,
   ComboboxItem,
 }
