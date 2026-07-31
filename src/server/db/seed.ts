@@ -7,6 +7,8 @@ import { mockColors } from "@/lib/mocks/colors";
 import { mockBrands } from "@/lib/mocks/brands";
 import { mockCurrencies } from "@/lib/mocks/currencies";
 import { mockMaterials } from "@/lib/mocks/materials";
+import { mockSizeTypes } from "@/lib/mocks/size-types";
+import { mockMeasurementTypes } from "@/lib/mocks/measurement-types";
 import * as schema from "./schema";
 
 /**
@@ -287,6 +289,71 @@ async function main() {
           target: [schema.materials.tenantId, schema.materials.name],
           set: { category: material.category },
         });
+    }
+  }
+
+  // "Розміри"/"Заміри" — той самий "тип -> значення" сід-патерн, що бренди
+  // (custom_characteristics): insert типу з onConflictDoNothing, за потреби
+  // select наявного id, тоді insert значень з onConflictDoNothing.
+  for (const [typeIndex, sizeType] of mockSizeTypes.entries()) {
+    const [inserted] = await db
+      .insert(schema.sizeTypes)
+      .values({ tenantId: devTenantId, name: sizeType.name, position: typeIndex })
+      .onConflictDoNothing()
+      .returning({ id: schema.sizeTypes.id });
+    const typeId =
+      inserted?.id ??
+      (
+        await db
+          .select({ id: schema.sizeTypes.id })
+          .from(schema.sizeTypes)
+          .where(and(eq(schema.sizeTypes.tenantId, devTenantId), eq(schema.sizeTypes.name, sizeType.name)))
+      )[0].id;
+
+    if (sizeType.values.length > 0) {
+      await db
+        .insert(schema.sizeValues)
+        .values(
+          sizeType.values.map((value, index) => ({
+            tenantId: devTenantId,
+            sizeTypeId: typeId,
+            value,
+            position: index,
+          }))
+        )
+        .onConflictDoNothing();
+    }
+  }
+
+  for (const [typeIndex, measurementType] of mockMeasurementTypes.entries()) {
+    const [inserted] = await db
+      .insert(schema.measurementTypes)
+      .values({ tenantId: devTenantId, name: measurementType.name, position: typeIndex })
+      .onConflictDoNothing()
+      .returning({ id: schema.measurementTypes.id });
+    const typeId =
+      inserted?.id ??
+      (
+        await db
+          .select({ id: schema.measurementTypes.id })
+          .from(schema.measurementTypes)
+          .where(
+            and(eq(schema.measurementTypes.tenantId, devTenantId), eq(schema.measurementTypes.name, measurementType.name))
+          )
+      )[0].id;
+
+    if (measurementType.values.length > 0) {
+      await db
+        .insert(schema.measurementValues)
+        .values(
+          measurementType.values.map((value, index) => ({
+            tenantId: devTenantId,
+            measurementTypeId: typeId,
+            value,
+            position: index,
+          }))
+        )
+        .onConflictDoNothing();
     }
   }
 

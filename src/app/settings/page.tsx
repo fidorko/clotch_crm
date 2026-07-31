@@ -13,6 +13,9 @@ import { listReferenceItemsForKinds } from "@/server/data/reference-items";
 import { listDictionaryFlags } from "@/server/data/reference-dictionary-flags";
 import { listFabricTypesWithDetails } from "@/server/data/fabric-types";
 import { listMaterials } from "@/server/data/materials";
+import { listCareInstructions } from "@/server/data/care-instructions";
+import { listSizeTypesWithValues } from "@/server/data/size-types";
+import { listMeasurementTypesWithValues } from "@/server/data/measurement-types";
 import { REFERENCE_ITEM_KINDS } from "@/lib/constants/reference-item-kinds";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
@@ -47,17 +50,31 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [colors, currencies, suppliers, referenceItemsByKind, customCharacteristics, dictionaryFlags, fabricTypes, materials] =
-    await Promise.all([
-      listColors(tenantId),
-      listCurrencies(tenantId),
-      listSuppliers(tenantId),
-      listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
-      listCustomCharacteristicsWithValues(tenantId),
-      listDictionaryFlags(tenantId, ["colors", "fabric-materials", "care-instructions", "measurements"]),
-      listFabricTypesWithDetails(tenantId),
-      listMaterials(tenantId),
-    ]);
+  const [
+    colors,
+    currencies,
+    suppliers,
+    referenceItemsByKind,
+    customCharacteristics,
+    dictionaryFlags,
+    fabricTypes,
+    materials,
+    careInstructions,
+    sizeTypes,
+    measurementTypes,
+  ] = await Promise.all([
+    listColors(tenantId),
+    listCurrencies(tenantId),
+    listSuppliers(tenantId),
+    listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
+    listCustomCharacteristicsWithValues(tenantId),
+    listDictionaryFlags(tenantId, ["colors", "fabric-materials", "care-instructions", "measurements"]),
+    listFabricTypesWithDetails(tenantId),
+    listMaterials(tenantId),
+    listCareInstructions(tenantId),
+    listSizeTypesWithValues(tenantId),
+    listMeasurementTypesWithValues(tenantId),
+  ]);
   const currencyItems = currencies.map((c) => ({ code: c.code, symbol: c.symbol }));
   const supplierItems = suppliers.map((s) => ({ id: s.id, name: s.name }));
   const itemsByKind = Object.fromEntries(
@@ -77,6 +94,9 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
         dictionaryFlags={dictionaryFlags}
         fabricTypes={fabricTypes}
         materials={materials}
+        careInstructions={careInstructions}
+        sizeTypes={sizeTypes}
+        measurementTypes={measurementTypes}
       />
     </DevBlockLabel>
   );

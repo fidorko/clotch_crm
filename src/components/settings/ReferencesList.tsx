@@ -1,29 +1,22 @@
 import Link from "next/link";
-import {
-  ChevronRight,
-  Coins,
-  Factory,
-  Globe,
-  Plus,
-  Ruler,
-  Scale,
-  Truck,
-  WashingMachine,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronRight, Coins, Factory, Globe, Plus, Scale, Truck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { QuickAddReferenceItemButton } from "@/components/settings/QuickAddReferenceItemButton";
 import { CustomCharacteristicFormDialog } from "@/components/settings/CustomCharacteristicFormDialog";
 import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
 import { ColorsTile } from "@/components/settings/ColorsTile";
 import { FabricTypesTile } from "@/components/settings/FabricTypesTile";
+import { CareInstructionsTile } from "@/components/settings/CareInstructionsTile";
+import { SizesMeasurementsTile } from "@/components/settings/SizesMeasurementsTile";
 import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDictionaryFlagsRow";
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
 import type { ColorRow } from "@/server/data/colors";
 import type { FabricTypeDetail } from "@/server/data/fabric-types";
 import type { MaterialRow } from "@/server/data/materials";
+import type { CareInstructionRow } from "@/server/data/care-instructions";
+import type { SizeTypeWithValues } from "@/server/data/size-types";
+import type { MeasurementTypeWithValues } from "@/server/data/measurement-types";
 import type { DictionaryFlags } from "@/server/data/reference-dictionary-flags";
 
 const DEFAULT_DICTIONARY_FLAGS: DictionaryFlags = {
@@ -31,13 +24,6 @@ const DEFAULT_DICTIONARY_FLAGS: DictionaryFlags = {
   showOnStorefront: true,
   participatesInFilters: true,
 };
-
-// Довідники поза custom_characteristics, яким теж потрібні 3 перемикачі —
-// "colors"/"fabric-materials" мають власну плитку/попап (ColorsTile/FabricTypesTile),
-// решта — тут. reference_dictionary_flags не залежить від наявності реальних
-// даних у довіднику (лише dictionary_key), тож перемикачі є і на
-// "care-instructions"/"measurements", хоч там ще нема БД-списку значень.
-const DICTIONARY_FLAG_IDS = new Set(["care-instructions", "measurements"]);
 
 type ReferenceGroup = "characteristics" | "system";
 
@@ -72,24 +58,6 @@ const GROUP_TITLES: Record<ReferenceGroup, string> = {
 // group — за прямою вказівкою: "Характеристики товару" (описують сам товар) і
 // "Системні" (довідники бізнес-процесу, не характеристики виробу).
 const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
-  {
-    id: "care-instructions",
-    label: "Інструкція по догляду",
-    description: "Інструкції по догляду за виробами",
-    icon: WashingMachine,
-    href: "#",
-    iconClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    group: "characteristics",
-  },
-  {
-    id: "measurements",
-    label: "Розміри та заміри",
-    description: "Розмірні сітки та заміри",
-    icon: Ruler,
-    href: "#",
-    iconClass: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
-    group: "characteristics",
-  },
   {
     id: "manufacturers",
     label: "Виробники",
@@ -137,10 +105,6 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
   },
 ];
 
-// Довідники, що досі не мають бекенду (інша форма даних, ніж "просто назва" —
-// іконка на запис у "Інструкція по догляду", ціла розмірна сітка в "Розміри").
-const NO_DATA_IDS = new Set(["care-instructions", "measurements"]);
-
 function ValueChip({ value }: { value: ReferenceValue }) {
   const content = (
     <>
@@ -169,24 +133,6 @@ function ValueChip({ value }: { value: ReferenceValue }) {
   return <span className={className}>{content}</span>;
 }
 
-// "+ Додати" на плитці — для довідників без власної БД поки лише
-// заглушка з поясненням (чесно, а не тиха бездія при кліку).
-function DisabledAddHint() {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground opacity-60" />
-        }
-      >
-        <Plus className="size-3" />
-        Додати
-      </TooltipTrigger>
-      <TooltipContent>Цей довідник ще не підключено до БД</TooltipContent>
-    </Tooltip>
-  );
-}
-
 const ADD_LINK_CLASS =
   "inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary";
 
@@ -207,10 +153,7 @@ function AddSlot({ item }: { item: ReferenceItem }) {
       </Link>
     );
   }
-  if (!NO_DATA_IDS.has(item.id)) {
-    return <QuickAddReferenceItemButton source={{ type: "reference-item", kind: item.id as ReferenceItemKind }} />;
-  }
-  return <DisabledAddHint />;
+  return <QuickAddReferenceItemButton source={{ type: "reference-item", kind: item.id as ReferenceItemKind }} />;
 }
 
 function ReferenceTile({ item, flags }: { item: ReferenceItem; flags?: DictionaryFlags }) {
@@ -257,6 +200,9 @@ export function ReferencesList({
   dictionaryFlags = {},
   fabricTypes = [],
   materials = [],
+  careInstructions = [],
+  sizeTypes = [],
+  measurementTypes = [],
 }: {
   colors?: ColorRow[];
   currencies?: { code: string; symbol: string }[];
@@ -266,6 +212,9 @@ export function ReferencesList({
   dictionaryFlags?: Record<string, DictionaryFlags>;
   fabricTypes?: FabricTypeDetail[];
   materials?: MaterialRow[];
+  careInstructions?: CareInstructionRow[];
+  sizeTypes?: SizeTypeWithValues[];
+  measurementTypes?: MeasurementTypeWithValues[];
 }) {
   const items: ReferenceItem[] = REFERENCE_DEFS.map((def) => {
     if (def.id === "currencies") {
@@ -290,16 +239,13 @@ export function ReferencesList({
         hasData: true,
       };
     }
-    if (!NO_DATA_IDS.has(def.id)) {
-      const values = referenceItemsByKind[def.id] ?? [];
-      return {
-        ...def,
-        count: values.length,
-        values: values.map((v) => ({ label: v.name, href: def.href })),
-        hasData: true,
-      };
-    }
-    return { ...def, hasData: false };
+    const values = referenceItemsByKind[def.id] ?? [];
+    return {
+      ...def,
+      count: values.length,
+      values: values.map((v) => ({ label: v.name, href: def.href })),
+      hasData: true,
+    };
   });
 
   const systemItems = items.filter((item) => item.group === "system");
@@ -315,15 +261,15 @@ export function ReferencesList({
             materials={materials}
             flags={dictionaryFlags["fabric-materials"] ?? DEFAULT_DICTIONARY_FLAGS}
           />
-          {items
-            .filter((item) => item.group === "characteristics")
-            .map((item) => (
-              <ReferenceTile
-                key={item.id}
-                item={item}
-                flags={DICTIONARY_FLAG_IDS.has(item.id) ? (dictionaryFlags[item.id] ?? DEFAULT_DICTIONARY_FLAGS) : undefined}
-              />
-            ))}
+          <CareInstructionsTile
+            careInstructions={careInstructions}
+            flags={dictionaryFlags["care-instructions"] ?? DEFAULT_DICTIONARY_FLAGS}
+          />
+          <SizesMeasurementsTile
+            sizeTypes={sizeTypes}
+            measurementTypes={measurementTypes}
+            flags={dictionaryFlags["measurements"] ?? DEFAULT_DICTIONARY_FLAGS}
+          />
           {customCharacteristics.map((characteristic) => (
             <CustomCharacteristicTile key={characteristic.id} characteristic={characteristic} />
           ))}

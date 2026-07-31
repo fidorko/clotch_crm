@@ -4,14 +4,17 @@ import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-/** Той самий патерн "перегляд + олівчик → редагування", що й EditableSelectRow, але для тексту. */
+/**
+ * Той самий патерн "перегляд + олівчик → редагування", що й EditableSelectRow, але для тексту.
+ * `label` опційний — без нього рядок без лейбла-префікса (заголовок картки, а не поле форми).
+ */
 export function EditableTextRow({
   label,
   value,
   onChange,
   placeholder,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -26,7 +29,7 @@ export function EditableTextRow({
 
   return (
     <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">{label}</span>
+      {label && <span className="w-40 shrink-0 text-sm text-muted-foreground">{label}</span>}
       {isEditing ? (
         <Input
           autoFocus
@@ -52,7 +55,7 @@ export function EditableTextRow({
               setDraft(value);
               setIsEditing(true);
             }}
-            aria-label={`Редагувати ${label}`}
+            aria-label={label ? `Редагувати ${label}` : "Редагувати назву"}
             className="text-muted-foreground hover:text-foreground"
           >
             <Pencil className="size-3.5" />

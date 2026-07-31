@@ -19,6 +19,8 @@ import { referenceDictionaryFlags } from "./reference-dictionary-flags";
 import { materials } from "./materials";
 import { careInstructions } from "./care-instructions";
 import { fabricTypePossibleMaterials, fabricTypes } from "./fabric-types";
+import { sizeTypes, sizeValues } from "./size-types";
+import { measurementTypes, measurementValues } from "./measurement-types";
 
 export * from "./tenants";
 export * from "./products";
@@ -40,6 +42,8 @@ export * from "./reference-dictionary-flags";
 export * from "./materials";
 export * from "./care-instructions";
 export * from "./fabric-types";
+export * from "./size-types";
+export * from "./measurement-types";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -85,6 +89,24 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   materials: many(materials),
   careInstructions: many(careInstructions),
   fabricTypes: many(fabricTypes),
+  sizeTypes: many(sizeTypes),
+  measurementTypes: many(measurementTypes),
+}));
+
+export const sizeTypesRelations = relations(sizeTypes, ({ many }) => ({
+  values: many(sizeValues),
+}));
+
+export const sizeValuesRelations = relations(sizeValues, ({ one }) => ({
+  sizeType: one(sizeTypes, { fields: [sizeValues.sizeTypeId], references: [sizeTypes.id] }),
+}));
+
+export const measurementTypesRelations = relations(measurementTypes, ({ many }) => ({
+  values: many(measurementValues),
+}));
+
+export const measurementValuesRelations = relations(measurementValues, ({ one }) => ({
+  measurementType: one(measurementTypes, { fields: [measurementValues.measurementTypeId], references: [measurementTypes.id] }),
 }));
 
 export const fabricTypesRelations = relations(fabricTypes, ({ many }) => ({

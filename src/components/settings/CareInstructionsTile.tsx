@@ -1,0 +1,65 @@
+"use client";
+
+import { ChevronRight, WashingMachine } from "lucide-react";
+import { CareInstructionsFormDialog } from "@/components/settings/CareInstructionsFormDialog";
+import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDictionaryFlagsRow";
+import { getCareInstructionIcon } from "@/lib/constants/care-instruction-icons";
+import type { CareInstructionRow } from "@/server/data/care-instructions";
+import type { DictionaryFlags } from "@/server/data/reference-dictionary-flags";
+
+const MAX_VISIBLE_VALUES = 7;
+
+/** Плитка «Інструкція по догляду» — заголовок відкриває попап (CareInstructionsFormDialog), той самий патерн, що ColorsTile. */
+export function CareInstructionsTile({
+  careInstructions,
+  flags,
+}: {
+  careInstructions: CareInstructionRow[];
+  flags: DictionaryFlags;
+}) {
+  const visible = careInstructions.slice(0, MAX_VISIBLE_VALUES);
+  const hasMore = careInstructions.length > MAX_VISIBLE_VALUES;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20">
+      <CareInstructionsFormDialog
+        careInstructions={careInstructions}
+        trigger={
+          <button type="button" className="flex cursor-pointer items-start gap-3 text-left">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <WashingMachine className="size-5" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium text-foreground">Інструкція по догляду</span>
+              <span className="truncate text-xs text-muted-foreground">Інструкції по догляду за виробами</span>
+            </span>
+            <span className="shrink-0 text-sm font-medium text-muted-foreground">{careInstructions.length}</span>
+            <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          </button>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {visible.map((instruction) => {
+          const Icon = getCareInstructionIcon(instruction.icon);
+          return (
+            <span
+              key={instruction.id}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
+            >
+              <Icon className="size-3" />
+              {instruction.name}
+            </span>
+          );
+        })}
+        {hasMore && (
+          <span className="inline-flex items-center rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground">
+            …
+          </span>
+        )}
+      </div>
+
+      <ReferenceDictionaryFlagsRow dictionaryKey="care-instructions" flags={flags} />
+    </div>
+  );
+}
