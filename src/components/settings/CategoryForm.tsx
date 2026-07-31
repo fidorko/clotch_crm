@@ -10,9 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
-import { HeaderActions } from "@/components/layout/HeaderActions";
+import { CategoryFormHeader } from "@/components/settings/CategoryFormHeader";
+import { CategoryCharacteristicsPicker } from "@/components/settings/CategoryCharacteristicsPicker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CategoryRow } from "@/server/data/categories";
+import type { CategoryCharacteristicOption } from "@/lib/categories/characteristic-options";
 import { isDescendantCategory } from "@/lib/categories/tree";
+import { resolveInheritedField } from "@/lib/categories/inheritance";
 import {
   createCategoryAction,
   updateCategoryAction,
@@ -22,9 +26,14 @@ import {
 export function CategoryForm({
   category,
   allCategories,
+  characteristics,
 }: {
   category: CategoryRow | null;
   allCategories: CategoryRow[];
+  characteristics?: {
+    options: CategoryCharacteristicOption[];
+    pinnedKeys: string[];
+  };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -37,11 +46,28 @@ export function CategoryForm({
   const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
   const [imagePreview, setImagePreview] = useState<string | null>(category?.imageUrl ?? null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isActive, setIsActive] = useState(category?.isActive ?? true);
-  const [showInStorefrontSection, setShowInStorefrontSection] = useState(
-    category?.showInStorefrontSection ?? true
+  // null = успадковано від батьківської категорії (не задано на цій) — щойно
+  // людина торкається перемикача, значення стає власним назавжди (без окремого
+  // "скинути до успадкованого" — не просили). Перемикач показує ефективне
+  // значення (own ?? inherited), а не сире, інакше вимкнена в батька категорія
+  // виглядала б увімкненою на дочірній, поки її не збережуть.
+  const [ownIsActive, setOwnIsActive] = useState<boolean | null>(category?.isActive ?? null);
+  const [ownShowInStorefrontSection, setOwnShowInStorefrontSection] = useState<boolean | null>(
+    category?.showInStorefrontSection ?? null
   );
-  const [showInHeaderMenu, setShowInHeaderMenu] = useState(category?.showInHeaderMenu ?? true);
+  const [ownShowInHeaderMenu, setOwnShowInHeaderMenu] = useState<boolean | null>(
+    category?.showInHeaderMenu ?? null
+  );
+  const inheritFromId = parentId === "root" ? null : parentId;
+  const isActive = ownIsActive ?? resolveInheritedField(allCategories, inheritFromId, "isActive") ?? true;
+  const showInStorefrontSection =
+    ownShowInStorefrontSection ??
+    resolveInheritedField(allCategories, inheritFromId, "showInStorefrontSection") ??
+    true;
+  const showInHeaderMenu =
+    ownShowInHeaderMenu ??
+    resolveInheritedField(allCategories, inheritFromId, "showInHeaderMenu") ??
+    true;
   const [defaultWeightKg, setDefaultWeightKg] = useState(category?.defaultWeightKg ?? "");
   const [defaultLengthCm, setDefaultLengthCm] = useState(
     category?.defaultLengthCm != null ? String(category.defaultLengthCm) : ""
@@ -99,9 +125,13 @@ export function CategoryForm({
     fd.set("parentId", parentId);
     fd.set("description", description);
     fd.set("imageUrl", imageUrl);
-    fd.set("isActive", String(isActive));
-    fd.set("showInStorefrontSection", String(showInStorefrontSection));
-    fd.set("showInHeaderMenu", String(showInHeaderMenu));
+    // Не власне значення (null) — поле свідомо НЕ додається у fd, щоб
+    // parseCategoryInput/boolOrNull побачив його відсутність і лишив
+    // успадкування від батьківської категорії, а не записав false.
+    if (ownIsActive !== null) fd.set("isActive", String(ownIsActive));
+    if (ownShowInStorefrontSection !== null)
+      fd.set("showInStorefrontSection", String(ownShowInStorefrontSection));
+    if (ownShowInHeaderMenu !== null) fd.set("showInHeaderMenu", String(ownShowInHeaderMenu));
     fd.set("defaultWeightKg", defaultWeightKg);
     fd.set("defaultLengthCm", defaultLengthCm);
     fd.set("defaultWidthCm", defaultWidthCm);
@@ -125,28 +155,7 @@ export function CategoryForm({
     });
   }
 
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Link href="/settings" className="hover:text-foreground">
-              Налаштування
-            </Link>
-            <span>/</span>
-            <Link href="/settings?tab=categories" className="hover:text-foreground">
-              Категорії товару
-            </Link>
-            <span>/</span>
-            <span className="text-foreground">{category ? category.name : "Додати категорію"}</span>
-          </nav>
-          <HeaderActions />
-        </div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {category ? category.name : "Додати категорію"}
-        </h1>
-      </div>
-
+  const generalForm = (
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[1fr_360px]">
       <div className="flex flex-col gap-4">
         <Card className="gap-0 py-4">
@@ -288,18 +297,18 @@ export function CategoryForm({
 
             <div className="flex items-center justify-between py-1">
               <span className="text-sm text-foreground">Активна на вітрині</span>
-              <Switch checked={isActive} onCheckedChange={setIsActive} />
+              <Switch checked={isActive} onCheckedChange={setOwnIsActive} />
             </div>
             <div className="flex items-center justify-between py-1">
               <span className="text-sm text-foreground">Показувати в «Розділі магазину»</span>
               <Switch
                 checked={showInStorefrontSection}
-                onCheckedChange={setShowInStorefrontSection}
+                onCheckedChange={setOwnShowInStorefrontSection}
               />
             </div>
             <div className="flex items-center justify-between py-1">
               <span className="text-sm text-foreground">Показувати в меню шапки</span>
-              <Switch checked={showInHeaderMenu} onCheckedChange={setShowInHeaderMenu} />
+              <Switch checked={showInHeaderMenu} onCheckedChange={setOwnShowInHeaderMenu} />
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -373,6 +382,32 @@ export function CategoryForm({
         </Card>
       </div>
       </form>
+  );
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <CategoryFormHeader category={category} />
+
+      {category && characteristics ? (
+        <Tabs defaultValue="general" className="flex flex-1 flex-col gap-0">
+          <div className="border-b border-border px-6 pt-3">
+            <TabsList variant="line">
+              <TabsTrigger value="general">Основне</TabsTrigger>
+              <TabsTrigger value="characteristics">Характеристики</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="general">{generalForm}</TabsContent>
+          <TabsContent value="characteristics" className="p-6">
+            <CategoryCharacteristicsPicker
+              categoryId={category.id}
+              options={characteristics.options}
+              initialPinnedKeys={characteristics.pinnedKeys}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        generalForm
+      )}
     </div>
   );
 }

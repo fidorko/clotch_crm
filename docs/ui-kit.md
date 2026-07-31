@@ -22,6 +22,7 @@
 | Badge | ui/badge.tsx | variants: default, secondary, destructive, outline, ghost, link, **success** (статуси «Активний», «В наявності»), **warning** (статус «Не активний», токен `--warning` в globals.css) |
 | Card | ui/card.tsx | |
 | Tabs | ui/tabs.tsx | |
+| Popover | ui/popover.tsx | легкий попап без затемнення фону (`@base-ui/react/popover`, на відміну від `Dialog` — без `Backdrop`): `PopoverTrigger` рендерить нативний `<button>` за замовчуванням (можна стилізувати напряму класами, без вкладеного `<Button>`), `PopoverContent` — `Portal`+`Positioner`+`Popup`. Перше використання — «+N» на картці закріпленої характеристики (`CategoryCharacteristicsPicker`), показує решту значень довідника (лише перегляд) |
 | Table | ui/table.tsx | |
 | DropdownMenu | ui/dropdown-menu.tsx | тригер стилізується напряму через `buttonVariants`, без вкладення `<Button>` — уникає подвійного `<button>`. `DropdownMenuCheckboxItem` за замовчуванням не закриває меню при кліку (`closeOnClick={false}`) — зручно для мультивибору (напр. інструкції по догляду в `ProductInfoPanel`). **`DropdownMenuLabel` завжди має бути всередині `DropdownMenuGroup`** — інакше base-ui кидає рантайм-помилку «MenuGroupContext is missing» одразу при відкритті меню (ловили баг: чекбокси не реагували на клік саме через це) |
 | Tooltip | ui/tooltip.tsx | обгортка `TooltipProvider` — у `layout.tsx` |

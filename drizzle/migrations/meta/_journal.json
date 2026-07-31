@@ -176,6 +176,34 @@
       "when": 1785524221693,
       "tag": "0024_shocking_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785530948226,
+      "tag": "0025_spicy_carlie_cooper",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785532815020,
+      "tag": "0026_equal_harpoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785533997997,
+      "tag": "0027_faulty_human_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785534020866,
+      "tag": "0028_dazzling_freak",
+      "breakpoints": true
     }
   ]
 }

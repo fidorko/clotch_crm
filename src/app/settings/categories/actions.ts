@@ -26,6 +26,18 @@ function numberOrNull(formData: FormData, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * На відміну від numberOrNull — тут відсутність поля у formData НЕ те саме,
+ * що "false": воно означає "людина не чіпала цей перемикач", тобто
+ * успадкувати від батьківської категорії (CategoryForm.tsx свідомо не
+ * викликає fd.set для цих 3 полів, доки власне значення не задано).
+ */
+function boolOrNull(formData: FormData, key: string): boolean | null {
+  const raw = formData.get(key);
+  if (raw === null) return null;
+  return raw === "true";
+}
+
 function parseCategoryInput(formData: FormData): CategoryInput {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
@@ -39,9 +51,9 @@ function parseCategoryInput(formData: FormData): CategoryInput {
     parentId: parentIdRaw && parentIdRaw !== "root" ? parentIdRaw : null,
     description: textOrNull(formData, "description"),
     imageUrl: textOrNull(formData, "imageUrl"),
-    isActive: formData.get("isActive") === "true",
-    showInStorefrontSection: formData.get("showInStorefrontSection") === "true",
-    showInHeaderMenu: formData.get("showInHeaderMenu") === "true",
+    isActive: boolOrNull(formData, "isActive"),
+    showInStorefrontSection: boolOrNull(formData, "showInStorefrontSection"),
+    showInHeaderMenu: boolOrNull(formData, "showInHeaderMenu"),
     defaultWeightKg: numberOrNull(formData, "defaultWeightKg"),
     defaultLengthCm: numberOrNull(formData, "defaultLengthCm"),
     defaultWidthCm: numberOrNull(formData, "defaultWidthCm"),

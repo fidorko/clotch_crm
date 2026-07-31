@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { buildCategoryTree, getDescendantIds } from "@/lib/categories/tree";
+import { resolveEffectiveIsActive } from "@/lib/categories/inheritance";
 import type { CategoryRow } from "@/server/data/categories";
 import {
   deleteCategoriesAction,
@@ -180,9 +181,10 @@ export function CategoriesTab({
     return categories
       .filter((category) => {
         const matchesSearch = category.name.toLowerCase().includes(query);
+        const effectiveIsActive = resolveEffectiveIsActive(categories, category.id);
         const matchesStatus =
           appliedStatus === "all" ||
-          (appliedStatus === "active" ? category.isActive : !category.isActive);
+          (appliedStatus === "active" ? effectiveIsActive : !effectiveIsActive);
         return matchesSearch && matchesStatus;
       })
       .map((category) => ({ category, depth: 0, hasChildren: false }));
@@ -232,7 +234,7 @@ export function CategoriesTab({
     setPendingId(category.id);
     startTransition(async () => {
       try {
-        await toggleCategoryActiveAction(category.id, !category.isActive);
+        await toggleCategoryActiveAction(category.id, !resolveEffectiveIsActive(categories, category.id));
         router.refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Не вдалося змінити статус");
@@ -361,6 +363,7 @@ export function CategoriesTab({
               {rows.map(({ category, depth, hasChildren }) => {
                 const isExpanded = expandedIds.has(category.id);
                 const isRowPending = pendingId === category.id;
+                const effectiveIsActive = resolveEffectiveIsActive(categories, category.id);
                 return (
                   <TableRow key={category.id}>
                     <TableCell className="text-muted-foreground">
@@ -413,8 +416,8 @@ export function CategoriesTab({
                       {effectiveProductCount(category.id, categories, productCounts)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={category.isActive ? "success" : "secondary"}>
-                        {category.isActive ? "Активна" : "Прихована"}
+                      <Badge variant={effectiveIsActive ? "success" : "secondary"}>
+                        {effectiveIsActive ? "Активна" : "Прихована"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -425,12 +428,12 @@ export function CategoriesTab({
                           disabled={isRowPending}
                           onClick={() => handleToggleActive(category)}
                           aria-label={
-                            category.isActive
+                            effectiveIsActive
                               ? `Приховати категорію ${category.name}`
                               : `Активувати категорію ${category.name}`
                           }
                         >
-                          {category.isActive ? (
+                          {effectiveIsActive ? (
                             <Eye className="size-4" />
                           ) : (
                             <EyeOff className="size-4" />

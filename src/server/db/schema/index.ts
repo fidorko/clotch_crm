@@ -21,6 +21,7 @@ import { careInstructions } from "./care-instructions";
 import { fabricTypePossibleMaterials, fabricTypes } from "./fabric-types";
 import { sizeTypes, sizeValues } from "./size-types";
 import { measurementTypes, measurementValues } from "./measurement-types";
+import { categoryCharacteristics } from "./category-characteristics";
 
 export * from "./tenants";
 export * from "./products";
@@ -44,6 +45,7 @@ export * from "./care-instructions";
 export * from "./fabric-types";
 export * from "./size-types";
 export * from "./measurement-types";
+export * from "./category-characteristics";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -133,6 +135,11 @@ export const customCharacteristicValuesRelations = relations(customCharacteristi
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   parent: one(categories, { fields: [categories.parentId], references: [categories.id] }),
   children: many(categories),
+  characteristics: many(categoryCharacteristics),
+}));
+
+export const categoryCharacteristicsRelations = relations(categoryCharacteristics, ({ one }) => ({
+  category: one(categories, { fields: [categoryCharacteristics.categoryId], references: [categories.id] }),
 }));
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({

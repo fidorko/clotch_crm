@@ -9,9 +9,9 @@ export interface CategoryInput {
   parentId: string | null;
   description: string | null;
   imageUrl: string | null;
-  isActive: boolean;
-  showInStorefrontSection: boolean;
-  showInHeaderMenu: boolean;
+  isActive: boolean | null;
+  showInStorefrontSection: boolean | null;
+  showInHeaderMenu: boolean | null;
   defaultWeightKg: number | null;
   defaultLengthCm: number | null;
   defaultWidthCm: number | null;

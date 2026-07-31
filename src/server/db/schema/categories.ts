@@ -30,9 +30,14 @@ export const categories = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     imageUrl: text("image_url"),
-    isActive: boolean("is_active").notNull().default(true),
-    showInStorefrontSection: boolean("show_in_storefront_section").notNull().default(true),
-    showInHeaderMenu: boolean("show_in_header_menu").notNull().default(true),
+    // null = не задано на цій категорії, успадковується від найближчого предка
+    // з явним значенням (walk up parentId, lib/categories/inheritance.ts);
+    // якщо на всьому ланцюжку нічого не задано — застосунок трактує як true.
+    // NOT NULL/default(true) свідомо прибрано — інакше нову категорію
+    // неможливо було б відрізнити від "успадковує" (decisions.md).
+    isActive: boolean("is_active"),
+    showInStorefrontSection: boolean("show_in_storefront_section"),
+    showInHeaderMenu: boolean("show_in_header_menu"),
     defaultWeightKg: numeric("default_weight_kg", { precision: 6, scale: 2 }),
     defaultLengthCm: smallint("default_length_cm"),
     defaultWidthCm: smallint("default_width_cm"),
