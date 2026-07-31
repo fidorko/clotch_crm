@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import { createReferenceItemAction } from "@/app/settings/references/[kind]/actions";
-import { createTagAction } from "@/app/settings/references/tags/actions";
 
-type QuickAddSource = { type: "reference-item"; kind: ReferenceItemKind } | { type: "tag" };
+type QuickAddSource = { type: "reference-item"; kind: ReferenceItemKind };
 
-// "+Додати" прямо на плитці «Довідники» — для kind-довідників (reference_items)
-// і для тегів (окрема таблиця tags), без переходу зі сторінки.
+// "+Додати" прямо на плитці «Довідники» — для kind-довідників (reference_items:
+// Тип тканини/Виробники/Країни/Одиниці виміру), без переходу зі сторінки.
 export function QuickAddReferenceItemButton({ source }: { source: QuickAddSource }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -19,11 +18,7 @@ export function QuickAddReferenceItemButton({ source }: { source: QuickAddSource
     e.preventDefault();
     e.stopPropagation();
     startTransition(async () => {
-      if (source.type === "tag") {
-        await createTagAction("новий-тег");
-      } else {
-        await createReferenceItemAction(source.kind, "Нове значення");
-      }
+      await createReferenceItemAction(source.kind, "Нове значення");
       router.refresh();
     });
   }
@@ -33,7 +28,7 @@ export function QuickAddReferenceItemButton({ source }: { source: QuickAddSource
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-default disabled:opacity-50"
     >
       <Plus className="size-3" />
       Додати

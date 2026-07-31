@@ -117,22 +117,47 @@ async function main() {
       );
     }
 
-    for (const tag of mockProduct.tags) {
-      const [existingTag] = await db
-        .select({ id: schema.tags.id })
-        .from(schema.tags)
-        .where(and(eq(schema.tags.tenantId, devTenantId), eq(schema.tags.label, tag.label)));
-      const [tagRow] = existingTag
-        ? [existingTag]
-        : await db
-            .insert(schema.tags)
-            .values({ tenantId: devTenantId, label: tag.label })
-            .returning({ id: schema.tags.id });
-      const tagId = tagRow.id;
-      await db
-        .insert(schema.productTags)
-        .values({ productId: product.id, tagId, tenantId: devTenantId })
-        .onConflictDoNothing();
+    if (mockProduct.tags.length > 0) {
+      // Теги — рядок custom_characteristics (system_key="tags"), не окрема таблиця
+      // (db.md, decisions.md) — той самий find-or-create, що syncProductTags.
+      let [tagsCharacteristic] = await db
+        .select({ id: schema.customCharacteristics.id })
+        .from(schema.customCharacteristics)
+        .where(
+          and(
+            eq(schema.customCharacteristics.tenantId, devTenantId),
+            eq(schema.customCharacteristics.systemKey, "tags")
+          )
+        );
+      if (!tagsCharacteristic) {
+        [tagsCharacteristic] = await db
+          .insert(schema.customCharacteristics)
+          .values({ tenantId: devTenantId, name: "Теги", systemKey: "tags" })
+          .returning({ id: schema.customCharacteristics.id });
+      }
+
+      for (const tag of mockProduct.tags) {
+        const [existingValue] = await db
+          .select({ id: schema.customCharacteristicValues.id })
+          .from(schema.customCharacteristicValues)
+          .where(
+            and(
+              eq(schema.customCharacteristicValues.tenantId, devTenantId),
+              eq(schema.customCharacteristicValues.characteristicId, tagsCharacteristic.id),
+              eq(schema.customCharacteristicValues.value, tag.label)
+            )
+          );
+        const [valueRow] = existingValue
+          ? [existingValue]
+          : await db
+              .insert(schema.customCharacteristicValues)
+              .values({ tenantId: devTenantId, characteristicId: tagsCharacteristic.id, value: tag.label })
+              .returning({ id: schema.customCharacteristicValues.id });
+        await db
+          .insert(schema.productTags)
+          .values({ productId: product.id, characteristicValueId: valueRow.id, tenantId: devTenantId })
+          .onConflictDoNothing();
+      }
     }
   }
 
@@ -194,13 +219,34 @@ async function main() {
   }
 
   if (mockBrands.length > 0) {
+    // Бренди — рядок custom_characteristics (не reference_items) — за прямою
+    // вказівкою перенесено разом із Колекціями/Сезоном/Тегами/Посадкою (db.md).
+    const [brandsCharacteristic] = await db
+      .insert(schema.customCharacteristics)
+      .values({ tenantId: devTenantId, name: "Бренди" })
+      .onConflictDoNothing()
+      .returning({ id: schema.customCharacteristics.id });
+    const brandsCharacteristicId =
+      brandsCharacteristic?.id ??
+      (
+        await db
+          .select({ id: schema.customCharacteristics.id })
+          .from(schema.customCharacteristics)
+          .where(
+            and(
+              eq(schema.customCharacteristics.tenantId, devTenantId),
+              eq(schema.customCharacteristics.name, "Бренди")
+            )
+          )
+      )[0].id;
+
     await db
-      .insert(schema.referenceItems)
+      .insert(schema.customCharacteristicValues)
       .values(
-        mockBrands.map((name, index) => ({
+        mockBrands.map((value, index) => ({
           tenantId: devTenantId,
-          kind: "brands" as const,
-          name,
+          characteristicId: brandsCharacteristicId,
+          value,
           position: index,
         }))
       )

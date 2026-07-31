@@ -7,9 +7,10 @@ import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listColors } from "@/server/data/colors";
 import { listCurrencies } from "@/server/data/currencies";
+import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
 import { listSuppliers } from "@/server/data/suppliers";
 import { listReferenceItemsForKinds } from "@/server/data/reference-items";
-import { listTags } from "@/server/data/tags";
+import { listDictionaryFlags } from "@/server/data/reference-dictionary-flags";
 import { REFERENCE_ITEM_KINDS } from "@/lib/constants/reference-item-kinds";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
@@ -44,16 +45,17 @@ async function CategoriesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [colors, currencies, suppliers, referenceItemsByKind, tags] = await Promise.all([
-    listColors(tenantId),
-    listCurrencies(tenantId),
-    listSuppliers(tenantId),
-    listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
-    listTags(tenantId),
-  ]);
+  const [colors, currencies, suppliers, referenceItemsByKind, customCharacteristics, dictionaryFlags] =
+    await Promise.all([
+      listColors(tenantId),
+      listCurrencies(tenantId),
+      listSuppliers(tenantId),
+      listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
+      listCustomCharacteristicsWithValues(tenantId),
+      listDictionaryFlags(tenantId, ["colors", "fabric-materials", "care-instructions", "measurements"]),
+    ]);
   const currencyItems = currencies.map((c) => ({ code: c.code, symbol: c.symbol }));
   const supplierItems = suppliers.map((s) => ({ id: s.id, name: s.name }));
-  const tagItems = tags.map((t) => ({ id: t.id, name: t.label }));
   const itemsByKind = Object.fromEntries(
     Object.entries(referenceItemsByKind).map(([kind, rows]) => [
       kind,
@@ -67,7 +69,8 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
         currencies={currencyItems}
         suppliers={supplierItems}
         referenceItemsByKind={itemsByKind}
-        tags={tagItems}
+        customCharacteristics={customCharacteristics}
+        dictionaryFlags={dictionaryFlags}
       />
     </DevBlockLabel>
   );

@@ -27,7 +27,6 @@ export async function createColorAction(name: string, hex: string): Promise<Colo
   const tenantId = getDevTenantId();
   const input = parseColorInput(name, hex);
   const color = await createColorInDb(tenantId, input);
-  revalidatePath("/settings/references/colors");
   revalidatePath("/settings");
   return color;
 }
@@ -36,11 +35,11 @@ export async function updateColorAction(id: string, name: string, hex: string): 
   const tenantId = getDevTenantId();
   const input = parseColorInput(name, hex);
   await updateColorInDb(tenantId, id, input);
-  revalidatePath("/settings/references/colors");
+  revalidatePath("/settings");
 }
 
 export async function deleteColorAction(id: string): Promise<void> {
   const tenantId = getDevTenantId();
   await deleteColorInDb(tenantId, id);
-  revalidatePath("/settings/references/colors");
+  revalidatePath("/settings");
 }

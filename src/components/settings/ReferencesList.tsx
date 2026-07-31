@@ -1,28 +1,42 @@
 import Link from "next/link";
 import {
-  CalendarDays,
   ChevronRight,
   Coins,
   Factory,
   Globe,
-  Layers,
-  Palette,
   Plus,
   Ruler,
   Scale,
   Scissors,
-  Shirt,
-  Tag,
-  Tags,
   Truck,
   WashingMachine,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { QuickAddColorButton } from "@/components/settings/QuickAddColorButton";
 import { QuickAddReferenceItemButton } from "@/components/settings/QuickAddReferenceItemButton";
+import { CustomCharacteristicFormDialog } from "@/components/settings/CustomCharacteristicFormDialog";
+import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
+import { ColorsTile } from "@/components/settings/ColorsTile";
+import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDictionaryFlagsRow";
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
+import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
+import type { ColorRow } from "@/server/data/colors";
+import type { DictionaryFlags } from "@/server/data/reference-dictionary-flags";
+
+const DEFAULT_DICTIONARY_FLAGS: DictionaryFlags = {
+  showInCrm: true,
+  showOnStorefront: true,
+  participatesInFilters: true,
+};
+
+// Довідники поза custom_characteristics, яким теж потрібні 3 перемикачі —
+// "colors" має власну плитку/попап (ColorsTile), решта — тут. reference_dictionary_flags
+// не залежить від наявності реальних даних у довіднику (лише dictionary_key), тож
+// перемикачі є і на "care-instructions"/"measurements", хоч там ще нема БД-списку значень.
+const DICTIONARY_FLAG_IDS = new Set(["fabric-materials", "care-instructions", "measurements"]);
+
+type ReferenceGroup = "characteristics" | "system";
 
 interface ReferenceValue {
   label: string;
@@ -37,6 +51,7 @@ interface ReferenceItem {
   icon: LucideIcon;
   href: string;
   iconClass: string;
+  group: ReferenceGroup;
   count?: number;
   values?: ReferenceValue[];
   hasData?: boolean;
@@ -44,25 +59,16 @@ interface ReferenceItem {
 
 const MAX_VISIBLE_VALUES = 7;
 
+const GROUP_TITLES: Record<ReferenceGroup, string> = {
+  characteristics: "Характеристики товару",
+  system: "Системні",
+};
+
 // id, що збігається з ReferenceItemKind, автоматично отримує реальну сторінку
 // /settings/references/{id} + "+Додати" на плитці (нижче, ReferenceTile).
+// group — за прямою вказівкою: "Характеристики товару" (описують сам товар) і
+// "Системні" (довідники бізнес-процесу, не характеристики виробу).
 const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
-  {
-    id: "collections",
-    label: "Колекції",
-    description: "Керування колекціями товарів",
-    icon: Layers,
-    href: "/settings/references/collections",
-    iconClass: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
-  },
-  {
-    id: "seasons",
-    label: "Сезон",
-    description: "Сезони та періоди продажу",
-    icon: CalendarDays,
-    href: "/settings/references/seasons",
-    iconClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  },
   {
     id: "fabric-materials",
     label: "Тип тканини та матеріал",
@@ -70,22 +76,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: Scissors,
     href: "/settings/references/fabric-materials",
     iconClass: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-  },
-  {
-    id: "manufacturers",
-    label: "Виробники",
-    description: "Виробники та бренди товарів",
-    icon: Factory,
-    href: "/settings/references/manufacturers",
-    iconClass: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  },
-  {
-    id: "suppliers",
-    label: "Постачальники",
-    description: "Постачальники та партнери",
-    icon: Truck,
-    href: "/settings/references/suppliers",
-    iconClass: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+    group: "characteristics",
   },
   {
     id: "care-instructions",
@@ -94,6 +85,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: WashingMachine,
     href: "#",
     iconClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    group: "characteristics",
   },
   {
     id: "measurements",
@@ -102,14 +94,25 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: Ruler,
     href: "#",
     iconClass: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+    group: "characteristics",
   },
   {
-    id: "brands",
-    label: "Бренди",
-    description: "Бренди та торгові марки",
-    icon: Tag,
-    href: "/settings/references/brands",
-    iconClass: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+    id: "manufacturers",
+    label: "Виробники",
+    description: "Виробники та бренди товарів",
+    icon: Factory,
+    href: "/settings/references/manufacturers",
+    iconClass: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+    group: "system",
+  },
+  {
+    id: "suppliers",
+    label: "Постачальники",
+    description: "Постачальники та партнери",
+    icon: Truck,
+    href: "/settings/references/suppliers",
+    iconClass: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+    group: "system",
   },
   {
     id: "countries",
@@ -118,6 +121,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: Globe,
     href: "/settings/references/countries",
     iconClass: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+    group: "system",
   },
   {
     id: "currencies",
@@ -126,14 +130,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: Coins,
     href: "/settings/references/currencies",
     iconClass: "bg-green-500/15 text-green-600 dark:text-green-400",
-  },
-  {
-    id: "colors",
-    label: "Кольори",
-    description: "Кольори та відтінки",
-    icon: Palette,
-    href: "/settings/references/colors",
-    iconClass: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400",
+    group: "system",
   },
   {
     id: "units",
@@ -142,22 +139,7 @@ const REFERENCE_DEFS: Omit<ReferenceItem, "count" | "values" | "hasData">[] = [
     icon: Scale,
     href: "/settings/references/units",
     iconClass: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-  },
-  {
-    id: "tags",
-    label: "Теги",
-    description: "Теги та мітки товарів",
-    icon: Tags,
-    href: "/settings/references/tags",
-    iconClass: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
-  },
-  {
-    id: "fit",
-    label: "Посадка",
-    description: "Типи посадки одягу",
-    icon: Shirt,
-    href: "/settings/references/fit",
-    iconClass: "bg-lime-500/15 text-lime-600 dark:text-lime-400",
+    group: "system",
   },
 ];
 
@@ -182,7 +164,10 @@ function ValueChip({ value }: { value: ReferenceValue }) {
 
   if (value.href) {
     return (
-      <Link href={value.href} className={cn(className, "transition-colors hover:border-primary hover:text-primary")}>
+      <Link
+        href={value.href}
+        className={cn(className, "cursor-pointer transition-colors hover:border-primary hover:text-primary")}
+      >
         {content}
       </Link>
     );
@@ -197,7 +182,7 @@ function DisabledAddHint() {
     <Tooltip>
       <TooltipTrigger
         render={
-          <span className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground opacity-60" />
+          <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground opacity-60" />
         }
       >
         <Plus className="size-3" />
@@ -208,26 +193,21 @@ function DisabledAddHint() {
   );
 }
 
+const ADD_LINK_CLASS =
+  "inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary";
+
 function AddSlot({ item }: { item: ReferenceItem }) {
-  if (item.id === "colors") return <QuickAddColorButton />;
   if (item.id === "suppliers") {
     return (
-      <Link
-        href="/settings/references/suppliers/new"
-        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-      >
+      <Link href="/settings/references/suppliers/new" className={ADD_LINK_CLASS}>
         <Plus className="size-3" />
         Додати
       </Link>
     );
   }
-  if (item.id === "tags") return <QuickAddReferenceItemButton source={{ type: "tag" }} />;
   if (item.id === "currencies") {
     return (
-      <Link
-        href="/settings/references/currencies"
-        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-      >
+      <Link href="/settings/references/currencies" className={ADD_LINK_CLASS}>
         <Plus className="size-3" />
         Додати
       </Link>
@@ -239,13 +219,13 @@ function AddSlot({ item }: { item: ReferenceItem }) {
   return <DisabledAddHint />;
 }
 
-function ReferenceTile({ item }: { item: ReferenceItem }) {
+function ReferenceTile({ item, flags }: { item: ReferenceItem; flags?: DictionaryFlags }) {
   const visibleValues = item.values?.slice(0, MAX_VISIBLE_VALUES) ?? [];
   const hasMore = (item.values?.length ?? 0) > MAX_VISIBLE_VALUES;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20">
-      <Link href={item.href} className="flex items-start gap-3">
+      <Link href={item.href} className="flex cursor-pointer items-start gap-3">
         <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", item.iconClass)}>
           <item.icon className="size-5" />
         </span>
@@ -269,6 +249,7 @@ function ReferenceTile({ item }: { item: ReferenceItem }) {
         )}
         <AddSlot item={item} />
       </div>
+      {flags && <ReferenceDictionaryFlagsRow dictionaryKey={item.id} flags={flags} />}
     </div>
   );
 }
@@ -278,23 +259,17 @@ export function ReferencesList({
   currencies = [],
   suppliers = [],
   referenceItemsByKind = {},
-  tags = [],
+  customCharacteristics = [],
+  dictionaryFlags = {},
 }: {
-  colors?: { name: string; hex: string }[];
+  colors?: ColorRow[];
   currencies?: { code: string; symbol: string }[];
   suppliers?: { id: string; name: string }[];
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
-  tags?: { id: string; name: string }[];
+  customCharacteristics?: CustomCharacteristicWithValues[];
+  dictionaryFlags?: Record<string, DictionaryFlags>;
 }) {
   const items: ReferenceItem[] = REFERENCE_DEFS.map((def) => {
-    if (def.id === "colors") {
-      return {
-        ...def,
-        count: colors.length,
-        values: colors.map((c) => ({ label: c.name, swatch: c.hex, href: "/settings/references/colors" })),
-        hasData: true,
-      };
-    }
     if (def.id === "currencies") {
       return {
         ...def,
@@ -317,14 +292,6 @@ export function ReferencesList({
         hasData: true,
       };
     }
-    if (def.id === "tags") {
-      return {
-        ...def,
-        count: tags.length,
-        values: tags.map((t) => ({ label: t.name, href: "/settings/references/tags" })),
-        hasData: true,
-      };
-    }
     if (!NO_DATA_IDS.has(def.id)) {
       const values = referenceItemsByKind[def.id] ?? [];
       return {
@@ -337,11 +304,48 @@ export function ReferencesList({
     return { ...def, hasData: false };
   });
 
+  const systemItems = items.filter((item) => item.group === "system");
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {items.map((item) => (
-        <ReferenceTile key={item.id} item={item} />
-      ))}
+    <div className="flex flex-col gap-8">
+      <section className="flex flex-col gap-4">
+        <h2 className="text-sm font-semibold text-foreground">{GROUP_TITLES.characteristics}</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <ColorsTile colors={colors} flags={dictionaryFlags.colors ?? DEFAULT_DICTIONARY_FLAGS} />
+          {items
+            .filter((item) => item.group === "characteristics")
+            .map((item) => (
+              <ReferenceTile
+                key={item.id}
+                item={item}
+                flags={DICTIONARY_FLAG_IDS.has(item.id) ? (dictionaryFlags[item.id] ?? DEFAULT_DICTIONARY_FLAGS) : undefined}
+              />
+            ))}
+          {customCharacteristics.map((characteristic) => (
+            <CustomCharacteristicTile key={characteristic.id} characteristic={characteristic} />
+          ))}
+          <CustomCharacteristicFormDialog
+            trigger={
+              <button
+                type="button"
+                className="flex min-h-[136px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <Plus className="size-5" />
+                <span className="text-sm font-medium">Додати довідник</span>
+              </button>
+            }
+          />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-sm font-semibold text-foreground">{GROUP_TITLES.system}</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {systemItems.map((item) => (
+            <ReferenceTile key={item.id} item={item} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

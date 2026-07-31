@@ -1,13 +1,14 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import {
+  customCharacteristicValues,
+  customCharacteristics,
   productColorPhotos,
   productMeasurements,
   productPhotos,
   products,
   productSkus,
   productTags,
-  tags,
 } from "@/server/db/schema";
 import type { Product, ProductStatus } from "@/lib/types/product";
 import { mapProductRow } from "./product-mappers";
@@ -66,9 +67,12 @@ export async function getProductById(
           )
         ),
       tx
-        .select({ id: tags.id, label: tags.label })
+        .select({ id: customCharacteristicValues.id, label: customCharacteristicValues.value })
         .from(productTags)
-        .innerJoin(tags, eq(productTags.tagId, tags.id))
+        .innerJoin(
+          customCharacteristicValues,
+          eq(productTags.characteristicValueId, customCharacteristicValues.id)
+        )
         .where(and(eq(productTags.tenantId, tenantId), eq(productTags.productId, productId))),
     ]);
 
@@ -313,7 +317,28 @@ export interface SaveProductInput {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** Замінює весь набір тегів товару: знайти-або-створити тег за міткою (tenant-скоуповано), перезаписати product_tags. */
+/**
+ * Знаходить характеристику "Теги" тенанта (system_key="tags"), створює за
+ * потреби. Раніше теги жили в окремій таблиці tags — тепер це рядок
+ * custom_characteristics, як і решта користувацьких довідників (за прямою
+ * вказівкою), system_key рятує від залежності на текстову назву (людина може
+ * перейменувати відображувану назву характеристики, не зламавши прив'язку).
+ */
+async function getOrCreateTagsCharacteristicId(tx: Tx, tenantId: string): Promise<string> {
+  const [existing] = await tx
+    .select({ id: customCharacteristics.id })
+    .from(customCharacteristics)
+    .where(and(eq(customCharacteristics.tenantId, tenantId), eq(customCharacteristics.systemKey, "tags")));
+  if (existing) return existing.id;
+
+  const [created] = await tx
+    .insert(customCharacteristics)
+    .values({ tenantId, name: "Теги", systemKey: "tags" })
+    .returning({ id: customCharacteristics.id });
+  return created.id;
+}
+
+/** Замінює весь набір тегів товару: знайти-або-створити значення за міткою (tenant-скоуповано), перезаписати product_tags. */
 async function syncProductTags(
   tx: Tx,
   tenantId: string,
@@ -327,21 +352,34 @@ async function syncProductTags(
   const uniqueLabels = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
   if (uniqueLabels.length === 0) return;
 
-  const tagIds: string[] = [];
+  const characteristicId = await getOrCreateTagsCharacteristicId(tx, tenantId);
+
+  const valueIds: string[] = [];
   for (const label of uniqueLabels) {
     const [existing] = await tx
-      .select({ id: tags.id })
-      .from(tags)
-      .where(and(eq(tags.tenantId, tenantId), eq(tags.label, label)));
-    const tagId = existing
+      .select({ id: customCharacteristicValues.id })
+      .from(customCharacteristicValues)
+      .where(
+        and(
+          eq(customCharacteristicValues.tenantId, tenantId),
+          eq(customCharacteristicValues.characteristicId, characteristicId),
+          eq(customCharacteristicValues.value, label)
+        )
+      );
+    const valueId = existing
       ? existing.id
-      : (await tx.insert(tags).values({ tenantId, label }).returning({ id: tags.id }))[0].id;
-    tagIds.push(tagId);
+      : (
+          await tx
+            .insert(customCharacteristicValues)
+            .values({ tenantId, characteristicId, value: label })
+            .returning({ id: customCharacteristicValues.id })
+        )[0].id;
+    valueIds.push(valueId);
   }
 
   await tx
     .insert(productTags)
-    .values(tagIds.map((tagId) => ({ tenantId, productId, tagId })))
+    .values(valueIds.map((characteristicValueId) => ({ tenantId, productId, characteristicValueId })))
     .onConflictDoNothing();
 }
 

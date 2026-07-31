@@ -4,16 +4,18 @@ import { productSkus } from "./product-skus";
 import { productPhotos } from "./product-photos";
 import { productColorPhotos } from "./product-color-photos";
 import { productMeasurements } from "./product-measurements";
-import { productTags, tags } from "./tags";
+import { productTags } from "./product-tags";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
 import { colors } from "./colors";
 import { currencies } from "./currencies";
+import { customCharacteristics, customCharacteristicValues } from "./custom-characteristics";
 import { suppliers } from "./suppliers";
 import { supplierContacts } from "./supplier-contacts";
 import { supplierChannels } from "./supplier-channels";
 import { supplierCustomFields } from "./supplier-custom-fields";
 import { referenceItems } from "./reference-items";
+import { referenceDictionaryFlags } from "./reference-dictionary-flags";
 
 export * from "./tenants";
 export * from "./products";
@@ -21,15 +23,17 @@ export * from "./product-skus";
 export * from "./product-photos";
 export * from "./product-color-photos";
 export * from "./product-measurements";
-export * from "./tags";
+export * from "./product-tags";
 export * from "./categories";
 export * from "./colors";
 export * from "./currencies";
+export * from "./custom-characteristics";
 export * from "./suppliers";
 export * from "./supplier-contacts";
 export * from "./supplier-channels";
 export * from "./supplier-custom-fields";
 export * from "./reference-items";
+export * from "./reference-dictionary-flags";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -55,13 +59,12 @@ export const productMeasurementsRelations = relations(productMeasurements, ({ on
   product: one(products, { fields: [productMeasurements.productId], references: [products.id] }),
 }));
 
-export const tagsRelations = relations(tags, ({ many }) => ({
-  productTags: many(productTags),
-}));
-
 export const productTagsRelations = relations(productTags, ({ one }) => ({
   product: one(products, { fields: [productTags.productId], references: [products.id] }),
-  tag: one(tags, { fields: [productTags.tagId], references: [tags.id] }),
+  characteristicValue: one(customCharacteristicValues, {
+    fields: [productTags.characteristicValueId],
+    references: [customCharacteristicValues.id],
+  }),
 }));
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
@@ -71,6 +74,20 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   currencies: many(currencies),
   suppliers: many(suppliers),
   referenceItems: many(referenceItems),
+  customCharacteristics: many(customCharacteristics),
+  referenceDictionaryFlags: many(referenceDictionaryFlags),
+}));
+
+export const customCharacteristicsRelations = relations(customCharacteristics, ({ many }) => ({
+  values: many(customCharacteristicValues),
+}));
+
+export const customCharacteristicValuesRelations = relations(customCharacteristicValues, ({ one, many }) => ({
+  characteristic: one(customCharacteristics, {
+    fields: [customCharacteristicValues.characteristicId],
+    references: [customCharacteristics.id],
+  }),
+  productTags: many(productTags),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
