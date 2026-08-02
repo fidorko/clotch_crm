@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "docker compose up -d --wait && npm run db:migrate && npm run db:setup-role",
+    "predev": "npm run db:migrate && npm run db:setup-role",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
