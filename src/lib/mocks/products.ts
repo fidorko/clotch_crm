@@ -36,12 +36,7 @@ export const mockProduct: Product = {
     { id: "p7", url: "", alt: "Деталь: рукав" },
   ],
   colorPhotos: [],
-  measurements: [
-    { id: "m1", type: "Довжина переду виробу, см", valueCm: 48 },
-    { id: "m2", type: "Довжина рукава від горловини, см", valueCm: 65 },
-    { id: "m3", type: "Ширина під проймами рукавів (над грудьми), см", valueCm: 40 },
-    { id: "m4", type: "Довжина рукава по внутрішньому шву, см", valueCm: 46 },
-  ],
+  sizeMeasurements: [],
   meta: {
     createdAt: "12.05.2026 10:15",
     updatedAt: "25.07.2026 14:30",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
 import { CategoryFormHeader } from "@/components/settings/CategoryFormHeader";
-import {
-  CategoryCharacteristicsPicker,
-  type CategoryCharacteristicsPickerHandle,
-  type CategoryCharacteristicsPickerState,
-} from "@/components/settings/CategoryCharacteristicsPicker";
+import { CategoryCharacteristicsPicker } from "@/components/settings/CategoryCharacteristicsPicker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CategoryRow } from "@/server/data/categories";
 import type { CategoryCharacteristicOption } from "@/lib/categories/characteristic-options";
@@ -41,22 +37,14 @@ export function CategoryForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // "Основне" — автозбереження (conventions.md), лише для вже наявної категорії
+  // (на /new явна кнопка "Створити категорію" лишається — це дія створення, не
+  // редагування). saveStatus — для індикатора в CategoryFormHeader.
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const isFirstRender = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const charPickerRef = useRef<CategoryCharacteristicsPickerHandle>(null);
-  // Save/Cancel живуть у CategoryFormHeader (як ProductHeader), тому форма й
-  // пікер характеристик самі кнопок не рендерять — хедер лише викликає formRef
-  // (native requestSubmit, той самий onSubmit нижче) або charPickerRef.
   const [activeTab, setActiveTab] = useState<"general" | "characteristics">("general");
-  const [charState, setCharState] = useState<CategoryCharacteristicsPickerState>({
-    isDirty: false,
-    isPending: false,
-    savedMessage: null,
-    savedCount: characteristics?.pinnedKeys.length ?? 0,
-  });
-  const handleCharStateChange = useCallback((state: CategoryCharacteristicsPickerState) => {
-    setCharState(state);
-  }, []);
 
   const [name, setName] = useState(category?.name ?? "");
   const [parentId, setParentId] = useState(category?.parentId ?? "root");
@@ -168,6 +156,7 @@ export function CategoryForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (category) setSaveStatus("saving");
 
     const fd = new FormData();
     fd.set("name", name);
@@ -197,6 +186,7 @@ export function CategoryForm({
       try {
         if (category) {
           await updateCategoryAction(category.id, fd);
+          setSaveStatus("saved");
           router.refresh();
         } else {
           const created = await createCategoryAction(fd);
@@ -204,9 +194,42 @@ export function CategoryForm({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Не вдалося зберегти категорію");
+        if (category) setSaveStatus("error");
       }
     });
   }
+
+  // Автозбереження "Основне" (лише редагування наявної категорії) — короткий
+  // debounce після останньої зміни будь-якого поля, той самий principle, що
+  // ProductEditorContext (conventions.md). Пропускає перший рендер (початкові
+  // значення з category, не "зміна").
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!category) return;
+    const timeout = setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 500);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- саме ці поля утворюють payload handleSubmit, category/formRef стабільні
+  }, [
+    name,
+    parentId,
+    description,
+    imageUrl,
+    ownIsActive,
+    ownShowInStorefrontSection,
+    ownShowInHeaderMenu,
+    ownDefaultWeightKg,
+    ownDefaultLengthCm,
+    ownDefaultWidthCm,
+    ownDefaultHeightCm,
+    seoH1,
+    seoMetaTitle,
+    seoMetaDescription,
+  ]);
 
   const generalForm = (
       <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[1fr_360px]">
@@ -435,33 +458,27 @@ export function CategoryForm({
       </form>
   );
 
-  const isCharacteristicsTab = activeTab === "characteristics" && !!(category && characteristics);
-  const primaryAction = isCharacteristicsTab
-    ? {
-        label: "Зберегти",
-        onClick: () => charPickerRef.current?.save(),
-        disabled: !charState.isDirty || charState.isPending,
-      }
-    : {
-        label: category ? "Зберегти" : "Створити категорію",
-        onClick: () => formRef.current?.requestSubmit(),
-        disabled: isPending,
-      };
-  const secondaryAction = isCharacteristicsTab
-    ? {
-        label: "Скасувати",
-        onClick: () => charPickerRef.current?.cancel(),
-        disabled: !charState.isDirty || charState.isPending,
-      }
-    : {
-        label: "Скасувати",
-        onClick: () => router.push("/settings?tab=categories"),
-      };
-  const statusMessage = isCharacteristicsTab
-    ? (charState.savedMessage ??
-      (charState.isDirty ? "Є незбережені зміни" : `Збережено ${charState.savedCount} характеристик`))
-    : null;
-  const errorMessage = isCharacteristicsTab ? null : error;
+  // Обидві вкладки наявної категорії — автозбереження, без кнопки в хедері
+  // (conventions.md, 2026-08-02: спершу лишали "Характеристики" з кнопкою й
+  // попередженням про каскад через ризик, але людина прямо попросила прибрати
+  // й це — усвідомлюючи, що каскад на дочірні категорії тепер теж спрацьовує
+  // без підтвердження, decisions.md). Статус автозбереження "Основне" — тут,
+  // у хедері; статус "Характеристики" — власний індикатор усередині пікера
+  // (там своя автономна автозбереження на кожну дію drag&drop, не через цю
+  // форму). На /new — єдиний виняток, явна кнопка "Створити категорію".
+  const isGeneralTab = activeTab === "general";
+  const primaryAction = category
+    ? undefined
+    : { label: "Створити категорію", onClick: () => formRef.current?.requestSubmit(), disabled: isPending };
+  const secondaryAction = {
+    label: category ? "До списку" : "Скасувати",
+    onClick: () => router.push("/settings?tab=categories"),
+  };
+  const statusMessage =
+    category && isGeneralTab
+      ? { idle: null, saving: "Збереження…", saved: "Збережено", error: null }[saveStatus]
+      : null;
+  const errorMessage = category && isGeneralTab && saveStatus === "error" ? error : !category ? error : null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -488,12 +505,10 @@ export function CategoryForm({
           <TabsContent value="general">{generalForm}</TabsContent>
           <TabsContent value="characteristics" className="p-6">
             <CategoryCharacteristicsPicker
-              ref={charPickerRef}
               categoryId={category.id}
               options={characteristics.options}
               initialPinnedKeys={characteristics.pinnedKeys}
               hasChildCategories={hasChildCategories}
-              onStateChange={handleCharStateChange}
             />
           </TabsContent>
         </Tabs>

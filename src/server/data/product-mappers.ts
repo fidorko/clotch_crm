@@ -1,21 +1,10 @@
-import type {
-  Product,
-  ProductColorPhotos,
-  ProductMeasurement,
-  ProductPhoto,
-  ProductSku,
-} from "@/lib/types/product";
-import type {
-  products,
-  productSkus,
-  productPhotos,
-  productMeasurements,
-} from "@/server/db/schema";
+import type { Product, ProductColorPhotos, ProductPhoto, ProductSku } from "@/lib/types/product";
+import type { products, productSkus, productPhotos } from "@/server/db/schema";
+import type { SizeMeasurementEntry } from "./product-size-measurements";
 
 type ProductRow = typeof products.$inferSelect;
 type ProductSkuRow = typeof productSkus.$inferSelect;
 type ProductPhotoRow = typeof productPhotos.$inferSelect;
-type ProductMeasurementRow = typeof productMeasurements.$inferSelect;
 type TagRow = { id: string; label: string };
 type MaterialCompositionRow = { materialId: string; percent: number };
 
@@ -36,7 +25,7 @@ export function mapProductRow(
   product: ProductRow,
   skuRows: ProductSkuRow[],
   photoRows: ProductPhotoRow[],
-  measurementRows: ProductMeasurementRow[],
+  sizeMeasurements: SizeMeasurementEntry[],
   tagRows: TagRow[],
   colorPhotosByColor: Map<string, ProductPhoto[]> = new Map(),
   characteristics: Record<string, string[]> = {},
@@ -62,12 +51,6 @@ export function mapProductRow(
   const colorPhotos: ProductColorPhotos[] = [...colorPhotosByColor.entries()].map(
     ([color, colorPhotoList]) => ({ color, photos: colorPhotoList })
   );
-
-  const measurements: ProductMeasurement[] = measurementRows.map((m) => ({
-    id: m.id,
-    type: m.type,
-    valueCm: toAmount(m.valueCm),
-  }));
 
   const purchasePrice = toAmount(product.purchasePrice);
   const inStockCount = skus.filter((s) => s.stock > 0).length;
@@ -127,7 +110,7 @@ export function mapProductRow(
     },
     photos,
     colorPhotos,
-    measurements,
+    sizeMeasurements,
     meta: {
       createdAt: formatDateTime(product.createdAt),
       updatedAt: formatDateTime(product.updatedAt),

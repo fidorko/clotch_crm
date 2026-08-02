@@ -9,6 +9,7 @@ import { mockMaterials } from "@/lib/mocks/materials";
 import { mockCountries } from "@/lib/mocks/countries";
 import { mockSizeTypes } from "@/lib/mocks/size-types";
 import { mockMeasurementTypes } from "@/lib/mocks/measurement-types";
+import { mockFabricTypes } from "@/lib/mocks/fabric-types";
 import * as schema from "./schema";
 
 /**
@@ -96,17 +97,6 @@ async function main() {
           url: photo.url || "https://placehold.co/800x800",
           alt: photo.alt,
           position: index,
-        }))
-      );
-    }
-
-    if (mockProduct.measurements.length > 0) {
-      await db.insert(schema.productMeasurements).values(
-        mockProduct.measurements.map((m) => ({
-          tenantId: devTenantId,
-          productId: product.id,
-          type: m.type,
-          valueCm: String(m.valueCm),
         }))
       );
     }
@@ -320,6 +310,78 @@ async function main() {
           }))
         )
         .onConflictDoNothing();
+    }
+  }
+
+  // "Тип тканини" — той самий сід-патерн, що розміри/заміри (insert типу з
+  // onConflictDoNothing, за потреби select наявного id), плюс "Можливі
+  // матеріали" — junction-таблиця, id матеріалів шукаємо по вже засіяній назві
+  // (mockMaterials вище). "code" (унікальний slug) генеруємо тут же — той
+  // самий транслітератор, що server/data/fabric-types.ts (не експортований
+  // звідти, тому невеликий дубль; тут це прийнятно — сід одноразово ставить
+  // фіксовані назви, а не довільний людський ввід із ретраєм при колізії).
+  const FABRIC_TRANSLIT_MAP: Record<string, string> = {
+    а: "a", б: "b", в: "v", г: "h", ґ: "g", д: "d", е: "e", є: "ie", ж: "zh",
+    з: "z", и: "y", і: "i", ї: "i", й: "i", к: "k", л: "l", м: "m", н: "n",
+    о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
+    ч: "ch", ш: "sh", щ: "shch", ь: "", ю: "iu", я: "ia",
+  };
+  function slugifyFabricType(name: string): string {
+    const transliterated = name
+      .toLowerCase()
+      .split("")
+      .map((ch) => FABRIC_TRANSLIT_MAP[ch] ?? ch)
+      .join("");
+    return transliterated.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tip-tkanyny";
+  }
+
+  if (mockFabricTypes.length > 0) {
+    const materialIdByName = new Map(
+      (
+        await db
+          .select({ id: schema.materials.id, name: schema.materials.name })
+          .from(schema.materials)
+          .where(eq(schema.materials.tenantId, devTenantId))
+      ).map((m) => [m.name, m.id])
+    );
+
+    for (const [index, fabricType] of mockFabricTypes.entries()) {
+      const [inserted] = await db
+        .insert(schema.fabricTypes)
+        .values({
+          tenantId: devTenantId,
+          name: fabricType.name,
+          code: slugifyFabricType(fabricType.name),
+          description: fabricType.description,
+          density: fabricType.density,
+          stretch: fabricType.stretch,
+          frontSide: fabricType.frontSide,
+          backSide: fabricType.backSide,
+          tactileFeel: fabricType.tactileFeel,
+          position: index,
+        })
+        .onConflictDoNothing({ target: [schema.fabricTypes.tenantId, schema.fabricTypes.name] })
+        .returning({ id: schema.fabricTypes.id });
+      const fabricTypeId =
+        inserted?.id ??
+        (
+          await db
+            .select({ id: schema.fabricTypes.id })
+            .from(schema.fabricTypes)
+            .where(and(eq(schema.fabricTypes.tenantId, devTenantId), eq(schema.fabricTypes.name, fabricType.name)))
+        )[0].id;
+
+      const possibleMaterialIds = fabricType.possibleMaterials
+        .map((name) => materialIdByName.get(name))
+        .filter((id): id is string => id !== undefined);
+      if (possibleMaterialIds.length > 0) {
+        await db
+          .insert(schema.fabricTypePossibleMaterials)
+          .values(
+            possibleMaterialIds.map((materialId) => ({ tenantId: devTenantId, fabricTypeId, materialId }))
+          )
+          .onConflictDoNothing();
+      }
     }
   }
 

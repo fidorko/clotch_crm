@@ -3,7 +3,7 @@ import { products } from "./products";
 import { productSkus } from "./product-skus";
 import { productPhotos } from "./product-photos";
 import { productColorPhotos } from "./product-color-photos";
-import { productMeasurements } from "./product-measurements";
+import { productSizeMeasurements } from "./product-size-measurements";
 import { productTags } from "./product-tags";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
@@ -30,7 +30,7 @@ export * from "./products";
 export * from "./product-skus";
 export * from "./product-photos";
 export * from "./product-color-photos";
-export * from "./product-measurements";
+export * from "./product-size-measurements";
 export * from "./product-tags";
 export * from "./categories";
 export * from "./colors";
@@ -56,7 +56,7 @@ export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
   photos: many(productPhotos),
   colorPhotos: many(productColorPhotos),
-  measurements: many(productMeasurements),
+  sizeMeasurements: many(productSizeMeasurements),
   productTags: many(productTags),
   characteristicValues: many(productCharacteristicValues),
   materialComposition: many(productMaterialComposition),
@@ -83,8 +83,12 @@ export const productPhotosRelations = relations(productPhotos, ({ one }) => ({
   product: one(products, { fields: [productPhotos.productId], references: [products.id] }),
 }));
 
-export const productMeasurementsRelations = relations(productMeasurements, ({ one }) => ({
-  product: one(products, { fields: [productMeasurements.productId], references: [products.id] }),
+export const productSizeMeasurementsRelations = relations(productSizeMeasurements, ({ one }) => ({
+  product: one(products, { fields: [productSizeMeasurements.productId], references: [products.id] }),
+  measurementValue: one(measurementValues, {
+    fields: [productSizeMeasurements.measurementValueId],
+    references: [measurementValues.id],
+  }),
 }));
 
 export const productTagsRelations = relations(productTags, ({ one }) => ({

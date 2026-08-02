@@ -4,7 +4,6 @@ import {
   customCharacteristicValues,
   customCharacteristics,
   productColorPhotos,
-  productMeasurements,
   productPhotos,
   products,
   productSkus,
@@ -19,6 +18,11 @@ import {
   syncProductMaterialComposition,
   type MaterialCompositionEntry,
 } from "./product-characteristics";
+import {
+  getProductSizeMeasurements,
+  syncProductSizeMeasurements,
+  type SizeMeasurementEntry,
+} from "./product-size-measurements";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -54,7 +58,7 @@ export async function getProductById(
 
     if (!productRow) return null;
 
-    const [skuRows, photoRows, measurementRows, tagRows, characteristics, materialComposition] =
+    const [skuRows, photoRows, sizeMeasurements, tagRows, characteristics, materialComposition] =
       await Promise.all([
       tx
         .select()
@@ -65,15 +69,7 @@ export async function getProductById(
         .from(productPhotos)
         .where(and(eq(productPhotos.tenantId, tenantId), eq(productPhotos.productId, productId)))
         .orderBy(productPhotos.position),
-      tx
-        .select()
-        .from(productMeasurements)
-        .where(
-          and(
-            eq(productMeasurements.tenantId, tenantId),
-            eq(productMeasurements.productId, productId)
-          )
-        ),
+      getProductSizeMeasurements(tx, tenantId, productId),
       tx
         .select({ id: customCharacteristicValues.id, label: customCharacteristicValues.value })
         .from(productTags)
@@ -103,7 +99,7 @@ export async function getProductById(
       productRow,
       skuRows,
       photoRows,
-      measurementRows,
+      sizeMeasurements,
       tagRows,
       colorPhotosByColor,
       characteristics,
@@ -314,6 +310,7 @@ export interface SaveProductInput {
   };
   characteristics: Record<string, string[]>;
   materialComposition: MaterialCompositionEntry[];
+  sizeMeasurements: SizeMeasurementEntry[];
   pricing: Product["pricing"];
   meta: {
     internalCode: string;
@@ -442,6 +439,7 @@ export async function saveProduct(
     await syncProductTags(tx, tenantId, productId, input.tags);
     await syncProductCharacteristics(tx, tenantId, productId, input.characteristics);
     await syncProductMaterialComposition(tx, tenantId, productId, input.materialComposition);
+    await syncProductSizeMeasurements(tx, tenantId, productId, input.sizeMeasurements);
   });
 }
 

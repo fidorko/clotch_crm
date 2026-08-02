@@ -46,7 +46,7 @@ export function buildCategoryCharacteristicOptions(
     {
       key: "fabric-materials",
       section: "Характеристики товару",
-      label: "Тип тканини та матеріал",
+      label: "Тип тканини",
       values: data.fabricTypes.map((f) => ({ id: f.id, label: f.name })),
     },
     {

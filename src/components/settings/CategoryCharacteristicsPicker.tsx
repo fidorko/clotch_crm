@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -16,10 +16,12 @@ import {
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   GripVertical,
   HelpCircle,
+  Loader2,
   MoveRight,
   PointerIcon,
   Search,
@@ -28,14 +30,6 @@ import {
 } from "lucide-react";
 import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -61,41 +55,37 @@ function formatCharacteristicLabel(option: CategoryCharacteristicOption): string
   return option.label;
 }
 
-export interface CategoryCharacteristicsPickerHandle {
-  save: () => void;
-  cancel: () => void;
-}
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+const AUTOSAVE_DEBOUNCE_MS = 500;
 
-export interface CategoryCharacteristicsPickerState {
-  isDirty: boolean;
-  isPending: boolean;
-  savedMessage: string | null;
-  savedCount: number;
-}
-
-export const CategoryCharacteristicsPicker = forwardRef<
-  CategoryCharacteristicsPickerHandle,
-  {
-    categoryId: string;
-    options: CategoryCharacteristicOption[];
-    initialPinnedKeys: string[];
-    hasChildCategories: boolean;
-    onStateChange?: (state: CategoryCharacteristicsPickerState) => void;
-  }
->(function CategoryCharacteristicsPicker(
-  { categoryId, options, initialPinnedKeys, hasChildCategories, onStateChange },
-  ref
-) {
+/**
+ * Автозбереження без кнопки (conventions.md, 2026-08-02, свідома зміна за
+ * прямою вказівкою людини): кожна завершена дія drag&drop (drop картки,
+ * відкріплення ✕) — природна точка "commit", той самий принцип, що
+ * blur/вибір в інших автозбережуваних формах. Каскад на дочірні категорії
+ * (setCategoryPinnedCharacteristics) тепер теж спрацьовує без попередження —
+ * раніше тут був Dialog-підступ "Зберегти зміни?", людина попросила прибрати
+ * й це, усвідомлюючи ризик (decisions.md).
+ */
+export function CategoryCharacteristicsPicker({
+  categoryId,
+  options,
+  initialPinnedKeys,
+  hasChildCategories,
+}: {
+  categoryId: string;
+  options: CategoryCharacteristicOption[];
+  initialPinnedKeys: string[];
+  hasChildCategories: boolean;
+}) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const optionByKey: OptionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 
-  const [savedKeys, setSavedKeys] = useState(() => initialPinnedKeys.filter((k) => optionByKey.has(k)));
-  const [pinnedKeys, setPinnedKeys] = useState(savedKeys);
+  const [pinnedKeys, setPinnedKeys] = useState(() => initialPinnedKeys.filter((k) => optionByKey.has(k)));
   const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const isFirstRender = useRef(true);
 
   const availableKeys = useMemo(
     () => options.map((o) => o.key).filter((k) => !pinnedKeys.includes(k)),
@@ -108,7 +98,24 @@ export const CategoryCharacteristicsPicker = forwardRef<
   }, [availableKeys, search, optionByKey]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const isDirty = pinnedKeys.length !== savedKeys.length || pinnedKeys.some((k, i) => k !== savedKeys[i]);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setSaveStatus("saving");
+    const timeout = setTimeout(() => {
+      updateCategoryPinnedCharacteristicsAction(categoryId, pinnedKeys)
+        .then(() => {
+          setSaveStatus("saved");
+          router.refresh();
+        })
+        .catch(() => setSaveStatus("error"));
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- categoryId/router стабільні, реагуємо лише на зміну самого списку
+  }, [pinnedKeys]);
 
   function containerOf(id: string): "available" | "pinned" {
     if (id === "pinned-panel") return "pinned";
@@ -118,7 +125,6 @@ export const CategoryCharacteristicsPicker = forwardRef<
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
-    setSavedMessage(null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -151,34 +157,7 @@ export const CategoryCharacteristicsPicker = forwardRef<
 
   function handleUnpin(key: string) {
     setPinnedKeys((prev) => prev.filter((k) => k !== key));
-    setSavedMessage(null);
   }
-
-  function handleCancel() {
-    setPinnedKeys(savedKeys);
-    setSavedMessage(null);
-  }
-
-  function handleSaveClick() {
-    setConfirmOpen(true);
-  }
-
-  function handleConfirmSave() {
-    setConfirmOpen(false);
-    startTransition(async () => {
-      await updateCategoryPinnedCharacteristicsAction(categoryId, pinnedKeys);
-      setSavedKeys(pinnedKeys);
-      setSavedMessage(`Збережено ${pinnedKeys.length} характеристик`);
-      router.refresh();
-    });
-  }
-
-  useImperativeHandle(ref, () => ({ save: handleSaveClick, cancel: handleCancel }));
-
-  useEffect(() => {
-    onStateChange?.({ isDirty, isPending, savedMessage, savedCount: savedKeys.length });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onStateChange навмисно не в deps, стабільний колбек з CategoryForm (useCallback)
-  }, [isDirty, isPending, savedMessage, savedKeys.length]);
 
   const activeOption = activeId ? optionByKey.get(activeId) : undefined;
 
@@ -189,18 +168,37 @@ export const CategoryCharacteristicsPicker = forwardRef<
           <h2 className="text-lg font-semibold text-foreground">Закріплення характеристик</h2>
           <p className="text-sm text-muted-foreground">
             Перетягніть характеристики справа, які потрібно використовувати для цієї категорії.
+            {hasChildCategories &&
+              " Застосовується одразу до всіх підкатегорій і товарів у них — попередній власний вибір підкатегорій буде замінено."}
           </p>
         </div>
-        <Tooltip>
-          <TooltipTrigger className="flex shrink-0 items-center gap-1 text-sm text-primary hover:underline">
-            <HelpCircle className="size-4" />
-            Як це працює?
-          </TooltipTrigger>
-          <TooltipContent>
-            Перетягніть характеристику в праву панель, щоб закріпити її за категорією. Порядок карток
-            праворуч визначає порядок показу.
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex shrink-0 items-center gap-3">
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              Збереження…
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5 text-success" />
+              Збережено
+            </span>
+          )}
+          {saveStatus === "error" && (
+            <span className="text-xs text-destructive">Не вдалося зберегти</span>
+          )}
+          <Tooltip>
+            <TooltipTrigger className="flex items-center gap-1 text-sm text-primary hover:underline">
+              <HelpCircle className="size-4" />
+              Як це працює?
+            </TooltipTrigger>
+            <TooltipContent>
+              Перетягніть характеристику в праву панель, щоб закріпити її за категорією. Порядок карток
+              праворуч визначає порядок показу. Кожна зміна зберігається сама, без кнопки.
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       <DndContext
@@ -223,30 +221,9 @@ export const CategoryCharacteristicsPicker = forwardRef<
 
         <DragOverlay>{activeOption ? <DragGhost option={activeOption} /> : null}</DragOverlay>
       </DndContext>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Зберегти зміни?</DialogTitle>
-            <DialogDescription>
-              {hasChildCategories
-                ? "Цей список одразу застосується до всіх підкатегорій і товарів у них — їхній попередній власний вибір характеристик буде замінено."
-                : "Цей список одразу застосується до товарів цієї категорії."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
-              Скасувати
-            </Button>
-            <Button type="button" onClick={handleConfirmSave}>
-              Так, зберегти
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
-});
+}
 
 function DragHint() {
   return (

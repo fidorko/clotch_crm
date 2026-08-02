@@ -11,8 +11,9 @@ import {
   deleteSkusAction,
 } from "@/app/products/[id]/actions";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
-import type { ProductColorPhotos, ProductMeasurement, ProductPhoto, ProductSku } from "@/lib/types/product";
+import type { ProductColorPhotos, ProductPhoto, ProductSku } from "@/lib/types/product";
 import { selectedSku as defaultSelectedSku } from "@/lib/mocks/products";
+import { deriveDistinctSizes } from "@/lib/products/sku-sizes";
 
 export interface SkuPricing {
   purchasePrice: number;
@@ -54,18 +55,9 @@ function deriveInitialColors(skus: ProductSku[], colorPhotos: ProductColorPhotos
   return [...seen.values()];
 }
 
-// Розміри вже присутні в SKU лишаються видимими, навіть якщо категорію
-// перемкнули й розмір випав із pinned sizeOptions — інакше наявні SKU
-// зникли б із сітки без видалення.
-function deriveInitialSizes(skus: ProductSku[]): string[] {
-  const present = new Set(skus.map((s) => s.size));
-  return [...present];
-}
-
 export function ProductSkuSection({
   productId,
   modelCode,
-  measurements,
   pricing,
   colorOptions,
   sizeOptions,
@@ -74,7 +66,6 @@ export function ProductSkuSection({
 }: {
   productId: string;
   modelCode: string;
-  measurements: ProductMeasurement[];
   pricing: SkuPricing;
   colorOptions: ColorOption[];
   sizeOptions: string[];
@@ -84,7 +75,7 @@ export function ProductSkuSection({
   const [colors, setColors] = useState<SkuColor[]>(() =>
     deriveInitialColors(initialSkus, initialColorPhotos)
   );
-  const [sizes, setSizes] = useState<string[]>(() => deriveInitialSizes(initialSkus));
+  const [sizes, setSizes] = useState<string[]>(() => deriveDistinctSizes(initialSkus));
   const [skus, setSkus] = useState<ProductSku[]>(initialSkus);
   const [selectedSkuId, setSelectedSkuId] = useState<string | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
@@ -225,7 +216,6 @@ export function ProductSkuSection({
         />
         <ProductSkuDetailPanel
           sku={activeSku ? { ...defaultSelectedSku, code: activeSku.code } : undefined}
-          measurements={measurements}
           pricing={pricing}
         />
       </div>

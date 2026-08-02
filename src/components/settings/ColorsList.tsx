@@ -63,6 +63,63 @@ function DeleteColorButton({
   );
 }
 
+/**
+ * Новий, ще НЕ збережений рядок — з'являється зверху списку, порожній, з
+ * підказкою «Введіть назву» (за прямою вказівкою людини — той самий патерн,
+ * що NewMaterialRow у MaterialsManager). Реально створюється (createColorAction)
+ * лише по blur/Enter з непорожньою назвою — інакше два швидкі кліки «Додати»
+ * до вводу назви конфліктували б на UNIQUE(tenant_id, name) з порожнім рядком.
+ */
+function NewColorRow({
+  onCommit,
+  onCancel,
+}: {
+  onCommit: (name: string, hex: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [hex, setHex] = useState("#CCCCCC");
+
+  function commit() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      onCancel();
+      return;
+    }
+    onCommit(trimmed, hex);
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <input
+        type="color"
+        value={hex}
+        onChange={(e) => setHex(e.target.value)}
+        aria-label="Колір-зразок нового кольору"
+        className={SWATCH_CLASS}
+      />
+      <Input
+        value={hex}
+        onChange={(e) => setHex(e.target.value)}
+        maxLength={7}
+        className="h-8 w-24 font-mono text-xs uppercase"
+      />
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") onCancel();
+        }}
+        className="h-8 flex-1"
+        placeholder="Введіть назву"
+      />
+    </div>
+  );
+}
+
 function ColorRowItem({
   color,
   onDelete,
@@ -155,21 +212,23 @@ function ColorRowItem({
 export function ColorsList({ colors }: { colors: ColorRow[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [isAddingDraft, setIsAddingDraft] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  function handleCreate() {
+  function handleCommitDraft(name: string, hex: string) {
     setActionError(null);
     setIsCreating(true);
     startTransition(async () => {
       try {
-        await createColorAction("Новий колір", "#CCCCCC");
+        await createColorAction(name, hex);
         router.refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Не вдалося створити колір");
       } finally {
         setIsCreating(false);
+        setIsAddingDraft(false);
       }
     });
   }
@@ -195,7 +254,7 @@ export function ColorsList({ colors }: { colors: ColorRow[] }) {
         <p className="text-sm text-muted-foreground">
           Довідник кольорів — використовується в конструкторі SKU на картці товару.
         </p>
-        <Button onClick={handleCreate} disabled={isCreating}>
+        <Button onClick={() => setIsAddingDraft(true)} disabled={isAddingDraft || isCreating}>
           <Plus className="size-4" />
           Додати колір
         </Button>
@@ -205,6 +264,9 @@ export function ColorsList({ colors }: { colors: ColorRow[] }) {
 
       <Card className="gap-0 py-2">
         <CardContent className="flex flex-col divide-y divide-border px-0">
+          {isAddingDraft && (
+            <NewColorRow onCommit={handleCommitDraft} onCancel={() => setIsAddingDraft(false)} />
+          )}
           {colors.map((color) => (
             <ColorRowItem
               key={color.id}
@@ -213,7 +275,7 @@ export function ColorsList({ colors }: { colors: ColorRow[] }) {
               isDeleting={pendingDeleteId === color.id}
             />
           ))}
-          {colors.length === 0 && (
+          {colors.length === 0 && !isAddingDraft && (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Кольорів ще немає — натисніть «Додати колір»
             </p>

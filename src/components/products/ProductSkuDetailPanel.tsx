@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils";
 import { DetailRow } from "@/components/ui/detail-row";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
-import type { ProductMeasurement } from "@/lib/types/product";
 import type { SkuPricing } from "@/components/products/ProductSkuSection";
 
 interface SkuDetail {
@@ -137,11 +135,9 @@ function BarcodeDetailRow({ value }: { value: string }) {
 
 export function ProductSkuDetailPanel({
   sku,
-  measurements,
   pricing,
 }: {
   sku?: SkuDetail;
-  measurements: ProductMeasurement[];
   pricing: SkuPricing;
 }) {
   const [codeOverride, setCodeOverride] = useState<string | null>(null);
@@ -240,7 +236,6 @@ export function ProductSkuDetailPanel({
             <ArrowRightLeft className="size-3.5" />
             Перемістити
           </Button>
-          <SkuMeasurementsDialog measurements={measurements} />
           <Button variant="outline">
             <Printer className="size-3.5" />
             Друк одного SKU

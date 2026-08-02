@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Star, ChevronDown, Pencil } from "lucide-react";
+import { Check, ChevronRight, Star, ChevronDown, Loader2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { HeaderActions } from "@/components/layout/HeaderActions";
@@ -36,7 +36,7 @@ export function ProductHeader({
   characteristicOptions: CategoryCharacteristicOption[];
 }) {
   const router = useRouter();
-  const { form, setField, isDraft, isSaving, error: saveError, save } = useProductEditor();
+  const { form, setField, isDraft, saveStatus, error: saveError, save } = useProductEditor();
   const name = form.name;
   const status = form.status;
   const [nameDraft, setNameDraft] = useState(product.name);
@@ -174,11 +174,29 @@ export function ProductHeader({
                 <DropdownMenuItem variant="destructive">Видалити</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={save} disabled={isSaving}>
-              {isDraft ? "Створити товар" : "Зберегти товар"}
-            </Button>
           </div>
-          {saveError && <span className="text-xs text-destructive">{saveError}</span>}
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                Збереження…
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Check className="size-3.5 text-success" />
+                Збережено
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="flex items-center gap-1.5 text-xs text-destructive">
+                {saveError}
+                <Button size="sm" variant="outline" onClick={save} className="cursor-pointer">
+                  Спробувати ще
+                </Button>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -8,7 +8,6 @@ import { DetailRow } from "@/components/ui/detail-row";
 import { EditableTextRow } from "@/components/ui/editable-text-row";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
 import { TextRow } from "@/components/ui/text-row";
 import { Textarea } from "@/components/ui/textarea";
 import { DynamicCharacteristicsSection } from "@/components/products/characteristics/DynamicCharacteristicsSection";
@@ -368,7 +367,6 @@ export function ProductMetaPanel({
                 <ArrowRightLeft className="size-3.5" />
                 Перемістити
               </Button>
-              <SkuMeasurementsDialog measurements={product.measurements} />
               <Button variant="outline">
                 <Printer className="size-3.5" />
                 Друк SKU

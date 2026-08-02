@@ -291,7 +291,6 @@ export function ProductGeneralTab({
             <ProductSkuSection
               productId={product.id}
               modelCode={product.modelCode}
-              measurements={product.measurements}
               colorOptions={colorOptions}
               sizeOptions={sizeOptions}
               initialSkus={product.skus}

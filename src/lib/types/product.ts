@@ -29,9 +29,12 @@ export interface ProductTag {
   label: string;
 }
 
-export interface ProductMeasurement {
-  id: string;
-  type: string;
+// Значення сітки "розмір × точка заміру" — size той самий вільний рядок, що
+// ProductSku.size, measurementValueId — реальний FK на measurement_values
+// (закріплені за категорією типи замірів, characteristic-options.ts).
+export interface ProductSizeMeasurement {
+  size: string;
+  measurementValueId: string;
   valueCm: number;
 }
 
@@ -82,7 +85,7 @@ export interface Product {
   };
   photos: ProductPhoto[];
   colorPhotos: ProductColorPhotos[];
-  measurements: ProductMeasurement[];
+  sizeMeasurements: ProductSizeMeasurement[];
   meta: {
     createdAt: string;
     updatedAt: string;

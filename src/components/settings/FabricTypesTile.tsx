@@ -15,11 +15,16 @@ const ADD_CHIP_CLASS =
   "inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary";
 
 /**
- * Плитка «Тип тканини та матеріал» — немає окремої сторінки (decisions.md),
- * усе керується попапами прямо звідси: заголовок і чіп кожного наявного типу
+ * Плитка «Тип тканини» — немає окремої сторінки (decisions.md), усе
+ * керується попапами прямо звідси: заголовок і чіп кожного наявного типу
  * відкривають `FabricTypeFormDialog` (заголовок — режим create, чіп — edit),
  * «+Додати» в рядку чіпів — той самий create. Заголовок клікабельний, як і на
  * решті плиток («Кольори»/`ReferenceTile`), а не статичний текст.
+ * «Матеріали» — раніше згорнута секція в цьому ж попапі, тепер окрема плитка
+ * (`MaterialsTile`) — `materials` тут лишається лише для селектора «Можливі
+ * матеріали» всередині `FabricTypeFormDialog`, довідник ключа `fabric-materials`
+ * (dictionaryKey не міняли — лише лейбл, характеристика картки товару
+ * лишається тим самим ключем, decisions.md).
  */
 export function FabricTypesTile({
   fabricTypes,
@@ -43,8 +48,8 @@ export function FabricTypesTile({
               <Scissors className="size-5" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-medium text-foreground">Тип тканини та матеріал</span>
-              <span className="truncate text-xs text-muted-foreground">Типи тканин та матеріали виробів</span>
+              <span className="truncate text-sm font-medium text-foreground">Тип тканини</span>
+              <span className="truncate text-xs text-muted-foreground">Типи тканин виробів</span>
             </span>
             <span className="shrink-0 text-sm font-medium text-muted-foreground">{fabricTypes.length}</span>
             <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />

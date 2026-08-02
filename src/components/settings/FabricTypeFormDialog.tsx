@@ -2,7 +2,7 @@
 
 import { type ReactElement, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FabricTypePossibleMaterialsField } from "@/components/settings/FabricTypePossibleMaterialsField";
-import { MaterialsManager } from "@/components/settings/MaterialsManager";
 import { FABRIC_STRETCH_OPTIONS } from "@/lib/constants/fabric-options";
 import type { FabricStretch, FabricTypeDetail } from "@/server/data/fabric-types";
 import type { MaterialRow } from "@/server/data/materials";
@@ -48,7 +47,6 @@ export function FabricTypeFormDialog({
   const [error, setError] = useState<string | null>(null);
 
   const [localMaterials, setLocalMaterials] = useState<MaterialRow[]>(materials);
-  const [isMaterialsManagerOpen, setIsMaterialsManagerOpen] = useState(false);
 
   const [name, setName] = useState(fabricType?.name ?? "");
   const [description, setDescription] = useState(fabricType?.description ?? "");
@@ -179,20 +177,6 @@ export function FabricTypeFormDialog({
               selectedIds={possibleMaterialIds}
               onSelectedIdsChange={setPossibleMaterialIds}
             />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setIsMaterialsManagerOpen((prev) => !prev)}
-              className="flex cursor-pointer items-center justify-between text-sm font-semibold text-foreground"
-            >
-              Керувати довідником матеріалів
-              {isMaterialsManagerOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-            </button>
-            {isMaterialsManagerOpen && (
-              <MaterialsManager materials={localMaterials} onMaterialsChange={setLocalMaterials} />
-            )}
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

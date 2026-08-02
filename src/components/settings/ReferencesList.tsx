@@ -6,8 +6,10 @@ import { CustomCharacteristicFormDialog } from "@/components/settings/CustomChar
 import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
 import { ColorsTile } from "@/components/settings/ColorsTile";
 import { FabricTypesTile } from "@/components/settings/FabricTypesTile";
+import { MaterialsTile } from "@/components/settings/MaterialsTile";
 import { CareInstructionsTile } from "@/components/settings/CareInstructionsTile";
-import { SizesMeasurementsTile } from "@/components/settings/SizesMeasurementsTile";
+import { SizesTile } from "@/components/settings/SizesTile";
+import { MeasurementsTile } from "@/components/settings/MeasurementsTile";
 import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDictionaryFlagsRow";
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
@@ -261,12 +263,16 @@ export function ReferencesList({
             materials={materials}
             flags={dictionaryFlags["fabric-materials"] ?? DEFAULT_DICTIONARY_FLAGS}
           />
+          <MaterialsTile
+            materials={materials}
+            flags={dictionaryFlags.materials ?? DEFAULT_DICTIONARY_FLAGS}
+          />
           <CareInstructionsTile
             careInstructions={careInstructions}
             flags={dictionaryFlags["care-instructions"] ?? DEFAULT_DICTIONARY_FLAGS}
           />
-          <SizesMeasurementsTile
-            sizeTypes={sizeTypes}
+          <SizesTile sizeTypes={sizeTypes} flags={dictionaryFlags.sizes ?? DEFAULT_DICTIONARY_FLAGS} />
+          <MeasurementsTile
             measurementTypes={measurementTypes}
             flags={dictionaryFlags["measurements"] ?? DEFAULT_DICTIONARY_FLAGS}
           />

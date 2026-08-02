@@ -6,7 +6,8 @@ import { ProductEditorProvider } from "@/components/products/ProductEditorContex
 import { ProductTabs } from "@/components/products/ProductTabs";
 import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
 import { ProductSizeChart } from "@/components/products/ProductSizeChart";
-import { ProductMeasurements } from "@/components/products/ProductMeasurements";
+import { MeasurementGuide } from "@/components/products/MeasurementGuide";
+import { deriveDistinctSizes } from "@/lib/products/sku-sizes";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
@@ -136,6 +137,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
     ),
   ];
 
+  // Розмірна сітка (ProductSizeChart): рядки — розміри, реально додані в
+  // конструкторі SKU; колонки — точки заміру типів, закріплених за категорією
+  // (той самий принцип, що sizeOptions вище, лише для measurement-type:*).
+  const productSizes = deriveDistinctSizes(product.skus);
+  const pinnedMeasurementTypeIds = pinnedKeys
+    .filter((key) => key.startsWith("measurement-type:"))
+    .map((key) => key.slice("measurement-type:".length));
+  const measurementPoints = measurementTypes
+    .filter((type) => pinnedMeasurementTypeIds.includes(type.id))
+    .flatMap((type) => type.values.map((v) => ({ id: v.id, label: v.value })));
+
   // Успадкування розмірів/ваги посилки від категорії (walk up parentId, той
   // самий resolveInheritedField, що для самих категорій) — на товарі,
   // products-characteristics.md.
@@ -185,10 +197,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <TabsContent value="sizes" className="flex flex-col gap-4 p-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
               <DevBlockLabel name="ProductSizeChart" enabled={dev}>
-                <ProductSizeChart />
+                <ProductSizeChart sizes={productSizes} measurementPoints={measurementPoints} />
               </DevBlockLabel>
-              <DevBlockLabel name="ProductMeasurements" enabled={dev}>
-                <ProductMeasurements measurements={product.measurements} />
+              <DevBlockLabel name="MeasurementGuide" enabled={dev}>
+                <MeasurementGuide points={measurementPoints} />
               </DevBlockLabel>
             </div>
           </TabsContent>

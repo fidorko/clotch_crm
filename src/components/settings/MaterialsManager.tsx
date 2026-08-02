@@ -19,6 +19,58 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const SWATCH_CLASS =
   "size-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-moz-color-swatch]:rounded-md [&::-moz-color-swatch]:border-none";
 
+/**
+ * Новий, ще НЕ збережений рядок — з'являється зверху списку, порожній, з
+ * підказкою «Введіть назву» (за прямою вказівкою людини, на відміну від
+ * "Кольорів", де новий рядок одразу створюється з дефолтною назвою). Реально
+ * створюється (createMaterialAction) лише по blur/Enter з непорожньою назвою —
+ * інакше два швидких кліки «Додати» до того, як ввести назву, конфліктували б
+ * на UNIQUE(tenant_id, name) з порожнім рядком.
+ */
+function NewMaterialRow({
+  onCommit,
+  onCancel,
+}: {
+  onCommit: (name: string, color: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#CCCCCC");
+
+  function commit() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      onCancel();
+      return;
+    }
+    onCommit(trimmed, color);
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        aria-label="Колір-зразок нового матеріалу"
+        className={SWATCH_CLASS}
+      />
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") onCancel();
+        }}
+        className="h-8 flex-1"
+        placeholder="Введіть назву"
+      />
+    </div>
+  );
+}
+
 function MaterialRowItem({
   material,
   onSave,
@@ -105,11 +157,13 @@ function MaterialRowItem({
 }
 
 /**
- * Повний CRUD довідника матеріалів — раніше окрема вкладка на сторінці, тепер
- * вбудований усередину `FabricTypeFormDialog` (немає більше сторінки "Тип
- * тканини та матеріал", decisions.md). `onMaterialsChange` тримає синхронним
- * `localMaterials` попапу-батька, `router.refresh()` — дані плитки в гріді
- * «Довідники» поза попапом.
+ * Повний CRUD довідника матеріалів — власна плитка+попап `MaterialsTile`/
+ * `MaterialsFormDialog` (раніше згорнута секція всередині `FabricTypeFormDialog`,
+ * decisions.md). `onMaterialsChange` тримає синхронним `localMaterials`
+ * попапу-батька, `router.refresh()` — дані плитки в гріді «Довідники» поза
+ * попапом. «Додати матеріал» — новий рядок з'являється зверху ПОРОЖНІМ (не
+ * одразу створеним із дефолтною назвою, на відміну від «Кольорів») — реальне
+ * створення лише по blur/Enter із непорожньою назвою (`NewMaterialRow`).
  */
 export function MaterialsManager({
   materials,
@@ -120,22 +174,24 @@ export function MaterialsManager({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [isAddingDraft, setIsAddingDraft] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  function handleCreate() {
+  function handleCommitDraft(name: string, color: string) {
     setActionError(null);
     setIsCreating(true);
     startTransition(async () => {
       try {
-        const created = await createMaterialAction({ name: "Новий матеріал", color: "#CCCCCC" });
-        onMaterialsChange([...materials, created]);
+        const created = await createMaterialAction({ name, color });
+        onMaterialsChange([created, ...materials]);
         router.refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Не вдалося створити матеріал");
       } finally {
         setIsCreating(false);
+        setIsAddingDraft(false);
       }
     });
   }
@@ -165,7 +221,12 @@ export function MaterialsManager({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">Довідник матеріалів — назва + колір-зразок.</p>
-        <Button size="sm" onClick={handleCreate} disabled={isCreating} className="cursor-pointer">
+        <Button
+          size="sm"
+          onClick={() => setIsAddingDraft(true)}
+          disabled={isAddingDraft || isCreating}
+          className="cursor-pointer"
+        >
           <Plus className="size-3.5" />
           Додати матеріал
         </Button>
@@ -175,6 +236,9 @@ export function MaterialsManager({
 
       <Card className="max-h-64 gap-0 overflow-y-auto py-2">
         <CardContent className="flex flex-col divide-y divide-border px-0">
+          {isAddingDraft && (
+            <NewMaterialRow onCommit={handleCommitDraft} onCancel={() => setIsAddingDraft(false)} />
+          )}
           {materials.map((material) => (
             <MaterialRowItem
               key={material.id}
@@ -184,7 +248,7 @@ export function MaterialsManager({
               isDeleting={pendingDeleteId === material.id}
             />
           ))}
-          {materials.length === 0 && (
+          {materials.length === 0 && !isAddingDraft && (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Матеріалів ще немає — натисніть «Додати матеріал»
             </p>
