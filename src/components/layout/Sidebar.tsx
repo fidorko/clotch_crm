@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -98,10 +99,49 @@ function NavLink({
   );
 }
 
+// "Налаштування" сам по собі лише розгортає/згортає підменю — не веде на
+// /settings (це відкривало б категорії за замовчуванням при кожному кліку).
+function NavExpandButton({
+  item,
+  active,
+  expanded,
+  onClick,
+}: {
+  item: NavItem;
+  active: boolean;
+  expanded: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+      )}
+    >
+      <item.icon className="size-4.5 shrink-0" />
+      <span className="truncate">{item.label}</span>
+    </button>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const searchTab = useSearchParams().get("tab");
   const inSettings = pathname.startsWith("/settings");
+  const [settingsExpanded, setSettingsExpanded] = useState(inSettings);
+  const [wasInSettings, setWasInSettings] = useState(inSettings);
+
+  // Захід на сторінку налаштувань (пряме посилання, кнопка "назад" тощо) —
+  // підменю саме розгортається, щоб активний пункт було видно одразу
+  // (adjusting-state-during-render, а не useEffect — react.dev/learn/you-might-not-need-an-effect).
+  if (inSettings !== wasInSettings) {
+    setWasInSettings(inSettings);
+    if (inSettings) setSettingsExpanded(true);
+  }
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4">
@@ -120,11 +160,13 @@ export function Sidebar() {
         ))}
 
         <div className="mt-1 flex flex-col gap-1 border-t border-sidebar-border pt-3">
-          <NavLink
+          <NavExpandButton
             item={{ href: "/settings", label: "Налаштування", icon: Settings }}
             active={inSettings}
+            expanded={settingsExpanded}
+            onClick={() => setSettingsExpanded((expanded) => !expanded)}
           />
-          {inSettings && (
+          {settingsExpanded && (
             <div className="ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
               {SETTINGS_NAV_ITEMS.map((item) => (
                 <NavLink
