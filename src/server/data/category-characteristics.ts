@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
 import { categoryCharacteristics } from "@/server/db/schema";
 
@@ -40,30 +40,40 @@ export async function listAllCategoryPinnedCharacteristics(
  * невідрізнюваний від "категорія ще не редагувала список" (успадкує від
  * батька, доки в неї взагалі нема жодного власного рядка) — прийнятний
  * компроміс, не просили окремого маркера (decisions.md).
+ *
+ * cascadeToCategoryIds — id усіх нащадків категорії (lib/categories/tree.ts,
+ * getDescendantIds), яким записується ТОЙ САМИЙ список, перезаписуючи
+ * будь-який їхній власний ("останнє редагування виграє" — decisions.md).
+ * Порожній масив (за замовчуванням) — категорія без дітей, поводиться як
+ * раніше.
  */
 export async function setCategoryPinnedCharacteristics(
   tenantId: string,
   categoryId: string,
-  characteristicKeys: string[]
+  characteristicKeys: string[],
+  cascadeToCategoryIds: string[] = []
 ): Promise<void> {
+  const targetCategoryIds = [categoryId, ...cascadeToCategoryIds];
   await withTenant(tenantId, async (tx) => {
     await tx
       .delete(categoryCharacteristics)
       .where(
         and(
           eq(categoryCharacteristics.tenantId, tenantId),
-          eq(categoryCharacteristics.categoryId, categoryId)
+          inArray(categoryCharacteristics.categoryId, targetCategoryIds)
         )
       );
 
     if (characteristicKeys.length > 0) {
       await tx.insert(categoryCharacteristics).values(
-        characteristicKeys.map((characteristicKey, index) => ({
-          tenantId,
-          categoryId,
-          characteristicKey,
-          position: index,
-        }))
+        targetCategoryIds.flatMap((catId) =>
+          characteristicKeys.map((characteristicKey, index) => ({
+            tenantId,
+            categoryId: catId,
+            characteristicKey,
+            position: index,
+          }))
+        )
       );
     }
   });

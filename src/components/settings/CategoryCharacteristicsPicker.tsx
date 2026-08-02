@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -15,9 +15,27 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CheckCircle2, GripVertical, HelpCircle, MoveRight, PointerIcon, Search, Star, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  HelpCircle,
+  MoveRight,
+  PointerIcon,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,16 +46,46 @@ import { updateCategoryPinnedCharacteristicsAction } from "@/app/settings/catego
 
 const VISIBLE_VALUES = 5;
 type OptionByKey = Map<string, CategoryCharacteristicOption>;
+type Section = CategoryCharacteristicOption["section"];
 
-export function CategoryCharacteristicsPicker({
-  categoryId,
-  options,
-  initialPinnedKeys,
-}: {
-  categoryId: string;
-  options: CategoryCharacteristicOption[];
-  initialPinnedKeys: string[];
-}) {
+const SECTION_ORDER: Section[] = ["Характеристики товару", "Розміри", "Заміри", "Системні"];
+const DEFAULT_COLLAPSED_SECTIONS: Section[] = ["Розміри", "Заміри"];
+
+// "Розміри"/"Заміри" мають багато однотипних довідників (Взуття, Джинси...) з
+// подібними назвами — без префікса розділу картки в правій панелі зливаються
+// одна з одною (реальна плутанина, яку помітила людина).
+function formatCharacteristicLabel(option: CategoryCharacteristicOption): string {
+  if (option.section === "Розміри" || option.section === "Заміри") {
+    return `${option.section}/${option.label}`;
+  }
+  return option.label;
+}
+
+export interface CategoryCharacteristicsPickerHandle {
+  save: () => void;
+  cancel: () => void;
+}
+
+export interface CategoryCharacteristicsPickerState {
+  isDirty: boolean;
+  isPending: boolean;
+  savedMessage: string | null;
+  savedCount: number;
+}
+
+export const CategoryCharacteristicsPicker = forwardRef<
+  CategoryCharacteristicsPickerHandle,
+  {
+    categoryId: string;
+    options: CategoryCharacteristicOption[];
+    initialPinnedKeys: string[];
+    hasChildCategories: boolean;
+    onStateChange?: (state: CategoryCharacteristicsPickerState) => void;
+  }
+>(function CategoryCharacteristicsPicker(
+  { categoryId, options, initialPinnedKeys, hasChildCategories, onStateChange },
+  ref
+) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const optionByKey: OptionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
@@ -47,6 +95,7 @@ export function CategoryCharacteristicsPicker({
   const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const availableKeys = useMemo(
     () => options.map((o) => o.key).filter((k) => !pinnedKeys.includes(k)),
@@ -110,7 +159,12 @@ export function CategoryCharacteristicsPicker({
     setSavedMessage(null);
   }
 
-  function handleSave() {
+  function handleSaveClick() {
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmSave() {
+    setConfirmOpen(false);
     startTransition(async () => {
       await updateCategoryPinnedCharacteristicsAction(categoryId, pinnedKeys);
       setSavedKeys(pinnedKeys);
@@ -118,6 +172,13 @@ export function CategoryCharacteristicsPicker({
       router.refresh();
     });
   }
+
+  useImperativeHandle(ref, () => ({ save: handleSaveClick, cancel: handleCancel }));
+
+  useEffect(() => {
+    onStateChange?.({ isDirty, isPending, savedMessage, savedCount: savedKeys.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onStateChange навмисно не в deps, стабільний колбек з CategoryForm (useCallback)
+  }, [isDirty, isPending, savedMessage, savedKeys.length]);
 
   const activeOption = activeId ? optionByKey.get(activeId) : undefined;
 
@@ -163,23 +224,29 @@ export function CategoryCharacteristicsPicker({
         <DragOverlay>{activeOption ? <DragGhost option={activeOption} /> : null}</DragOverlay>
       </DndContext>
 
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          {savedMessage && <CheckCircle2 className="size-4 text-success" />}
-          {savedMessage ?? (isDirty ? "Є незбережені зміни" : `Збережено ${savedKeys.length} характеристик`)}
-        </span>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={handleCancel} disabled={!isDirty || isPending}>
-            Скасувати
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={!isDirty || isPending}>
-            Зберегти
-          </Button>
-        </div>
-      </div>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Зберегти зміни?</DialogTitle>
+            <DialogDescription>
+              {hasChildCategories
+                ? "Цей список одразу застосується до всіх підкатегорій і товарів у них — їхній попередній власний вибір характеристик буде замінено."
+                : "Цей список одразу застосується до товарів цієї категорії."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+              Скасувати
+            </Button>
+            <Button type="button" onClick={handleConfirmSave}>
+              Так, зберегти
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+});
 
 function DragHint() {
   return (
@@ -207,6 +274,37 @@ function AvailablePanel({
   onSearchChange: (value: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: "available-panel" });
+  const [collapsedSections, setCollapsedSections] = useState<Set<Section>>(
+    () => new Set(DEFAULT_COLLAPSED_SECTIONS)
+  );
+  const isSearching = search.trim().length > 0;
+
+  const keysBySection = useMemo(() => {
+    const map = new Map<Section, string[]>();
+    for (const key of keys) {
+      const section = optionByKey.get(key)!.section;
+      const list = map.get(section);
+      if (list) list.push(key);
+      else map.set(section, [key]);
+    }
+    return map;
+  }, [keys, optionByKey]);
+
+  const sortableItems = useMemo(() => {
+    if (isSearching) return keys;
+    return SECTION_ORDER.flatMap((section) =>
+      collapsedSections.has(section) ? [] : (keysBySection.get(section) ?? [])
+    );
+  }, [isSearching, keys, keysBySection, collapsedSections]);
+
+  function toggleSection(section: Section) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
@@ -224,10 +322,38 @@ function AvailablePanel({
       </div>
 
       <div ref={setNodeRef} className="flex min-h-40 flex-col gap-1.5">
-        <SortableContext items={keys} strategy={verticalListSortingStrategy}>
-          {keys.map((key) => (
-            <AvailableRow key={key} option={optionByKey.get(key)!} />
-          ))}
+        <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
+          {isSearching
+            ? keys.map((key) => <AvailableRow key={key} option={optionByKey.get(key)!} />)
+            : SECTION_ORDER.map((section) => {
+                const sectionKeys = keysBySection.get(section);
+                if (!sectionKeys || sectionKeys.length === 0) return null;
+                const collapsed = collapsedSections.has(section);
+                return (
+                  <div key={section} className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section)}
+                      className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-sm font-bold tracking-wide text-foreground uppercase hover:bg-muted/70"
+                    >
+                      {collapsed ? (
+                        <ChevronRight className="size-3.5 shrink-0" />
+                      ) : (
+                        <ChevronDown className="size-3.5 shrink-0" />
+                      )}
+                      <span>{section}</span>
+                      <Badge variant="secondary">{sectionKeys.length}</Badge>
+                    </button>
+                    {!collapsed && (
+                      <div className="flex flex-col gap-1.5 pl-1">
+                        {sectionKeys.map((key) => (
+                          <AvailableRow key={key} option={optionByKey.get(key)!} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
         </SortableContext>
         {keys.length === 0 && totalCount === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">Усі характеристики закріплені</p>
@@ -258,7 +384,7 @@ function AvailableRow({ option }: { option: CategoryCharacteristicOption }) {
     >
       <GripVertical className="size-4 shrink-0 text-muted-foreground" />
       <CharacteristicIcon option={option} className="size-4 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate text-sm text-foreground">{option.label}</span>
+      <span className="flex-1 truncate text-base font-bold text-foreground">{option.label}</span>
       <Badge variant="secondary">{option.values.length}</Badge>
     </div>
   );
@@ -347,7 +473,12 @@ function PinnedCard({
         <GripVertical className="size-4" />
       </button>
       <CharacteristicIcon option={option} className="size-4 shrink-0 text-muted-foreground" />
-      <span className="w-32 shrink-0 truncate text-sm font-medium text-foreground">{option.label}</span>
+      <span
+        className="w-40 shrink-0 truncate text-base font-bold text-foreground"
+        title={formatCharacteristicLabel(option)}
+      >
+        {formatCharacteristicLabel(option)}
+      </span>
 
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         {visible.map((value) => (
@@ -385,7 +516,7 @@ function PinnedCard({
         size="icon-sm"
         className="shrink-0"
         onClick={onUnpin}
-        aria-label={`Відкріпити ${option.label}`}
+        aria-label={`Відкріпити ${formatCharacteristicLabel(option)}`}
       >
         <X className="size-4" />
       </Button>
@@ -398,7 +529,7 @@ function DragGhost({ option }: { option: CategoryCharacteristicOption }) {
     <div className="flex items-center gap-2 rounded-xl border border-primary/40 bg-background px-3 py-2 shadow-lg">
       <GripVertical className="size-4 text-muted-foreground" />
       <CharacteristicIcon option={option} className="size-4 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{option.label}</span>
+      <span className="text-sm font-medium text-foreground">{formatCharacteristicLabel(option)}</span>
       <Badge variant="secondary">{option.values.length}</Badge>
     </div>
   );

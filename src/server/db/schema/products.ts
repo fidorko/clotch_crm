@@ -41,17 +41,14 @@ export const products = pgTable(
     // товар" замість "Редагувати" й зберігає всю форму одним запитом, поки true.
     isDraft: boolean("is_draft").notNull().default(false),
     modelCode: text("model_code").notNull(),
-    brand: text("brand").notNull(),
-    collection: text("collection"),
     season: text("season"),
-    // info.*
+    // gender — єдине поле старої "info.*" групи без реального довідника (не
+    // частина системи динамічних характеристик), лишається вільним текстом.
+    // brand/collection/seasonType/fit/countryOfOrigin/manufacturer/material/
+    // fabricType перенесено в product_characteristic_values (+ material —
+    // product_material_composition) — це були хардкод-копії значень, не
+    // прив'язані до жодного довідника, db.md.
     gender: text("gender"),
-    seasonType: text("season_type"),
-    fit: text("fit"),
-    countryOfOrigin: text("country_of_origin"),
-    manufacturer: text("manufacturer"),
-    material: text("material"),
-    fabricType: text("fabric_type"),
     description: text("description"),
     // pricing — плоскі колонки, не jsonb (див. decisions.md: потрібні WHERE/ORDER BY, набір полів фіксований)
     purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -75,7 +72,9 @@ export const products = pgTable(
     // meta.* — supplierId: реальний FK на suppliers (settings → Довідники), не вільний
     // текст (як раніше "supplier"). ON DELETE SET NULL, той самий патерн, що categoryId.
     supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
-    brandCountry: text("brand_country"),
+    // brandCountry (колишній "Країна бренду") перенесено в
+    // product_characteristic_values разом із "Країна виготовлення" — обидва
+    // тепер динамічні поля з одного довідника reference_items (kind="countries").
     internalCode: text("internal_code"),
     supplierCode: text("supplier_code"),
     packageLengthCm: smallint("package_length_cm"),

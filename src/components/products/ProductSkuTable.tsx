@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { deleteColorPhotoAction, uploadColorPhotoAction } from "@/app/products/[id]/actions";
 import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
-import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
+import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
 import type { SkuColor } from "@/components/products/ProductSkuSection";
 
@@ -296,6 +296,7 @@ export function ProductSkuTable({
   productId,
   colors,
   colorOptions,
+  sizeOptions,
   sizes,
   skus,
   selectedSkuId,
@@ -313,6 +314,7 @@ export function ProductSkuTable({
   productId: string;
   colors: SkuColor[];
   colorOptions: ColorOption[];
+  sizeOptions: string[];
   sizes: string[];
   skus: ProductSku[];
   selectedSkuId?: string;
@@ -329,7 +331,7 @@ export function ProductSkuTable({
 }) {
   const skuByColorSize = new Map(skus.map((sku) => [`${sku.color}__${sku.size}`, sku]));
   const remainingColors = colorOptions.filter((c) => !colors.some((added) => added.name === c.name));
-  const remainingSizes = SIZE_OPTIONS.filter((s) => !sizes.includes(s));
+  const remainingSizes = sizeOptions.filter((s) => !sizes.includes(s));
   const hasAddSizeColumn = remainingSizes.length > 0;
   const canAutoGenerate = colors.length > 0 && sizes.length > 0 && !disabled;
 

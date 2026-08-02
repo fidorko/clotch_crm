@@ -18,15 +18,22 @@ import { PRODUCT_STATUS_OPTIONS } from "@/lib/constants/product-status";
 import type { Product, ProductStatus } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import { getCategoryPath } from "@/lib/categories/tree";
+import type { CategoryCharacteristicOption } from "@/lib/categories/characteristic-options";
+import {
+  findCharacteristicOptionByLabel,
+  resolveCharacteristicLabel,
+} from "@/lib/products/characteristic-values";
 import { updateProductName } from "@/app/products/[id]/actions";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
 
 export function ProductHeader({
   product,
   categories,
+  characteristicOptions,
 }: {
   product: Product;
   categories: CategoryRow[];
+  characteristicOptions: CategoryCharacteristicOption[];
 }) {
   const router = useRouter();
   const { form, setField, isDraft, isSaving, error: saveError, save } = useProductEditor();
@@ -70,6 +77,18 @@ export function ProductHeader({
     ? getCategoryPath(categories, product.categoryId).map((c) => c.name)
     : [product.category];
   const breadcrumb = ["Товари", ...categoryCrumbs, name];
+
+  // Бренд/Колекція — тепер динамічні характеристики (custom_characteristics,
+  // характеристика знайдена за лейблом — той самий компроміс, що інші поля
+  // без system_key, lib/products/characteristic-values.ts), не окремі поля товару.
+  const brandKey = findCharacteristicOptionByLabel(characteristicOptions, "Бренди")?.key;
+  const collectionKey = findCharacteristicOptionByLabel(characteristicOptions, "Колекції")?.key;
+  const brandLabel = brandKey
+    ? resolveCharacteristicLabel(characteristicOptions, form.characteristics, brandKey)
+    : "";
+  const collectionLabel = collectionKey
+    ? resolveCharacteristicLabel(characteristicOptions, form.characteristics, collectionKey)
+    : "";
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
@@ -169,11 +188,11 @@ export function ProductHeader({
           <span className="font-medium text-foreground">{form.meta.internalCode || "—"}</span>
         </span>
         <span className="text-muted-foreground">
-          Бренд: <span className="font-medium text-foreground">{form.brand || "—"}</span>
+          Бренд: <span className="font-medium text-foreground">{brandLabel || "—"}</span>
         </span>
         <span className="text-muted-foreground">
           Колекція:{" "}
-          <span className="font-medium text-foreground">{product.collection}</span>
+          <span className="font-medium text-foreground">{collectionLabel || "—"}</span>
         </span>
       </div>
     </div>

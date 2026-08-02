@@ -17,9 +17,14 @@ type ProductSkuRow = typeof productSkus.$inferSelect;
 type ProductPhotoRow = typeof productPhotos.$inferSelect;
 type ProductMeasurementRow = typeof productMeasurements.$inferSelect;
 type TagRow = { id: string; label: string };
+type MaterialCompositionRow = { materialId: string; percent: number };
 
 function toAmount(value: string | null): number {
   return value ? Number(value) : 0;
+}
+
+function toAmountOrNull(value: string | null): number | null {
+  return value === null ? null : Number(value);
 }
 
 function formatDateTime(date: Date): string {
@@ -33,7 +38,9 @@ export function mapProductRow(
   photoRows: ProductPhotoRow[],
   measurementRows: ProductMeasurementRow[],
   tagRows: TagRow[],
-  colorPhotosByColor: Map<string, ProductPhoto[]> = new Map()
+  colorPhotosByColor: Map<string, ProductPhoto[]> = new Map(),
+  characteristics: Record<string, string[]> = {},
+  materialComposition: MaterialCompositionRow[] = []
 ): Product {
   const skus: ProductSku[] = skuRows.map((s) => ({
     id: s.id,
@@ -87,19 +94,13 @@ export function mapProductRow(
     status: product.status,
     isDraft: product.isDraft,
     modelCode: product.modelCode,
-    brand: product.brand,
-    collection: product.collection ?? "",
     season: product.season ?? "",
     info: {
       gender: product.gender ?? "",
-      seasonType: product.seasonType ?? "",
-      fit: product.fit ?? "",
-      countryOfOrigin: product.countryOfOrigin ?? "",
-      manufacturer: product.manufacturer ?? "",
-      material: product.material ?? "",
-      fabricType: product.fabricType ?? "",
       description: product.description ?? "",
     },
+    characteristics,
+    materialComposition,
     pricing: {
       purchasePrice,
       retail: {
@@ -132,13 +133,14 @@ export function mapProductRow(
       updatedAt: formatDateTime(product.updatedAt),
       createdBy: product.createdBy ?? "",
       updatedBy: product.updatedBy ?? "",
-      brandCountry: product.brandCountry ?? "",
       internalCode: product.internalCode ?? "",
       supplierCode: product.supplierCode ?? "",
-      packageLengthCm: product.packageLengthCm ?? 0,
-      packageWidthCm: product.packageWidthCm ?? 0,
-      packageHeightCm: product.packageHeightCm ?? 0,
-      packageWeightKg: toAmount(product.packageWeightKg),
+      // null = не задано власне, успадковує ефективне значення категорії
+      // (resolveInheritedField, той самий принцип, що для самих категорій).
+      packageLengthCm: product.packageLengthCm,
+      packageWidthCm: product.packageWidthCm,
+      packageHeightCm: product.packageHeightCm,
+      packageWeightKg: toAmountOrNull(product.packageWeightKg),
     },
     tags: tagRows,
     skus,

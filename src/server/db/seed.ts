@@ -6,6 +6,7 @@ import { mockColors } from "@/lib/mocks/colors";
 import { mockBrands } from "@/lib/mocks/brands";
 import { mockCurrencies } from "@/lib/mocks/currencies";
 import { mockMaterials } from "@/lib/mocks/materials";
+import { mockCountries } from "@/lib/mocks/countries";
 import { mockSizeTypes } from "@/lib/mocks/size-types";
 import { mockMeasurementTypes } from "@/lib/mocks/measurement-types";
 import * as schema from "./schema";
@@ -39,16 +40,8 @@ async function main() {
       categoryPath: mockProduct.categoryPath,
       status: mockProduct.status,
       modelCode: mockProduct.modelCode,
-      brand: mockProduct.brand,
-      collection: mockProduct.collection,
       season: mockProduct.season,
       gender: mockProduct.info.gender,
-      seasonType: mockProduct.info.seasonType,
-      fit: mockProduct.info.fit,
-      countryOfOrigin: mockProduct.info.countryOfOrigin,
-      manufacturer: mockProduct.info.manufacturer,
-      material: mockProduct.info.material,
-      fabricType: mockProduct.info.fabricType,
       description: mockProduct.info.description,
       purchasePrice: String(mockProduct.pricing.purchasePrice),
       oldPrice: String(mockProduct.pricing.oldPrice),
@@ -64,7 +57,6 @@ async function main() {
       retailDiscountMode: mockProduct.pricing.retailDiscount.mode,
       retailDiscountAmount: String(mockProduct.pricing.retailDiscount.amount),
       retailDiscountPercent: String(mockProduct.pricing.retailDiscount.percent),
-      brandCountry: mockProduct.meta.brandCountry,
       internalCode: mockProduct.meta.internalCode,
       supplierCode: mockProduct.meta.supplierCode,
       packageLengthCm: mockProduct.meta.packageLengthCm,
@@ -226,6 +218,24 @@ async function main() {
           isActive: currency.isActive,
           isDefault: currency.isDefault,
           autoUpdate: currency.autoUpdate,
+          position: index,
+        }))
+      )
+      .onConflictDoNothing();
+  }
+
+  if (mockCountries.length > 0) {
+    // "Країна бренду"/"Країна виготовлення" (products-characteristics.md) —
+    // два окремих поля товару, обидва з цього самого довідника reference_items
+    // (kind="countries"). onConflictDoNothing — рядки, створені людиною вручну
+    // під час тестування (напр. "Турція"), лишаються як є, без дублю.
+    await db
+      .insert(schema.referenceItems)
+      .values(
+        mockCountries.map((name, index) => ({
+          tenantId: devTenantId,
+          kind: "countries" as const,
+          name,
           position: index,
         }))
       )

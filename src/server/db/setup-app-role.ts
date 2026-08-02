@@ -15,7 +15,13 @@ async function main() {
   if (!appDatabaseUrl) throw new Error("APP_DATABASE_URL не задано — див. docs/env.md");
 
   const appUrl = new URL(appDatabaseUrl);
-  const appUser = appUrl.username;
+  // Supabase Session pooler вимагає username виду "<role>.<project-ref>" (Supavisor
+  // сам відрізає суфікс і автентифікує під реальною Postgres-роллю без нього) —
+  // тому саму роль створюємо/оновлюємо під іменем ДО крапки, інакше на кожному
+  // predev тут мовчки з'являлася б стороння роль "app_user.<project-ref>", а
+  // справжня "app_user" (та, під якою pooler реально пускає застосунок) ніколи
+  // не отримувала б новий пароль (env.md).
+  const appUser = appUrl.username.split(".")[0];
   const appPassword = decodeURIComponent(appUrl.password);
   const dbName = new URL(databaseUrl).pathname.replace(/^\//, "");
 

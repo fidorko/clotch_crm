@@ -54,19 +54,24 @@ export interface Product {
   status: ProductStatus;
   isDraft: boolean;
   modelCode: string;
-  brand: string;
-  collection: string;
   season: string;
   info: {
+    // Єдине поле старої групи "info.*" без реального довідника — лишається
+    // вільним текстом (не частина системи динамічних характеристик, db.md).
     gender: string;
-    seasonType: string;
-    fit: string;
-    countryOfOrigin: string;
-    manufacturer: string;
-    material: string;
-    fabricType: string;
     description: string;
   };
+  // Значення динамічних характеристик, закріплених за категорією товару
+  // (Бренд/Колекція/Сезон/Посадка/Виробник/Тип тканини/Інструкція по догляду/
+  // довільні custom-характеристики) — characteristicKey -> valueId[], у
+  // порядку. Значення резолвляться в лейбли через CategoryCharacteristicOption
+  // (lib/categories/characteristic-options.ts), завантажені на сторінці
+  // товару. db.md, modules/products.md.
+  characteristics: Record<string, string[]>;
+  // Розкладка складу тканини (характеристика "fabric-materials" — лише сам
+  // обраний тип тканини; тут — матеріали з відсотками, напр. "бавовна 90%,
+  // синтетика 10%").
+  materialComposition: { materialId: string; percent: number }[];
   pricing: {
     purchasePrice: number;
     retail: PriceModeValue;
@@ -83,13 +88,15 @@ export interface Product {
     updatedAt: string;
     createdBy: string;
     updatedBy: string;
-    brandCountry: string;
     internalCode: string;
     supplierCode: string;
-    packageLengthCm: number;
-    packageWidthCm: number;
-    packageHeightCm: number;
-    packageWeightKg: number;
+    // null = не задано власне на товарі — успадковує ефективне значення
+    // категорії (products-characteristics.md), той самий принцип, що
+    // categories.default_*.
+    packageLengthCm: number | null;
+    packageWidthCm: number | null;
+    packageHeightCm: number | null;
+    packageWeightKg: number | null;
   };
   tags: ProductTag[];
   skus: ProductSku[];

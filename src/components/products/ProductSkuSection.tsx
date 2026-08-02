@@ -10,7 +10,7 @@ import {
   deleteSkuAction,
   deleteSkusAction,
 } from "@/app/products/[id]/actions";
-import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
+import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductColorPhotos, ProductMeasurement, ProductPhoto, ProductSku } from "@/lib/types/product";
 import { selectedSku as defaultSelectedSku } from "@/lib/mocks/products";
 
@@ -54,9 +54,12 @@ function deriveInitialColors(skus: ProductSku[], colorPhotos: ProductColorPhotos
   return [...seen.values()];
 }
 
+// Розміри вже присутні в SKU лишаються видимими, навіть якщо категорію
+// перемкнули й розмір випав із pinned sizeOptions — інакше наявні SKU
+// зникли б із сітки без видалення.
 function deriveInitialSizes(skus: ProductSku[]): string[] {
   const present = new Set(skus.map((s) => s.size));
-  return SIZE_OPTIONS.filter((s) => present.has(s));
+  return [...present];
 }
 
 export function ProductSkuSection({
@@ -65,6 +68,7 @@ export function ProductSkuSection({
   measurements,
   pricing,
   colorOptions,
+  sizeOptions,
   initialSkus,
   initialColorPhotos,
 }: {
@@ -73,6 +77,7 @@ export function ProductSkuSection({
   measurements: ProductMeasurement[];
   pricing: SkuPricing;
   colorOptions: ColorOption[];
+  sizeOptions: string[];
   initialSkus: ProductSku[];
   initialColorPhotos: ProductColorPhotos[];
 }) {
@@ -203,6 +208,7 @@ export function ProductSkuSection({
           productId={productId}
           colors={colors}
           colorOptions={colorOptions}
+          sizeOptions={sizeOptions}
           sizes={sizes}
           skus={skus}
           selectedSkuId={selectedSkuId}

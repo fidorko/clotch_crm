@@ -11,18 +11,17 @@ interface ProductFormState {
   status: ProductStatus;
   categoryId: string;
   supplierId: string;
-  brand: string;
-  collection: string;
   info: Product["info"];
+  characteristics: Product["characteristics"];
+  materialComposition: Product["materialComposition"];
   pricing: Product["pricing"];
   meta: {
-    brandCountry: string;
     internalCode: string;
     supplierCode: string;
-    packageLengthCm: number;
-    packageWidthCm: number;
-    packageHeightCm: number;
-    packageWeightKg: number;
+    packageLengthCm: number | null;
+    packageWidthCm: number | null;
+    packageHeightCm: number | null;
+    packageWeightKg: number | null;
   };
   tags: string[];
 }
@@ -79,12 +78,11 @@ export function ProductEditorProvider({
     status: product.status,
     categoryId: initialCategoryId(product, categories),
     supplierId: product.supplierId ?? "",
-    brand: product.brand,
-    collection: product.collection,
     info: product.info,
+    characteristics: product.characteristics,
+    materialComposition: product.materialComposition,
     pricing: product.pricing,
     meta: {
-      brandCountry: product.meta.brandCountry,
       internalCode: product.meta.internalCode,
       supplierCode: product.meta.supplierCode,
       packageLengthCm: product.meta.packageLengthCm,
@@ -108,9 +106,9 @@ export function ProductEditorProvider({
           status: form.status,
           categoryId: form.categoryId || null,
           supplierId: form.supplierId || null,
-          brand: form.brand,
-          collection: form.collection,
           info: form.info,
+          characteristics: form.characteristics,
+          materialComposition: form.materialComposition,
           pricing: form.pricing,
           meta: form.meta,
           tags: form.tags,

@@ -2,110 +2,26 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Ban,
-  BrushCleaning,
-  CircleSlash2,
-  Droplet,
-  DropletOff,
-  Pencil,
-  Percent,
-  Thermometer,
-  WashingMachine,
-  Wind,
-  type LucideIcon,
-} from "lucide-react";
+import { Pencil, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { SelectRow } from "@/components/ui/select-row";
 import { EditableSelectRow } from "@/components/ui/editable-select-row";
 import { EditableNumberRow } from "@/components/ui/editable-number-row";
 import { PriceModeRow } from "@/components/ui/price-mode-row";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
 import { getCategoryPath } from "@/lib/categories/tree";
-import { SIZE_OPTIONS, type ColorOption } from "@/lib/constants/sku-variant-options";
+import type { ColorOption } from "@/lib/constants/sku-variant-options";
+import { DynamicCharacteristicsSection } from "@/components/products/characteristics/DynamicCharacteristicsSection";
+import type { MaterialCompositionEntry } from "@/components/products/characteristics/MaterialCompositionRow";
+import type { ResolvedCharacteristicRow } from "@/lib/products/characteristic-layout";
+import type { CareInstructionRow } from "@/server/data/care-instructions";
+import type { FabricTypeDetail } from "@/server/data/fabric-types";
+import type { MaterialRow } from "@/server/data/materials";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import { updateProductCategory } from "@/app/products/[id]/actions";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
-
-// Тимчасовий довідник інструкцій по догляду. Планово — довідник з БД (див. db.md).
-interface CareOption {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-const CARE_OPTIONS: CareOption[] = [
-  { id: "machine-wash", label: "Машинне прання", icon: WashingMachine },
-  { id: "hand-wash", label: "Ручне прання", icon: Droplet },
-  { id: "no-wash", label: "Не прати", icon: DropletOff },
-  { id: "no-bleach", label: "Не відбілювати", icon: Ban },
-  { id: "iron-low", label: "Прасування при низькій т°", icon: Thermometer },
-  { id: "no-iron", label: "Не прасувати", icon: CircleSlash2 },
-  { id: "dry-clean", label: "Хімчистка", icon: BrushCleaning },
-  { id: "tumble-dry", label: "Сушіння в барабані", icon: Wind },
-] as const;
-
-const DEFAULT_CARE_IDS = ["machine-wash", "no-bleach", "iron-low", "tumble-dry", "dry-clean"];
-
-function CareInstructionsRow({
-  selectedIds,
-  onToggle,
-}: {
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-}) {
-  const selectedOptions = CARE_OPTIONS.filter((option) => selectedIds.includes(option.id));
-
-  return (
-    <div className="flex items-center gap-4 py-1.5">
-      <span className="w-40 shrink-0 text-sm text-muted-foreground">Інструкція по догляду</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-2 rounded-md border border-transparent px-1.5 py-1 hover:border-input hover:bg-accent/50 data-popup-open:border-input">
-          {selectedOptions.length === 0 ? (
-            <span className="text-sm text-muted-foreground">—</span>
-          ) : (
-            selectedOptions.map((option) => (
-              <Tooltip key={option.id}>
-                <TooltipTrigger render={<span className="flex items-center text-foreground" />}>
-                  <option.icon className="size-4.5" />
-                </TooltipTrigger>
-                <TooltipContent>{option.label}</TooltipContent>
-              </Tooltip>
-            ))
-          )}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-60">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Інструкції по догляду</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {CARE_OPTIONS.map((option) => (
-              <DropdownMenuCheckboxItem
-                key={option.id}
-                checked={selectedIds.includes(option.id)}
-                onCheckedChange={() => onToggle(option.id)}
-              >
-                <option.icon className="size-4 text-muted-foreground" />
-                {option.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
 
 function calcMarginPercent(sellPrice: number, purchasePrice: number) {
   if (sellPrice <= 0) return 0;
@@ -177,52 +93,50 @@ function MarginRow({
   );
 }
 
-// Тимчасові варіанти для випадаючих списків. Планово — довідники з БД (див. db.md).
-const COLLECTION_OPTIONS = ["Summer 2026", "Autumn 2026"];
-const BRAND_OPTIONS = ["Zara", "H&M", "Mango", "Bershka", "Pull&Bear"];
-
-const INFO_OPTIONS = {
-  gender: ["Унісекс", "Чоловіча", "Жіноча", "Дитяча"],
-  seasonType: ["Літо", "Зима", "Демісезон", "Всесезонний"],
-  fit: ["Oversize", "Regular", "Slim", "Relaxed"],
-  manufacturer: ["TrendStyle", "BasicWear", "UkrTextile"],
-  material: [
-    "95% Cotton, 5% Elastane",
-    "100% Cotton",
-    "80% Cotton, 20% Polyester",
-    "60% Cotton, 40% Polyester",
-  ],
-  fabricType: ["Футер двонитка", "Футер тринитка", "Кулірна гладь", "Рибана"],
-} as const satisfies Record<string, readonly string[]>;
-
-type InfoField = keyof typeof INFO_OPTIONS;
-
-const INFO_LABELS: Record<InfoField, string> = {
-  gender: "Стать",
-  seasonType: "Сезон",
-  fit: "Посадка",
-  manufacturer: "Виробник",
-  material: "Матеріал",
-  fabricType: "Тип тканини",
-};
+// "Стать" — єдине поле старої групи "info.*" без реального довідника, не
+// частина системи динамічних характеристик (узгоджено з людиною), лишається
+// хардкодом і фіксованим місцем одразу під категорією.
+const GENDER_OPTIONS = ["Унісекс", "Чоловіча", "Жіноча", "Дитяча"];
 
 export function ProductInfoPanel({
   product,
   categories,
   colorOptions,
+  sizeOptions,
   pricing,
   onPricingChange,
   variantsEnabled,
+  dynamicRows,
+  layoutEditMode,
+  characteristics,
+  onCharacteristicChange,
+  careInstructions,
+  fabricTypes,
+  materials,
+  materialComposition,
+  onMaterialCompositionChange,
+  tagsKey,
 }: {
   product: Product;
   categories: CategoryRow[];
   colorOptions: ColorOption[];
+  sizeOptions: string[];
   pricing: Product["pricing"];
   onPricingChange: <K extends keyof Product["pricing"]>(
     field: K,
     value: Product["pricing"][K]
   ) => void;
   variantsEnabled: boolean;
+  dynamicRows: ResolvedCharacteristicRow[];
+  layoutEditMode: boolean;
+  characteristics: Record<string, string[]>;
+  onCharacteristicChange: (key: string, valueIds: string[]) => void;
+  careInstructions: CareInstructionRow[];
+  fabricTypes: FabricTypeDetail[];
+  materials: MaterialRow[];
+  materialComposition: MaterialCompositionEntry[];
+  onMaterialCompositionChange: (entries: MaterialCompositionEntry[]) => void;
+  tagsKey: string | null;
 }) {
   const router = useRouter();
   const { form, setField: setFormField, isDraft } = useProductEditor();
@@ -252,30 +166,15 @@ export function ProductInfoPanel({
     });
   }
 
-  const collection = form.collection;
-  const brand = form.brand;
   const colorNameOptions = colorOptions.map((color) => color.name);
-  const [careIds, setCareIds] = useState(DEFAULT_CARE_IDS);
-  const [singleColor, setSingleColor] = useState(colorNameOptions[0]);
-  const [singleSize, setSingleSize] = useState(SIZE_OPTIONS[0]);
+  const [singleColor, setSingleColor] = useState(colorNameOptions[0] ?? "");
+  const [singleSize, setSingleSize] = useState(sizeOptions[0] ?? "");
 
-  function setCollection(value: string) {
-    setFormField("collection", value);
+  function setGender(value: string) {
+    setFormField("info", { ...info, gender: value });
   }
 
-  function setBrand(value: string) {
-    setFormField("brand", value);
-  }
-
-  function updateField(field: InfoField, value: string) {
-    setFormField("info", { ...info, [field]: value });
-  }
-
-  function toggleCareId(id: string) {
-    setCareIds((prev) =>
-      prev.includes(id) ? prev.filter((careId) => careId !== id) : [...prev, id]
-    );
-  }
+  const setTags = (value: string[]) => setFormField("tags", value);
 
   const retailAmount =
     pricing.retail.mode === "percent"
@@ -329,40 +228,44 @@ export function ProductInfoPanel({
             )}
           </div>
           {categoryError && <span className="pb-1.5 text-xs text-destructive">{categoryError}</span>}
+          {isDraft && !categoryId && (
+            <span className="pb-1.5 text-xs text-warning">
+              Оберіть категорію — обов&apos;язково для нового товару, решта картки заблокована
+            </span>
+          )}
         </div>
-        <EditableSelectRow label="Бренд" value={brand} options={BRAND_OPTIONS} onChange={setBrand} />
-        {!variantsEnabled && (
-          <>
-            <SelectRow
-              label="Колір"
-              value={singleColor}
-              options={colorNameOptions}
-              onChange={setSingleColor}
-            />
-            <SelectRow
-              label="Розмір"
-              value={singleSize}
-              options={SIZE_OPTIONS}
-              onChange={setSingleSize}
-            />
-          </>
-        )}
-        <EditableSelectRow
-          label="Колекція"
-          value={collection}
-          options={COLLECTION_OPTIONS}
-          onChange={setCollection}
-        />
-        {(Object.keys(INFO_OPTIONS) as InfoField[]).map((field) => (
-          <EditableSelectRow
-            key={field}
-            label={INFO_LABELS[field]}
-            value={info[field]}
-            options={INFO_OPTIONS[field]}
-            onChange={(value) => updateField(field, value)}
+        {!variantsEnabled && colorOptions.length > 0 && (
+          <SelectRow
+            label="Колір"
+            value={singleColor}
+            options={colorNameOptions}
+            onChange={setSingleColor}
           />
-        ))}
-        <CareInstructionsRow selectedIds={careIds} onToggle={toggleCareId} />
+        )}
+        {!variantsEnabled && sizeOptions.length > 0 && (
+          <SelectRow
+            label="Розмір"
+            value={singleSize}
+            options={sizeOptions}
+            onChange={setSingleSize}
+          />
+        )}
+        <EditableSelectRow label="Стать" value={info.gender} options={GENDER_OPTIONS} onChange={setGender} />
+        <DynamicCharacteristicsSection
+          dropId="info-panel"
+          rows={dynamicRows}
+          layoutEditMode={layoutEditMode}
+          characteristics={characteristics}
+          onCharacteristicChange={onCharacteristicChange}
+          careInstructions={careInstructions}
+          fabricTypes={fabricTypes}
+          materials={materials}
+          materialComposition={materialComposition}
+          onMaterialCompositionChange={onMaterialCompositionChange}
+          tagsKey={tagsKey}
+          tags={form.tags}
+          onTagsChange={setTags}
+        />
         <EditableNumberRow
           label="Закупівельна ціна"
           value={pricing.purchasePrice}

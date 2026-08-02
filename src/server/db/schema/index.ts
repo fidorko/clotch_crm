@@ -22,6 +22,8 @@ import { fabricTypePossibleMaterials, fabricTypes } from "./fabric-types";
 import { sizeTypes, sizeValues } from "./size-types";
 import { measurementTypes, measurementValues } from "./measurement-types";
 import { categoryCharacteristics } from "./category-characteristics";
+import { productCharacteristicValues } from "./product-characteristic-values";
+import { productMaterialComposition } from "./product-material-composition";
 
 export * from "./tenants";
 export * from "./products";
@@ -46,6 +48,9 @@ export * from "./fabric-types";
 export * from "./size-types";
 export * from "./measurement-types";
 export * from "./category-characteristics";
+export * from "./product-characteristic-values";
+export * from "./product-material-composition";
+export * from "./product-characteristic-layout";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -53,6 +58,17 @@ export const productsRelations = relations(products, ({ many }) => ({
   colorPhotos: many(productColorPhotos),
   measurements: many(productMeasurements),
   productTags: many(productTags),
+  characteristicValues: many(productCharacteristicValues),
+  materialComposition: many(productMaterialComposition),
+}));
+
+export const productCharacteristicValuesRelations = relations(productCharacteristicValues, ({ one }) => ({
+  product: one(products, { fields: [productCharacteristicValues.productId], references: [products.id] }),
+}));
+
+export const productMaterialCompositionRelations = relations(productMaterialComposition, ({ one }) => ({
+  product: one(products, { fields: [productMaterialComposition.productId], references: [products.id] }),
+  material: one(materials, { fields: [productMaterialComposition.materialId], references: [materials.id] }),
 }));
 
 export const productSkusRelations = relations(productSkus, ({ one }) => ({

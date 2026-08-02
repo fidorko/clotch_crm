@@ -1,49 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightLeft, History, Pencil, Plus, Printer, RefreshCw, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRightLeft, History, Pencil, Printer, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DetailRow } from "@/components/ui/detail-row";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { EditableTextRow } from "@/components/ui/editable-text-row";
 import { Input } from "@/components/ui/input";
-import { SelectRow } from "@/components/ui/select-row";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SkuMeasurementsDialog } from "@/components/products/SkuMeasurementsDialog";
 import { TextRow } from "@/components/ui/text-row";
 import { Textarea } from "@/components/ui/textarea";
+import { DynamicCharacteristicsSection } from "@/components/products/characteristics/DynamicCharacteristicsSection";
+import type { MaterialCompositionEntry } from "@/components/products/characteristics/MaterialCompositionRow";
+import type { ResolvedCharacteristicRow } from "@/lib/products/characteristic-layout";
+import type { CareInstructionRow } from "@/server/data/care-instructions";
+import type { FabricTypeDetail } from "@/server/data/fabric-types";
+import type { MaterialRow } from "@/server/data/materials";
 import { selectedSku } from "@/lib/mocks/products";
 import type { Product } from "@/lib/types/product";
 import type { SupplierRow } from "@/server/data/suppliers";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
-
-// Тимчасовий довідник. Планово — довідник з БД (див. db.md).
-const BRAND_COUNTRY_OPTIONS = ["Україна", "Туреччина", "Польща", "Італія", "Китай", "США"];
-const COUNTRY_OF_ORIGIN_OPTIONS = ["Туреччина", "Україна", "Китай", "Бангладеш", "Узбекистан"];
-const TAG_OPTIONS = [
-  "базова",
-  "oversize",
-  "бавовна",
-  "лімітована серія",
-  "нова колекція",
-  "хіт продажів",
-  "знижка",
-  "органічна бавовна",
-  "унісекс",
-  "з принтом",
-  "однотонна",
-  "premium",
-];
 
 function PackageDimensionsRow({
   length,
@@ -108,85 +85,6 @@ function PackageDimensionsRow({
       <p className="text-xs text-muted-foreground">
         Для створення ЕН Нова Пошта. Вказувати розміри у запакованому вигляді.
       </p>
-    </div>
-  );
-}
-
-function TagsSection({
-  tags,
-  onToggle,
-  onRemove,
-  customTag,
-  onCustomTagChange,
-  onAddCustomTag,
-}: {
-  tags: string[];
-  onToggle: (tag: string) => void;
-  onRemove: (tag: string) => void;
-  customTag: string;
-  onCustomTagChange: (value: string) => void;
-  onAddCustomTag: () => void;
-}) {
-  return (
-    <div className="py-2">
-      <p className="mb-2 text-sm text-muted-foreground">Теги</p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {tags.map((tag) => (
-          <Badge key={tag} variant="outline" className="gap-1 pr-1.5">
-            {tag}
-            <button
-              type="button"
-              aria-label={`Прибрати тег ${tag}`}
-              className="rounded-full hover:bg-muted"
-              onClick={() => onRemove(tag)}
-            >
-              <X className="size-3" />
-            </button>
-          </Badge>
-        ))}
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger className="mt-1.5 flex items-center gap-1 text-sm text-primary hover:underline">
-          <Plus className="size-3.5" />
-          Додати тег
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Оберіть теги</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {TAG_OPTIONS.map((tag) => (
-              <DropdownMenuCheckboxItem
-                key={tag}
-                checked={tags.includes(tag)}
-                onCheckedChange={() => onToggle(tag)}
-              >
-                {tag}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <div className="flex items-center gap-1.5 p-1.5">
-            <Input
-              value={customTag}
-              onChange={(e) => onCustomTagChange(e.target.value)}
-              placeholder="Свій тег"
-              className="h-7 text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  onAddCustomTag();
-                }
-                if (e.key !== "Escape") {
-                  e.stopPropagation();
-                }
-              }}
-            />
-            <Button type="button" size="sm" variant="outline" onClick={onAddCustomTag}>
-              Додати
-            </Button>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 }
@@ -331,27 +229,57 @@ export function ProductMetaPanel({
   product,
   variantsEnabled,
   suppliers,
+  dynamicRows,
+  layoutEditMode,
+  characteristics,
+  onCharacteristicChange,
+  careInstructions,
+  fabricTypes,
+  materials,
+  materialComposition,
+  onMaterialCompositionChange,
+  tagsKey,
+  suppliersPinned,
+  packageDefaults,
 }: {
   product: Product;
   variantsEnabled: boolean;
   suppliers: SupplierRow[];
+  dynamicRows: ResolvedCharacteristicRow[];
+  layoutEditMode: boolean;
+  characteristics: Record<string, string[]>;
+  onCharacteristicChange: (key: string, valueIds: string[]) => void;
+  careInstructions: CareInstructionRow[];
+  fabricTypes: FabricTypeDetail[];
+  materials: MaterialRow[];
+  materialComposition: MaterialCompositionEntry[];
+  onMaterialCompositionChange: (entries: MaterialCompositionEntry[]) => void;
+  tagsKey: string | null;
+  suppliersPinned: boolean;
+  packageDefaults: {
+    lengthCm: number | null;
+    widthCm: number | null;
+    heightCm: number | null;
+    weightKg: number | null;
+  };
 }) {
   const { form, setField } = useProductEditor();
   const meta = form.meta;
   const info = form.info;
 
   const supplierId = form.supplierId;
-  const brandCountry = meta.brandCountry;
-  const countryOfOrigin = info.countryOfOrigin;
   const description = info.description;
   const internalCode = meta.internalCode;
   const supplierCode = meta.supplierCode;
-  const packageLength = meta.packageLengthCm;
-  const packageWidth = meta.packageWidthCm;
-  const packageHeight = meta.packageHeightCm;
-  const packageWeight = meta.packageWeightKg;
+  // Власне значення (nullable) ?? ефективний дефолт категорії ?? 0 — той самий
+  // принцип успадкування, що categories.default_* (lib/categories/inheritance.ts),
+  // на рівень нижче: від категорії до товару. Редагування поля робить його
+  // власним назавжди (немає UI-способу скинути назад, як і на рівні категорій).
+  const packageLength = meta.packageLengthCm ?? packageDefaults.lengthCm ?? 0;
+  const packageWidth = meta.packageWidthCm ?? packageDefaults.widthCm ?? 0;
+  const packageHeight = meta.packageHeightCm ?? packageDefaults.heightCm ?? 0;
+  const packageWeight = meta.packageWeightKg ?? packageDefaults.weightKg ?? 0;
   const tags = form.tags;
-  const [customTag, setCustomTag] = useState("");
 
   function setMeta<K extends keyof typeof meta>(key: K, value: (typeof meta)[K]) {
     setField("meta", { ...meta, [key]: value });
@@ -362,8 +290,6 @@ export function ProductMetaPanel({
   }
 
   const setSupplierId = (value: string) => setField("supplierId", value);
-  const setBrandCountry = (value: string) => setMeta("brandCountry", value);
-  const setCountryOfOrigin = (value: string) => setInfo("countryOfOrigin", value);
   const setDescription = (value: string) => setInfo("description", value);
   const setInternalCode = (value: string) => setMeta("internalCode", value);
   const setSupplierCode = (value: string) => setMeta("supplierCode", value);
@@ -371,21 +297,7 @@ export function ProductMetaPanel({
   const setPackageWidth = (value: number) => setMeta("packageWidthCm", value);
   const setPackageHeight = (value: number) => setMeta("packageHeightCm", value);
   const setPackageWeight = (value: number) => setMeta("packageWeightKg", value);
-
-  function toggleTag(tag: string) {
-    setField("tags", tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]);
-  }
-
-  function removeTag(tag: string) {
-    setField("tags", tags.filter((t) => t !== tag));
-  }
-
-  function addCustomTag() {
-    const value = customTag.trim();
-    if (!value || tags.includes(value)) return;
-    setField("tags", [...tags, value]);
-    setCustomTag("");
-  }
+  const setTags = (value: string[]) => setField("tags", value);
 
   return (
     <Card className="h-full gap-0 py-4">
@@ -394,18 +306,23 @@ export function ProductMetaPanel({
         <DetailRow align="left" label="Оновлено" value={product.meta.updatedAt} />
         <DetailRow align="left" label="Створив" value={product.meta.createdBy} />
         <DetailRow align="left" label="Останній редагував" value={product.meta.updatedBy} />
-        <SupplierSelectRow value={supplierId} suppliers={suppliers} onChange={setSupplierId} />
-        <SelectRow
-          label="Країна бренду"
-          value={brandCountry}
-          options={BRAND_COUNTRY_OPTIONS}
-          onChange={setBrandCountry}
-        />
-        <SelectRow
-          label="Країна виробник"
-          value={countryOfOrigin}
-          options={COUNTRY_OF_ORIGIN_OPTIONS}
-          onChange={setCountryOfOrigin}
+        {suppliersPinned && (
+          <SupplierSelectRow value={supplierId} suppliers={suppliers} onChange={setSupplierId} />
+        )}
+        <DynamicCharacteristicsSection
+          dropId="meta-panel"
+          rows={dynamicRows}
+          layoutEditMode={layoutEditMode}
+          characteristics={characteristics}
+          onCharacteristicChange={onCharacteristicChange}
+          careInstructions={careInstructions}
+          fabricTypes={fabricTypes}
+          materials={materials}
+          materialComposition={materialComposition}
+          onMaterialCompositionChange={onMaterialCompositionChange}
+          tagsKey={tagsKey}
+          tags={tags}
+          onTagsChange={setTags}
         />
         <EditableTextRow
           label="Внутрішній артикул моделі"
@@ -468,14 +385,6 @@ export function ProductMetaPanel({
           onChangeWidth={setPackageWidth}
           onChangeHeight={setPackageHeight}
           onChangeWeight={setPackageWeight}
-        />
-        <TagsSection
-          tags={tags}
-          onToggle={toggleTag}
-          onRemove={removeTag}
-          customTag={customTag}
-          onCustomTagChange={setCustomTag}
-          onAddCustomTag={addCustomTag}
         />
         <div className="py-2">
           <label htmlFor="product-description" className="mb-1 block text-sm text-muted-foreground">

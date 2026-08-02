@@ -91,10 +91,20 @@ export function buildCategoryCharacteristicOptions(
       label: "Виробники",
       values: data.manufacturers.map((m) => ({ id: m.id, label: m.name })),
     },
+    // Два окремих поля з одного довідника "Країни" (settings → Довідники →
+    // Країни) — за прямою вказівкою людини: "Країна бренду" й "Країна
+    // виготовлення" незалежні одна від одної на товарі, але обирають зі
+    // спільного списку назв країн, не два окремих довідники.
     {
-      key: "reference-item:countries",
+      key: "reference-item:brand-country",
       section: "Системні",
-      label: "Країни",
+      label: "Країна бренду",
+      values: data.countries.map((c) => ({ id: c.id, label: c.name })),
+    },
+    {
+      key: "reference-item:country-of-origin",
+      section: "Системні",
+      label: "Країна виготовлення",
       values: data.countries.map((c) => ({ id: c.id, label: c.name })),
     },
     {

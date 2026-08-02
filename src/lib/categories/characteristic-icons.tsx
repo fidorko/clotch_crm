@@ -37,7 +37,8 @@ export function CharacteristicIcon({
   if (key.startsWith("size-type:") || key.startsWith("measurement-type:"))
     return <Ruler className={className} />;
   if (key === "reference-item:manufacturers") return <Factory className={className} />;
-  if (key === "reference-item:countries") return <Globe className={className} />;
+  if (key === "reference-item:brand-country" || key === "reference-item:country-of-origin")
+    return <Globe className={className} />;
   if (key === "suppliers") return <Truck className={className} />;
 
   if (/тег/i.test(label)) return <Tag className={className} />;

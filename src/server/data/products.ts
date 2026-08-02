@@ -12,6 +12,13 @@ import {
 } from "@/server/db/schema";
 import type { Product, ProductStatus } from "@/lib/types/product";
 import { mapProductRow } from "./product-mappers";
+import {
+  getProductCharacteristicValues,
+  getProductMaterialComposition,
+  syncProductCharacteristics,
+  syncProductMaterialComposition,
+  type MaterialCompositionEntry,
+} from "./product-characteristics";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,7 +54,8 @@ export async function getProductById(
 
     if (!productRow) return null;
 
-    const [skuRows, photoRows, measurementRows, tagRows] = await Promise.all([
+    const [skuRows, photoRows, measurementRows, tagRows, characteristics, materialComposition] =
+      await Promise.all([
       tx
         .select()
         .from(productSkus)
@@ -74,6 +82,8 @@ export async function getProductById(
           eq(productTags.characteristicValueId, customCharacteristicValues.id)
         )
         .where(and(eq(productTags.tenantId, tenantId), eq(productTags.productId, productId))),
+      getProductCharacteristicValues(tx, tenantId, productId),
+      getProductMaterialComposition(tx, tenantId, productId),
     ]);
 
     const colorPhotoRows = await tx
@@ -89,7 +99,16 @@ export async function getProductById(
       colorPhotosByColor.set(row.color, list);
     }
 
-    return mapProductRow(productRow, skuRows, photoRows, measurementRows, tagRows, colorPhotosByColor);
+    return mapProductRow(
+      productRow,
+      skuRows,
+      photoRows,
+      measurementRows,
+      tagRows,
+      colorPhotosByColor,
+      characteristics,
+      materialComposition
+    );
   });
 }
 
@@ -276,7 +295,6 @@ export async function createProduct(tenantId: string): Promise<string> {
         category: "",
         categoryPath: "",
         modelCode,
-        brand: "",
         internalCode,
         isDraft: true,
       })
@@ -290,27 +308,20 @@ export interface SaveProductInput {
   status: ProductStatus;
   categoryId: string | null;
   supplierId: string | null;
-  brand: string;
-  collection: string;
   info: {
     gender: string;
-    seasonType: string;
-    fit: string;
-    countryOfOrigin: string;
-    manufacturer: string;
-    material: string;
-    fabricType: string;
     description: string;
   };
+  characteristics: Record<string, string[]>;
+  materialComposition: MaterialCompositionEntry[];
   pricing: Product["pricing"];
   meta: {
-    brandCountry: string;
     internalCode: string;
     supplierCode: string;
-    packageLengthCm: number;
-    packageWidthCm: number;
-    packageHeightCm: number;
-    packageWeightKg: number;
+    packageLengthCm: number | null;
+    packageWidthCm: number | null;
+    packageHeightCm: number | null;
+    packageWeightKg: number | null;
   };
   tags: string[];
 }
@@ -400,15 +411,7 @@ export async function saveProduct(
         status: input.status,
         categoryId: input.categoryId,
         supplierId: input.supplierId,
-        brand: input.brand,
-        collection: input.collection,
         gender: input.info.gender,
-        seasonType: input.info.seasonType,
-        fit: input.info.fit,
-        countryOfOrigin: input.info.countryOfOrigin,
-        manufacturer: input.info.manufacturer,
-        material: input.info.material,
-        fabricType: input.info.fabricType,
         description: input.info.description,
         purchasePrice: String(input.pricing.purchasePrice),
         oldPrice: String(input.pricing.oldPrice),
@@ -424,19 +427,21 @@ export async function saveProduct(
         retailDiscountMode: input.pricing.retailDiscount.mode,
         retailDiscountAmount: String(input.pricing.retailDiscount.amount),
         retailDiscountPercent: String(input.pricing.retailDiscount.percent),
-        brandCountry: input.meta.brandCountry,
         internalCode: input.meta.internalCode,
         supplierCode: input.meta.supplierCode,
         packageLengthCm: input.meta.packageLengthCm,
         packageWidthCm: input.meta.packageWidthCm,
         packageHeightCm: input.meta.packageHeightCm,
-        packageWeightKg: String(input.meta.packageWeightKg),
+        packageWeightKg:
+          input.meta.packageWeightKg === null ? null : String(input.meta.packageWeightKg),
         isDraft: false,
         updatedAt: sql`now()`,
       })
       .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
 
     await syncProductTags(tx, tenantId, productId, input.tags);
+    await syncProductCharacteristics(tx, tenantId, productId, input.characteristics);
+    await syncProductMaterialComposition(tx, tenantId, productId, input.materialComposition);
   });
 }
 

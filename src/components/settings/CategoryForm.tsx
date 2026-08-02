@@ -1,17 +1,20 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ImageIcon, Save, Upload } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ImageIcon, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
 import { CategoryFormHeader } from "@/components/settings/CategoryFormHeader";
-import { CategoryCharacteristicsPicker } from "@/components/settings/CategoryCharacteristicsPicker";
+import {
+  CategoryCharacteristicsPicker,
+  type CategoryCharacteristicsPickerHandle,
+  type CategoryCharacteristicsPickerState,
+} from "@/components/settings/CategoryCharacteristicsPicker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CategoryRow } from "@/server/data/categories";
 import type { CategoryCharacteristicOption } from "@/lib/categories/characteristic-options";
@@ -39,6 +42,21 @@ export function CategoryForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const charPickerRef = useRef<CategoryCharacteristicsPickerHandle>(null);
+  // Save/Cancel живуть у CategoryFormHeader (як ProductHeader), тому форма й
+  // пікер характеристик самі кнопок не рендерять — хедер лише викликає formRef
+  // (native requestSubmit, той самий onSubmit нижче) або charPickerRef.
+  const [activeTab, setActiveTab] = useState<"general" | "characteristics">("general");
+  const [charState, setCharState] = useState<CategoryCharacteristicsPickerState>({
+    isDirty: false,
+    isPending: false,
+    savedMessage: null,
+    savedCount: characteristics?.pinnedKeys.length ?? 0,
+  });
+  const handleCharStateChange = useCallback((state: CategoryCharacteristicsPickerState) => {
+    setCharState(state);
+  }, []);
 
   const [name, setName] = useState(category?.name ?? "");
   const [parentId, setParentId] = useState(category?.parentId ?? "root");
@@ -96,6 +114,19 @@ export function CategoryForm({
     ownDefaultWidthCm ?? (inheritedDefaultWidthCm != null ? String(inheritedDefaultWidthCm) : "");
   const defaultHeightCm =
     ownDefaultHeightCm ?? (inheritedDefaultHeightCm != null ? String(inheritedDefaultHeightCm) : "");
+  // Попередження про каскад ваги/розмірів (за прямою вказівкою людини):
+  // показується, лише коли людина реально торкнулась одного з 4 полів у цій
+  // сесії форми (порівняння з початковим "власним" значенням категорії, не з
+  // ефективним) — редагування товару так само каскадиться нижче (успадковують
+  // товари категорії), але там повідомлення свідомо немає, лише тут.
+  const packageFieldsDirty =
+    ownDefaultWeightKg !== (category?.defaultWeightKg ?? null) ||
+    ownDefaultLengthCm !== (category?.defaultLengthCm != null ? String(category.defaultLengthCm) : null) ||
+    ownDefaultWidthCm !== (category?.defaultWidthCm != null ? String(category.defaultWidthCm) : null) ||
+    ownDefaultHeightCm !== (category?.defaultHeightCm != null ? String(category.defaultHeightCm) : null);
+  const hasChildCategories = category
+    ? allCategories.some((c) => c.parentId === category.id)
+    : false;
   const [seoH1, setSeoH1] = useState(category?.seoH1 ?? "");
   const [seoMetaTitle, setSeoMetaTitle] = useState(category?.seoMetaTitle ?? "");
   const [seoMetaDescription, setSeoMetaDescription] = useState(category?.seoMetaDescription ?? "");
@@ -178,7 +209,7 @@ export function CategoryForm({
   }
 
   const generalForm = (
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[1fr_360px]">
+      <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[1fr_360px]">
       <div className="flex flex-col gap-4">
         <Card className="gap-0 py-4">
           <CardContent className="flex flex-col gap-4 px-4">
@@ -391,27 +422,63 @@ export function CategoryForm({
               </div>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            <Button type="submit" disabled={isPending}>
-              <Save className="size-4" />
-              {category ? "Зберегти" : "Створити категорію"}
-            </Button>
-            <Link href="/settings?tab=categories" className={buttonVariants({ variant: "outline" })}>
-              Скасувати
-            </Link>
+            {category && packageFieldsDirty && (
+              <p className="text-xs text-primary">
+                {hasChildCategories
+                  ? "Це значення успадкують товари цієї категорії та всі підкатегорії (і їхні товари), які не мають власного значення."
+                  : "Це значення успадкують усі товари цієї категорії, які не мають власного значення."}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
       </form>
   );
 
+  const isCharacteristicsTab = activeTab === "characteristics" && !!(category && characteristics);
+  const primaryAction = isCharacteristicsTab
+    ? {
+        label: "Зберегти",
+        onClick: () => charPickerRef.current?.save(),
+        disabled: !charState.isDirty || charState.isPending,
+      }
+    : {
+        label: category ? "Зберегти" : "Створити категорію",
+        onClick: () => formRef.current?.requestSubmit(),
+        disabled: isPending,
+      };
+  const secondaryAction = isCharacteristicsTab
+    ? {
+        label: "Скасувати",
+        onClick: () => charPickerRef.current?.cancel(),
+        disabled: !charState.isDirty || charState.isPending,
+      }
+    : {
+        label: "Скасувати",
+        onClick: () => router.push("/settings?tab=categories"),
+      };
+  const statusMessage = isCharacteristicsTab
+    ? (charState.savedMessage ??
+      (charState.isDirty ? "Є незбережені зміни" : `Збережено ${charState.savedCount} характеристик`))
+    : null;
+  const errorMessage = isCharacteristicsTab ? null : error;
+
   return (
     <div className="flex flex-1 flex-col">
-      <CategoryFormHeader category={category} />
+      <CategoryFormHeader
+        category={category}
+        primaryAction={primaryAction}
+        secondaryAction={secondaryAction}
+        statusMessage={statusMessage}
+        errorMessage={errorMessage}
+      />
 
       {category && characteristics ? (
-        <Tabs defaultValue="general" className="flex flex-1 flex-col gap-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "general" | "characteristics")}
+          className="flex flex-1 flex-col gap-0"
+        >
           <div className="border-b border-border px-6 pt-3">
             <TabsList variant="line">
               <TabsTrigger value="general">Основне</TabsTrigger>
@@ -421,9 +488,12 @@ export function CategoryForm({
           <TabsContent value="general">{generalForm}</TabsContent>
           <TabsContent value="characteristics" className="p-6">
             <CategoryCharacteristicsPicker
+              ref={charPickerRef}
               categoryId={category.id}
               options={characteristics.options}
               initialPinnedKeys={characteristics.pinnedKeys}
+              hasChildCategories={hasChildCategories}
+              onStateChange={handleCharStateChange}
             />
           </TabsContent>
         </Tabs>

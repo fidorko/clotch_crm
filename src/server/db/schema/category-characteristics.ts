@@ -7,21 +7,29 @@ import { categories } from "./categories";
 // "Характеристики" — drag&drop, за зразком-макетом людини): які характеристики
 // з групи "Характеристики товару"/"Системні" (Кольори/Тип тканини та матеріал/
 // Інструкція по догляду/кожен тип "Розмірів"/"Замірів" окремо/довільні
-// custom_characteristics/Виробники/Постачальники/Країни) закріплені за цією
-// категорією, і в якому порядку (position — порядок карток у правій панелі,
-// той самий, що вийшов з drag&drop). characteristicKey — той самий "довільний
-// стабільний рядок", що dictionaryKey у reference_dictionary_flags: "colors" /
-// "fabric-materials" / "care-instructions" / "custom:<uuid>" /
-// "size-type:<uuid>" / "measurement-type:<uuid>" / "reference-item:manufacturers"
-// / "reference-item:countries" / "suppliers".
+// custom_characteristics/Виробники/Постачальники/Країна бренду/Країна
+// виготовлення) закріплені за цією категорією, і в якому порядку (position —
+// порядок карток у правій панелі, той самий, що вийшов з drag&drop).
+// characteristicKey — той самий "довільний стабільний рядок", що dictionaryKey
+// у reference_dictionary_flags: "colors" / "fabric-materials" /
+// "care-instructions" / "custom:<uuid>" / "size-type:<uuid>" /
+// "measurement-type:<uuid>" / "reference-item:manufacturers" /
+// "reference-item:brand-country" / "reference-item:country-of-origin" /
+// "suppliers" — "Країна бренду"/"Країна виготовлення" два окремих ключі з
+// одного довідника reference_items (kind="countries"), products-characteristics.md.
 //
 // Рядок = "ця характеристика закріплена за цією категорією" — саме́ значення
 // (не окремі "притаманні значення", того рівня деталізації свідомо позбулись
 // за макетом людини — попап "+N" лише переглядає значення, нічого не вимикає).
-// Категорія успадковує весь список закріплених характеристик від найближчого
-// предка, доки НЕ має жодного власного рядка — щойно з'явився хоч один власний
-// рядок (будь-яка дія в drag&drop — додати/прибрати/переставити пише повний
-// список наново), категорія більше не залежить від подальших правок батька.
+// Успадкування — "останнє редагування виграє, каскадом униз": збереження
+// списку на категорії одразу перезаписує той самий список у ВСІХ її нащадків
+// (setCategoryPinnedCharacteristics, cascadeToCategoryIds) — включно з тими,
+// що раніше мали власний, відмінний список. Товари самі нічого не зберігають —
+// картка товару читає список напряму з `category_id` товару (products-
+// characteristics.md), тож каскад до товарів відбувається сам собою. Категорія
+// без жодного власного рядка (ніхто в її ланцюжку предків ще не зберігав)
+// показує список найближчого предка (resolveCategoryPinnedCharacteristics) —
+// це лише fallback для незайманих категорій, не основна модель успадкування.
 export const categoryCharacteristics = pgTable(
   "category_characteristics",
   {
