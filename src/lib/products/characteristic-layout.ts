@@ -24,7 +24,8 @@ export interface ResolvedCharacteristicRow {
  * тенант-рівневим layout. Характеристика без власного рядка в layout —
  * дефолтна панель: `defaultMetaKeys` (Виробники/Країна бренду/Країна
  * виготовлення/Теги — узгоджено з людиною, ці поля традиційно жили в
- * ProductMetaPanel) → "meta", решта → "info"; завжди в кінці списку (той самий
+ * ProductMetaPanel, тепер той самий вміст у ProductPhotoGallery) → "meta",
+ * решта → "info"; завжди в кінці списку (той самий
  * принцип "нема рядка = дефолт", що category_characteristics). Людина може
  * перетягнути будь-яку характеристику в іншу панель — тоді власний рядок у
  * `product_characteristic_layout` перекриває цей дефолт назавжди.

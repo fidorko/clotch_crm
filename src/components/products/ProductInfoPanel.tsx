@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { Pencil, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import { SelectRow } from "@/components/ui/select-row";
 import { EditableSelectRow } from "@/components/ui/editable-select-row";
 import { EditableNumberRow } from "@/components/ui/editable-number-row";
+import { EditableTextRow } from "@/components/ui/editable-text-row";
 import { PriceModeRow } from "@/components/ui/price-mode-row";
+import { Textarea } from "@/components/ui/textarea";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
 import { getCategoryPath } from "@/lib/categories/tree";
-import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import { DynamicCharacteristicsSection } from "@/components/products/characteristics/DynamicCharacteristicsSection";
 import type { MaterialCompositionEntry } from "@/components/products/characteristics/MaterialCompositionRow";
 import type { ResolvedCharacteristicRow } from "@/lib/products/characteristic-layout";
@@ -101,12 +101,10 @@ const GENDER_OPTIONS = ["Унісекс", "Чоловіча", "Жіноча", "�
 export function ProductInfoPanel({
   product,
   categories,
-  colorOptions,
-  sizeOptions,
   pricing,
   onPricingChange,
-  variantsEnabled,
   dynamicRows,
+  metaDynamicRows,
   layoutEditMode,
   characteristics,
   onCharacteristicChange,
@@ -119,15 +117,15 @@ export function ProductInfoPanel({
 }: {
   product: Product;
   categories: CategoryRow[];
-  colorOptions: ColorOption[];
-  sizeOptions: string[];
   pricing: Product["pricing"];
   onPricingChange: <K extends keyof Product["pricing"]>(
     field: K,
     value: Product["pricing"][K]
   ) => void;
-  variantsEnabled: boolean;
   dynamicRows: ResolvedCharacteristicRow[];
+  // Друга дропзона (dropId="meta-panel") — раніше окрема ProductMetaPanel,
+  // тепер обидві живуть в одному ProductInfoPanel (products.md, 2026-08-03).
+  metaDynamicRows: ResolvedCharacteristicRow[];
   layoutEditMode: boolean;
   characteristics: Record<string, string[]>;
   onCharacteristicChange: (key: string, valueIds: string[]) => void;
@@ -166,15 +164,22 @@ export function ProductInfoPanel({
     });
   }
 
-  const colorNameOptions = colorOptions.map((color) => color.name);
-  const [singleColor, setSingleColor] = useState(colorNameOptions[0] ?? "");
-  const [singleSize, setSingleSize] = useState(sizeOptions[0] ?? "");
-
   function setGender(value: string) {
     setFormField("info", { ...info, gender: value });
   }
 
   const setTags = (value: string[]) => setFormField("tags", value);
+
+  const meta = form.meta;
+  const description = info.description;
+  const internalCode = meta.internalCode;
+
+  function setMeta<K extends keyof typeof meta>(key: K, value: (typeof meta)[K]) {
+    setFormField("meta", { ...meta, [key]: value });
+  }
+
+  const setDescription = (value: string) => setFormField("info", { ...info, description: value });
+  const setInternalCode = (value: string) => setMeta("internalCode", value);
 
   const retailAmount =
     pricing.retail.mode === "percent"
@@ -234,22 +239,6 @@ export function ProductInfoPanel({
             </span>
           )}
         </div>
-        {!variantsEnabled && colorOptions.length > 0 && (
-          <SelectRow
-            label="Колір"
-            value={singleColor}
-            options={colorNameOptions}
-            onChange={setSingleColor}
-          />
-        )}
-        {!variantsEnabled && sizeOptions.length > 0 && (
-          <SelectRow
-            label="Розмір"
-            value={singleSize}
-            options={sizeOptions}
-            onChange={setSingleSize}
-          />
-        )}
         <EditableSelectRow label="Стать" value={info.gender} options={GENDER_OPTIONS} onChange={setGender} />
         <DynamicCharacteristicsSection
           dropId="info-panel"
@@ -317,6 +306,37 @@ export function ProductInfoPanel({
           dropshipMarginPercent={calcMarginPercent(dropshipAmount, pricing.purchasePrice)}
           dropshipMarginAmount={dropshipAmount - pricing.purchasePrice}
         />
+        <DynamicCharacteristicsSection
+          dropId="meta-panel"
+          rows={metaDynamicRows}
+          layoutEditMode={layoutEditMode}
+          characteristics={characteristics}
+          onCharacteristicChange={onCharacteristicChange}
+          careInstructions={careInstructions}
+          fabricTypes={fabricTypes}
+          materials={materials}
+          materialComposition={materialComposition}
+          onMaterialCompositionChange={onMaterialCompositionChange}
+          tagsKey={tagsKey}
+          tags={form.tags}
+          onTagsChange={setTags}
+        />
+        <EditableTextRow
+          label="Внутрішній артикул моделі"
+          value={internalCode}
+          onChange={setInternalCode}
+        />
+        <div className="py-2">
+          <label htmlFor="product-description" className="mb-1 block text-sm text-muted-foreground">
+            Опис
+          </label>
+          <Textarea
+            id="product-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </div>
       </CardContent>
     </Card>
   );

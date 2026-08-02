@@ -14,11 +14,14 @@ import type { FabricTypeDetail } from "@/server/data/fabric-types";
 import type { MaterialRow } from "@/server/data/materials";
 
 /**
- * Секція динамічних характеристик усередині ProductInfoPanel/ProductMetaPanel
- * (dropId — "info-panel"/"meta-panel"). У звичайному режимі — інтерактивні
- * рядки (DynamicCharacteristicRow), у режимі "редагувати layout" — тільки
+ * Секція динамічних характеристик усередині ProductInfoPanel/ProductPhotoGallery
+ * (dropId — "info-panel"/"meta-panel", назва dropId лишилась історичною —
+ * колишня ProductMetaPanel, її вміст переїхав у ProductPhotoGallery,
+ * products.md). У звичайному режимі — інтерактивні рядки
+ * (DynamicCharacteristicRow), у режимі "редагувати layout" — тільки
  * назва+іконка, перетягувані між панелями (DndContext — спільний, у
- * ProductGeneralTab, обгортає обидві панелі одразу).
+ * ProductGeneralTab, обгортає обидві панелі одразу, попри те що вони більше
+ * не сусіди по гріду).
  */
 export function DynamicCharacteristicsSection({
   dropId,

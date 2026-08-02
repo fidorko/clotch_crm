@@ -279,7 +279,7 @@ export async function deleteProduct(tenantId: string, id: string): Promise<void>
  * плейсхолдерами, решту редагують одразу на сторінці товару (вона це вже вміє).
  * modelCode — унікальний у межах тенанта (UNIQUE(tenant_id, model_code)).
  * internalCode — теж автогенерується (не UNIQUE, тому колізія не критична),
- * редагується вручну одразу на картці товару (олівчик, ProductMetaPanel).
+ * редагується вручну одразу на картці товару (олівчик, ProductPhotoGallery).
  */
 export async function createProduct(tenantId: string): Promise<string> {
   return withTenant(tenantId, async (tx) => {

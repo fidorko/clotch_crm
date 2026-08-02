@@ -3,13 +3,15 @@ import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
 
 // Тенант-рівневий (НЕ per-товар) розподіл динамічних характеристик по двох
-// панелях картки товару (ProductInfoPanel/ProductMetaPanel) + порядок у межах
-// панелі — режим "редагувати layout" прямо на картці товару (drag&drop між
-// панелями, @dnd-kit), modules/products.md. Рядка нема для characteristicKey =
-// дефолт (панель "info", у кінці списку) — так само, як категорія без власного
-// рядка в category_characteristics = "успадковано", тут просто "не
-// переставляли ще". Категорія (ProductInfoPanel) і Постачальник
-// (ProductMetaPanel) сюди не входять — фіксовані, за прямою вказівкою людини.
+// панелях картки товару (ProductInfoPanel/ProductPhotoGallery, dropId
+// "info-panel"/"meta-panel" — назва dropId лишилась історичною, колишня
+// ProductMetaPanel) + порядок у межах панелі — режим "редагувати layout"
+// прямо на картці товару (drag&drop між панелями, @dnd-kit), modules/products.md.
+// Рядка нема для characteristicKey = дефолт (панель "info", у кінці списку) —
+// так само, як категорія без власного рядка в category_characteristics =
+// "успадковано", тут просто "не переставляли ще". Категорія (ProductInfoPanel)
+// і Постачальник (вкладка «Технічні дані») сюди не входять — фіксовані, за
+// прямою вказівкою людини.
 export const characteristicPanelEnum = pgEnum("characteristic_panel", ["info", "meta"]);
 
 export const productCharacteristicLayout = pgTable(

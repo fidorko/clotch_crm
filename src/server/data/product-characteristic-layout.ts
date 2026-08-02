@@ -12,7 +12,7 @@ export interface CharacteristicLayoutEntry {
 
 /**
  * Тенант-рівневий розподіл динамічних характеристик по панелях картки товару
- * (ProductInfoPanel/ProductMetaPanel) + порядок у межах панелі. Не прив'язано
+ * (ProductInfoPanel/ProductPhotoGallery) + порядок у межах панелі. Не прив'язано
  * до товару — режим "редагувати layout" міняє це для всього тенанта одразу.
  */
 export async function getCharacteristicLayout(tenantId: string): Promise<CharacteristicLayoutEntry[]> {

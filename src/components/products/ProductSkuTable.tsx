@@ -34,7 +34,7 @@ import { deleteColorPhotoAction, uploadColorPhotoAction } from "@/app/products/[
 import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
-import type { SkuColor } from "@/components/products/ProductSkuSection";
+import type { SkuColor } from "@/components/products/useProductSkuMatrix";
 
 function DeleteSkuButton({ code, onConfirm }: { code: string; onConfirm: () => void }) {
   return (

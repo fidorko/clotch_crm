@@ -15,12 +15,12 @@ import { LayoutGrid, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductInfoPanel } from "@/components/products/ProductInfoPanel";
 import { ProductPhotoGallery } from "@/components/products/ProductPhotoGallery";
-import { ProductMetaPanel } from "@/components/products/ProductMetaPanel";
 import { ProductSkuSection } from "@/components/products/ProductSkuSection";
+import { SKUDetail } from "@/components/products/SKUDetail";
+import { useProductSkuMatrix } from "@/components/products/useProductSkuMatrix";
 import { ProductStatsBar } from "@/components/products/ProductStatsBar";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
@@ -31,6 +31,7 @@ import type { ResolvedCharacteristicRow } from "@/lib/products/characteristic-la
 import type { MaterialCompositionEntry } from "@/components/products/characteristics/MaterialCompositionRow";
 import { updateCharacteristicLayoutAction } from "@/app/products/characteristic-layout-actions";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
+import { selectedSku as defaultSelectedSku } from "@/lib/mocks/products";
 
 type PanelKeys = { info: string[]; meta: string[] };
 
@@ -64,7 +65,6 @@ export function ProductGeneralTab({
   // не обрано, решта картки (фото/метадані/SKU) заблокована, крім самої
   // ProductInfoPanel, де живе поле категорії.
   const isCategoryBlocked = isDraft && !form.categoryId;
-  const [variantsEnabled, setVariantsEnabled] = useState(true);
   const [editingLayout, setEditingLayout] = useState(false);
   const [draftKeys, setDraftKeys] = useState<PanelKeys | null>(null);
   const [isSavingLayout, startSavingLayout] = useTransition();
@@ -176,6 +176,20 @@ export function ProductGeneralTab({
       ? retailAmount * (1 - pricing.retailDiscount.percent / 100)
       : pricing.retailDiscount.amount;
 
+  // Стан SKU-матриці (кольори/розміри/SKU) — спільний для ProductSkuSection
+  // (таблиця) і SKUDetail (обраний SKU), сусідні колонки нижче, не одне
+  // вкладене ціле (products.md, 2026-08-03 — прибрано перемикач "Варіації
+  // Колір/Розмір", товар завжди веде облік варіаціями).
+  const skuMatrix = useProductSkuMatrix({
+    productId: product.id,
+    modelCode: product.modelCode,
+    initialSkus: product.skus,
+    initialColorPhotos: product.colorPhotos,
+  });
+  const activeSkuDetail = skuMatrix.activeSku
+    ? { ...defaultSelectedSku, code: skuMatrix.activeSku.code }
+    : undefined;
+
   return (
     <>
       <DevBlockLabel name="ProductStatsBar" enabled={dev}>
@@ -206,17 +220,19 @@ export function ProductGeneralTab({
         )}
       </div>
 
+      {/* ProductInfoPanel тепер має обидві дропзони ("info-panel"/"meta-panel"
+          — колишня ProductMetaPanel) в одній картці, DndContext лишається,
+          бо drag&drop між ними все ще можливий (products.md, 2026-08-03). */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
           <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
             <ProductInfoPanel
               product={product}
               categories={categories}
-              colorOptions={colorOptions}
               pricing={pricing}
               onPricingChange={updatePricing}
-              variantsEnabled={variantsEnabled}
               dynamicRows={infoRows}
+              metaDynamicRows={metaRows}
               layoutEditMode={editingLayout}
               characteristics={form.characteristics}
               onCharacteristicChange={handleCharacteristicChange}
@@ -226,71 +242,39 @@ export function ProductGeneralTab({
               materialComposition={form.materialComposition}
               onMaterialCompositionChange={handleMaterialCompositionChange}
               tagsKey={tagsKey}
-              sizeOptions={sizeOptions}
             />
           </DevBlockLabel>
-          <div className={cn(isCategoryBlocked && "pointer-events-none opacity-40")}>
-            <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
-              <ProductPhotoGallery productId={product.id} photos={product.photos} />
+          <div className={cn("flex flex-col gap-4", isCategoryBlocked && "pointer-events-none opacity-40")}>
+            <DevBlockLabel name="ProductSkuSection" enabled={dev}>
+              <ProductSkuSection
+                productId={product.id}
+                colorOptions={colorOptions}
+                sizeOptions={sizeOptions}
+                matrix={skuMatrix}
+              />
             </DevBlockLabel>
-          </div>
-          <div className={cn(isCategoryBlocked && "pointer-events-none opacity-40")}>
-            <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
-              <ProductMetaPanel
-                variantsEnabled={variantsEnabled}
-                dynamicRows={metaRows}
-                layoutEditMode={editingLayout}
-                characteristics={form.characteristics}
-                onCharacteristicChange={handleCharacteristicChange}
-                careInstructions={careInstructions}
-                fabricTypes={fabricTypes}
-                materials={materials}
-                materialComposition={form.materialComposition}
-                onMaterialCompositionChange={handleMaterialCompositionChange}
-                tagsKey={tagsKey}
+            <DevBlockLabel name="SKUDetail" enabled={dev}>
+              <SKUDetail
+                sku={activeSkuDetail}
+                pricing={{
+                  purchasePrice: pricing.purchasePrice,
+                  retail: retailAmount,
+                  oldPrice: pricing.oldPrice,
+                  wholesale: wholesaleAmount,
+                  dropship: dropshipAmount,
+                  retailDiscount: retailDiscountAmount,
+                }}
               />
             </DevBlockLabel>
           </div>
         </div>
       </DndContext>
 
-      <div
-        className={cn(
-          "flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3",
-          isCategoryBlocked && "pointer-events-none opacity-40"
-        )}
-      >
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium text-foreground">Варіації Колір / Розмір</span>
-          <span className="text-xs text-muted-foreground">
-            Якщо вимкнено — товар веде облік як єдиний SKU, поля якого перенесені на панель метаданих
-          </span>
-        </div>
-        <Switch checked={variantsEnabled} onCheckedChange={setVariantsEnabled} />
+      <div className={cn(isCategoryBlocked && "pointer-events-none opacity-40")}>
+        <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
+          <ProductPhotoGallery productId={product.id} photos={product.photos} />
+        </DevBlockLabel>
       </div>
-
-      {variantsEnabled && (
-        <div className={cn(isCategoryBlocked && "pointer-events-none opacity-40")}>
-          <DevBlockLabel name="ProductSkuSection" enabled={dev}>
-            <ProductSkuSection
-              productId={product.id}
-              modelCode={product.modelCode}
-              colorOptions={colorOptions}
-              sizeOptions={sizeOptions}
-              initialSkus={product.skus}
-              initialColorPhotos={product.colorPhotos}
-              pricing={{
-                purchasePrice: pricing.purchasePrice,
-                retail: retailAmount,
-                oldPrice: pricing.oldPrice,
-                wholesale: wholesaleAmount,
-                dropship: dropshipAmount,
-                retailDiscount: retailDiscountAmount,
-              }}
-            />
-          </DevBlockLabel>
-        </div>
-      )}
     </>
   );
 }

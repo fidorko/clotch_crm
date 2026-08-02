@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { DetailRow } from "@/components/ui/detail-row";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import type { SkuPricing } from "@/components/products/ProductSkuSection";
+import type { SkuPricing } from "@/components/products/useProductSkuMatrix";
 
 interface SkuDetail {
   code: string;
@@ -113,7 +113,7 @@ function BarcodeDetailRow({ value }: { value: string }) {
             }}
             className="h-7 w-32 px-1.5 text-right text-sm"
           />
-          
+
         </div>
       ) : (
         <div className="flex items-center gap-1">
@@ -133,7 +133,10 @@ function BarcodeDetailRow({ value }: { value: string }) {
   );
 }
 
-export function ProductSkuDetailPanel({
+// Раніше ProductSkuDetailPanel/"Деталі SKU" — перейменовано, тепер окрема
+// колонка сусідня з ProductSkuSection (ProductGeneralTab), а не вкладена
+// всередину нього; той самий контент і `sku`/`pricing` контракт, products.md.
+export function SKUDetail({
   sku,
   pricing,
 }: {
@@ -188,8 +191,8 @@ export function ProductSkuDetailPanel({
         )}
         <Badge variant="success">В наявності</Badge>
       </CardHeader>
-      <CardContent className="px-4">
-        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+      <CardContent className="@container px-4">
+        <div className="grid grid-cols-1 gap-x-6 @sm:grid-cols-2">
           <div className="flex flex-col divide-y divide-border">
             <BarcodeDetailRow value={sku.barcode} />
             <EditablePriceRow label="Закупівельна ціна" value={pricing.purchasePrice} />
@@ -198,7 +201,7 @@ export function ProductSkuDetailPanel({
             <EditablePriceRow label="Перечеркнута ціна" value={pricing.oldPrice} />
             <EditablePriceRow label="Моя оптова ціна" value={pricing.wholesale} />
             <EditablePriceRow label="Моя ціна дропшипперам" value={pricing.dropship} />
-            
+
           </div>
 
           <div className="flex flex-col divide-y divide-border">
@@ -221,7 +224,7 @@ export function ProductSkuDetailPanel({
                 </div>
               }
             />
-            
+
           </div>
         </div>
 
