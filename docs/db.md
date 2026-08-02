@@ -148,6 +148,16 @@ UNIQUE `(tenant_id, code)`. **`(tenant_id) WHERE is_default = true`** — час
 
 **Розміри/вага посилки товару (`package_length_cm`/`package_width_cm`/`package_height_cm`/`package_weight_kg`) успадковують ефективне значення категорії**, коли на товарі не задано власне (`NULL`) — той самий `resolveInheritedField`, що для `categories.default_*` (walk up `parent_id`), застосований ще на рівень нижче: категорія → товар. Колонки вже були nullable, нової міграції не знадобилось — лише нова інтерпретація `NULL` (як і для самих категорій) + мапер перестав підміняти `NULL` на `0`.
 
+### product_technical_layout
+2026-08-03, `products-technical-tab.md`. Тенант-рівневий (НЕ per-товар) порядок фіксованих полів вкладки «Технічні дані» — той самий принцип, що `product_characteristic_layout`, але без панелей: `tenant_id`, `field_key` (фіксований набір із `lib/products/technical-fields.ts`, не довільний текст), `position`, `updated_at`. PK `(tenant_id, field_key)`. Без власного рядка — дефолтний порядок, у кінці списку.
+
+### product_activity_log
+2026-08-03, `products-technical-tab.md`. Журнал подій товару: `tenant_id`, `product_id` (FK `products.id`, CASCADE), `event_type` (enum `product_activity_event`: `created`/`updated`), `occurred_at` (timestamptz, до секунди в UI), `actor_name` (`TODO(auth)`, той самий тимчасовий підхід, що `products.created_by`/`updated_by`), `field_key`/`field_label`/`old_value`/`new_value` (nullable — заповнені лише для `event_type = "updated"`, по одному рядку на кожне змінене поле; `NULL` для разової події `"created"`). Індекс `(tenant_id, product_id, occurred_at)`.
+
+Рядки одного виклику `saveProduct` діляють однаковий `occurred_at` (рахується раз у коді, не `now()` в БД per-row) — так на екрані вони групуються в одну «подію редагування» з кількома змінами. Diff (`diffProductFields`, `server/data/product-activity-diff.ts`) охоплює лише прямі скалярні колонки `products` (назва/статус/категорія/постачальник/стать/опис/ціни/внутрішній артикул/артикул постачальника/розміри й вага посилки) — значення динамічних характеристик/складу тканини/замірів/тегів (junction-таблиці, `products-characteristics.md`) **не діфляться** (відкритий пункт). Номер поставки/номер замовлення — свідомо не додано, модулів «Постачання»/«Замовлення» ще нема в проєкті.
+
+`products.created_by`/`updated_by` (колонки існували в схемі й раніше — розділ `products` вище) тепер реально заповнюються (`DEV_USER.name`) при створенні/збереженні — раніше лишались `NULL` поза сідом.
+
 ### Теги — тепер рядок custom_characteristics, не окрема таблиця
 За прямою вказівкою (людина свідомо погодилась на ризик, `decisions.md`) стара таблиця `tags` + `product_tags.tag_id` **видалені**; теги товару — звичайна характеристика `custom_characteristics` з `system_key = 'tags'`, її значення — рядки `custom_characteristic_values`. `product_tags.tag_id` (FK на `tags.id`) замінено на `product_tags.characteristic_value_id` (FK на `custom_characteristic_values.id`, `ON DELETE CASCADE`), PK — `(product_id, characteristic_value_id)`.
 

@@ -4,6 +4,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const tabs = [
   { value: "general", label: "Основне" },
+  { value: "technical", label: "Технічні дані" },
   { value: "sizes", label: "Розміри та заміри" },
   { value: "stock", label: "Залишки" },
   { value: "supply", label: "Постачання" },

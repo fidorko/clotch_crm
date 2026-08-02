@@ -10,6 +10,7 @@ import {
   productTags,
 } from "@/server/db/schema";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import { DEV_USER } from "@/lib/constants/dev-user";
 import { mapProductRow } from "./product-mappers";
 import {
   getProductCharacteristicValues,
@@ -23,6 +24,8 @@ import {
   syncProductSizeMeasurements,
   type SizeMeasurementEntry,
 } from "./product-size-measurements";
+import { diffProductFields } from "./product-activity-diff";
+import { insertProductActivityLog } from "./product-activity-log";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -293,8 +296,14 @@ export async function createProduct(tenantId: string): Promise<string> {
         modelCode,
         internalCode,
         isDraft: true,
+        createdBy: DEV_USER.name,
       })
       .returning({ id: products.id });
+
+    await insertProductActivityLog(tx, tenantId, row.id, [
+      { eventType: "created", actorName: DEV_USER.name, occurredAt: new Date() },
+    ]);
+
     return row.id;
   });
 }
@@ -401,40 +410,74 @@ export async function saveProduct(
   input: SaveProductInput
 ): Promise<void> {
   await withTenant(tenantId, async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+    if (!before) return;
+
+    const nextValues = {
+      name: input.name,
+      status: input.status,
+      categoryId: input.categoryId,
+      supplierId: input.supplierId,
+      gender: input.info.gender,
+      description: input.info.description,
+      purchasePrice: String(input.pricing.purchasePrice),
+      oldPrice: String(input.pricing.oldPrice),
+      retailMode: input.pricing.retail.mode,
+      retailAmount: String(input.pricing.retail.amount),
+      retailPercent: String(input.pricing.retail.percent),
+      wholesaleMode: input.pricing.wholesale.mode,
+      wholesaleAmount: String(input.pricing.wholesale.amount),
+      wholesalePercent: String(input.pricing.wholesale.percent),
+      dropshipMode: input.pricing.dropship.mode,
+      dropshipAmount: String(input.pricing.dropship.amount),
+      dropshipPercent: String(input.pricing.dropship.percent),
+      retailDiscountMode: input.pricing.retailDiscount.mode,
+      retailDiscountAmount: String(input.pricing.retailDiscount.amount),
+      retailDiscountPercent: String(input.pricing.retailDiscount.percent),
+      internalCode: input.meta.internalCode,
+      supplierCode: input.meta.supplierCode,
+      packageLengthCm: input.meta.packageLengthCm,
+      packageWidthCm: input.meta.packageWidthCm,
+      packageHeightCm: input.meta.packageHeightCm,
+      packageWeightKg:
+        input.meta.packageWeightKg === null ? null : String(input.meta.packageWeightKg),
+    };
+
     await tx
       .update(products)
       .set({
-        name: input.name,
-        status: input.status,
-        categoryId: input.categoryId,
-        supplierId: input.supplierId,
-        gender: input.info.gender,
-        description: input.info.description,
-        purchasePrice: String(input.pricing.purchasePrice),
-        oldPrice: String(input.pricing.oldPrice),
-        retailMode: input.pricing.retail.mode,
-        retailAmount: String(input.pricing.retail.amount),
-        retailPercent: String(input.pricing.retail.percent),
-        wholesaleMode: input.pricing.wholesale.mode,
-        wholesaleAmount: String(input.pricing.wholesale.amount),
-        wholesalePercent: String(input.pricing.wholesale.percent),
-        dropshipMode: input.pricing.dropship.mode,
-        dropshipAmount: String(input.pricing.dropship.amount),
-        dropshipPercent: String(input.pricing.dropship.percent),
-        retailDiscountMode: input.pricing.retailDiscount.mode,
-        retailDiscountAmount: String(input.pricing.retailDiscount.amount),
-        retailDiscountPercent: String(input.pricing.retailDiscount.percent),
-        internalCode: input.meta.internalCode,
-        supplierCode: input.meta.supplierCode,
-        packageLengthCm: input.meta.packageLengthCm,
-        packageWidthCm: input.meta.packageWidthCm,
-        packageHeightCm: input.meta.packageHeightCm,
-        packageWeightKg:
-          input.meta.packageWeightKg === null ? null : String(input.meta.packageWeightKg),
+        ...nextValues,
         isDraft: false,
+        updatedBy: DEV_USER.name,
         updatedAt: sql`now()`,
       })
       .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+
+    // Кожне автозбереження пише ВЕСЬ стан форми одним запитом (не по полях
+    // окремо), тому діф проти рядка ДО update — інакше кожен виклик
+    // saveProduct писав би в журнал усі ~25 полів, навіть незмінені
+    // (modules/products.md, "Технічні дані" → журнал подій).
+    const occurredAt = new Date();
+    const changes = await diffProductFields(tx, tenantId, before, nextValues);
+    if (changes.length > 0) {
+      await insertProductActivityLog(
+        tx,
+        tenantId,
+        productId,
+        changes.map((change) => ({
+          eventType: "updated" as const,
+          actorName: DEV_USER.name,
+          occurredAt,
+          fieldKey: change.key,
+          fieldLabel: change.label,
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+        }))
+      );
+    }
 
     await syncProductTags(tx, tenantId, productId, input.tags);
     await syncProductCharacteristics(tx, tenantId, productId, input.characteristics);

@@ -5,9 +5,11 @@ import { ProductHeader } from "@/components/products/ProductHeader";
 import { ProductEditorProvider } from "@/components/products/ProductEditorContext";
 import { ProductTabs } from "@/components/products/ProductTabs";
 import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
+import { ProductTechnicalTab } from "@/components/products/ProductTechnicalTab";
 import { ProductSizeChart } from "@/components/products/ProductSizeChart";
 import { MeasurementGuide } from "@/components/products/MeasurementGuide";
 import { deriveDistinctSizes } from "@/lib/products/sku-sizes";
+import { TECHNICAL_FIELD_KEYS, resolveTechnicalFieldOrder } from "@/lib/products/technical-fields";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
@@ -26,6 +28,8 @@ import { listMeasurementTypesWithValues } from "@/server/data/measurement-types"
 import { listReferenceItemsForKinds } from "@/server/data/reference-items";
 import { buildCategoryCharacteristicOptions } from "@/lib/categories/characteristic-options";
 import { getCharacteristicLayout } from "@/server/data/product-characteristic-layout";
+import { getTechnicalFieldLayout } from "@/server/data/product-technical-layout";
+import { listProductActivityLog } from "@/server/data/product-activity-log";
 import { resolveProductCharacteristicRows } from "@/lib/products/characteristic-layout";
 import { resolveInheritedField } from "@/lib/categories/inheritance";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
@@ -61,6 +65,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
     referenceItemsByKind,
     pinnedByCategory,
     layout,
+    technicalLayout,
+    activityLog,
   ] = await Promise.all([
     listCategories(tenantId),
     listColors(tenantId),
@@ -74,6 +80,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
     listReferenceItemsForKinds(tenantId, ["manufacturers", "countries"]),
     listAllCategoryPinnedCharacteristics(tenantId),
     getCharacteristicLayout(tenantId),
+    getTechnicalFieldLayout(tenantId),
+    listProductActivityLog(tenantId, id),
   ]);
 
   const colorOptions = colors.map((color) => ({ name: color.name, hex: color.hex }));
@@ -125,6 +133,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const colorsPinned = pinnedKeys.includes("colors");
   const suppliersPinned = pinnedKeys.includes("suppliers");
   const effectiveColorOptions = colorsPinned ? colorOptions : [];
+
+  // Вкладка «Технічні дані»: "Постачальник" — та сама гейтинг-логіка, що мав
+  // ProductMetaPanel раніше — виключений з порядку/показу, коли не закріплений.
+  const technicalFieldKeys = suppliersPinned
+    ? TECHNICAL_FIELD_KEYS
+    : TECHNICAL_FIELD_KEYS.filter((key) => key !== "supplier");
+  const technicalFieldOrder = resolveTechnicalFieldOrder(technicalLayout, technicalFieldKeys);
 
   const pinnedSizeTypeIds = pinnedKeys
     .filter((key) => key.startsWith("size-type:"))
@@ -182,16 +197,25 @@ export default async function ProductDetailPage({ params }: PageProps) {
               categories={categories}
               colorOptions={effectiveColorOptions}
               sizeOptions={sizeOptions}
-              suppliers={suppliers}
-              suppliersPinned={suppliersPinned}
               dynamicRows={dynamicRows}
               careInstructions={careInstructions}
               fabricTypes={fabricTypes}
               materials={materials}
               tagsKey={tagsKey}
-              packageDefaults={packageDefaults}
               dev={dev}
             />
+          </TabsContent>
+
+          <TabsContent value="technical" className="flex flex-col gap-4 p-6">
+            <DevBlockLabel name="ProductTechnicalTab" enabled={dev}>
+              <ProductTechnicalTab
+                product={product}
+                suppliers={suppliers}
+                packageDefaults={packageDefaults}
+                initialOrder={technicalFieldOrder}
+                activityLog={activityLog}
+              />
+            </DevBlockLabel>
           </TabsContent>
 
           <TabsContent value="sizes" className="flex flex-col gap-4 p-6">

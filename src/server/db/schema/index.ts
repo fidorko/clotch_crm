@@ -24,6 +24,7 @@ import { measurementTypes, measurementValues } from "./measurement-types";
 import { categoryCharacteristics } from "./category-characteristics";
 import { productCharacteristicValues } from "./product-characteristic-values";
 import { productMaterialComposition } from "./product-material-composition";
+import { productActivityLog } from "./product-activity-log";
 
 export * from "./tenants";
 export * from "./products";
@@ -51,6 +52,8 @@ export * from "./category-characteristics";
 export * from "./product-characteristic-values";
 export * from "./product-material-composition";
 export * from "./product-characteristic-layout";
+export * from "./product-technical-layout";
+export * from "./product-activity-log";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
@@ -60,6 +63,11 @@ export const productsRelations = relations(products, ({ many }) => ({
   productTags: many(productTags),
   characteristicValues: many(productCharacteristicValues),
   materialComposition: many(productMaterialComposition),
+  activityLog: many(productActivityLog),
+}));
+
+export const productActivityLogRelations = relations(productActivityLog, ({ one }) => ({
+  product: one(products, { fields: [productActivityLog.productId], references: [products.id] }),
 }));
 
 export const productCharacteristicValuesRelations = relations(productCharacteristicValues, ({ one }) => ({

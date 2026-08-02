@@ -25,6 +25,10 @@ import { deleteProductImageByUrl, saveProductImage } from "@/server/storage/prod
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
+import {
+  listProductActivityLog,
+  type ProductActivityLogEntry,
+} from "@/server/data/product-activity-log";
 
 export async function updateProductName(productId: string, name: string): Promise<void> {
   const trimmed = name.trim();
@@ -160,4 +164,13 @@ export async function deleteColorPhotosAction(productId: string, color: string):
   const urls = await deleteColorPhotosByColor(tenantId, productId, color);
   await Promise.all(urls.map((url) => deleteProductImageByUrl(tenantId, "product-colors", url)));
   revalidatePath(`/products/${productId}`);
+}
+
+/** «Показати ще» в журналі подій (ProductActivityLogSection) — курсор по occurredAt останнього вже показаного рядка. */
+export async function loadMoreProductActivityAction(
+  productId: string,
+  beforeIso: string
+): Promise<ProductActivityLogEntry[]> {
+  const tenantId = getDevTenantId();
+  return listProductActivityLog(tenantId, productId, new Date(beforeIso));
 }

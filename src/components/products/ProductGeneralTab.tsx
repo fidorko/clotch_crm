@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { Product } from "@/lib/types/product";
 import type { CategoryRow } from "@/server/data/categories";
-import type { SupplierRow } from "@/server/data/suppliers";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { CareInstructionRow } from "@/server/data/care-instructions";
 import type { FabricTypeDetail } from "@/server/data/fabric-types";
@@ -40,33 +39,22 @@ export function ProductGeneralTab({
   categories,
   colorOptions,
   sizeOptions,
-  suppliers,
-  suppliersPinned,
   dynamicRows,
   careInstructions,
   fabricTypes,
   materials,
   tagsKey,
-  packageDefaults,
   dev,
 }: {
   product: Product;
   categories: CategoryRow[];
   colorOptions: ColorOption[];
   sizeOptions: string[];
-  suppliers: SupplierRow[];
-  suppliersPinned: boolean;
   dynamicRows: { info: ResolvedCharacteristicRow[]; meta: ResolvedCharacteristicRow[] };
   careInstructions: CareInstructionRow[];
   fabricTypes: FabricTypeDetail[];
   materials: MaterialRow[];
   tagsKey: string | null;
-  packageDefaults: {
-    lengthCm: number | null;
-    widthCm: number | null;
-    heightCm: number | null;
-    weightKg: number | null;
-  };
   dev: boolean;
 }) {
   const router = useRouter();
@@ -249,9 +237,7 @@ export function ProductGeneralTab({
           <div className={cn(isCategoryBlocked && "pointer-events-none opacity-40")}>
             <DevBlockLabel name="ProductMetaPanel" enabled={dev}>
               <ProductMetaPanel
-                product={product}
                 variantsEnabled={variantsEnabled}
-                suppliers={suppliers}
                 dynamicRows={metaRows}
                 layoutEditMode={editingLayout}
                 characteristics={form.characteristics}
@@ -262,8 +248,6 @@ export function ProductGeneralTab({
                 materialComposition={form.materialComposition}
                 onMaterialCompositionChange={handleMaterialCompositionChange}
                 tagsKey={tagsKey}
-                suppliersPinned={suppliersPinned}
-                packageDefaults={packageDefaults}
               />
             </DevBlockLabel>
           </div>
