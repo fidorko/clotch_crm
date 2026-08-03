@@ -6,6 +6,7 @@ import { ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { CategoryTreeSelect } from "@/components/categories/CategoryTreeSelect";
@@ -396,13 +397,10 @@ export function CategoryForm({
               <label className="text-sm text-muted-foreground" htmlFor="category-weight">
                 Вага за замовчуванням, кг
               </label>
-              <Input
+              <DecimalInput
                 id="category-weight"
-                type="number"
-                min={0}
-                step={0.01}
                 value={defaultWeightKg}
-                onChange={(e) => setOwnDefaultWeightKg(e.target.value)}
+                onChange={setOwnDefaultWeightKg}
                 placeholder="для товарів"
               />
             </div>

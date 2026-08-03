@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProductEditor } from "@/components/products/ProductEditorContext";
 
@@ -81,11 +81,9 @@ export function ProductSizeChart({
                     <TableCell className="font-medium text-foreground">{size}</TableCell>
                     {measurementPoints.map((point) => (
                       <TableCell key={point.id} className="text-center">
-                        <Input
-                          type="number"
-                          min={0}
+                        <DecimalInput
                           value={valueAt(size, point.id)}
-                          onChange={(e) => setValueAt(size, point.id, e.target.value)}
+                          onChange={(value) => setValueAt(size, point.id, value)}
                           placeholder="см"
                           className="h-8 w-20 text-center"
                         />

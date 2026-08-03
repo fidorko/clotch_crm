@@ -16,6 +16,7 @@ import { GripVertical, LayoutGrid, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DetailRow } from "@/components/ui/detail-row";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TextRow } from "@/components/ui/text-row";
@@ -89,12 +90,9 @@ function PackageWeightRow({
     <div className="flex flex-col gap-1 py-2">
       <div className="flex items-center gap-4">
         <span className="w-40 shrink-0 text-sm text-muted-foreground">Вага, кг</span>
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={weight}
-          onChange={(e) => onChangeWeight(Number(e.target.value))}
+        <DecimalInput
+          value={String(weight)}
+          onChange={(value) => onChangeWeight(value === "" ? 0 : Number(value))}
           className="h-7 w-20 px-1.5 text-right text-sm"
         />
       </div>

@@ -2,7 +2,7 @@
 
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DecimalInput } from "@/components/ui/decimal-input";
 import { EditableIdSelectRow } from "@/components/ui/editable-id-select-row";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { FabricTypeDetail } from "@/server/data/fabric-types";
@@ -100,12 +100,9 @@ export function MaterialCompositionRow({
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={entry.percent}
-                  onChange={(e) => updateRow(index, { percent: Number(e.target.value) })}
+                <DecimalInput
+                  value={String(entry.percent)}
+                  onChange={(value) => updateRow(index, { percent: value === "" ? 0 : Number(value) })}
                   className="h-7 w-16 px-1.5 text-right text-sm"
                 />
                 <span className="text-sm text-muted-foreground">%</span>

@@ -1,7 +1,8 @@
-import { Mail, Phone, Plus, Trash2 } from "lucide-react";
+import { Mail, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconInput } from "@/components/settings/SupplierIconInput";
+import { PhoneInput } from "@/components/ui/phone-input";
 import type { SupplierContactInput } from "@/lib/types/supplier";
 
 const EMPTY_CONTACT: SupplierContactInput = { name: "", jobTitle: "", phone: "", email: "" };
@@ -51,12 +52,9 @@ export function SupplierContactsFields({
               onChange={(e) => update(index, { jobTitle: e.target.value })}
               placeholder="Посада"
             />
-            <IconInput
-              icon={Phone}
+            <PhoneInput
               value={contact.phone}
-              onChange={(e) => update(index, { phone: e.target.value })}
-              placeholder="Телефон"
-              type="tel"
+              onChange={(value) => update(index, { phone: value })}
             />
             <IconInput
               icon={Mail}
