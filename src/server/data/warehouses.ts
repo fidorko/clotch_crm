@@ -2,6 +2,7 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import { warehouses } from "@/server/db/schema";
 import type { WarehouseFormInput } from "@/lib/types/warehouse";
+import type { WarehouseBinConfigInput } from "@/lib/types/warehouse-bin";
 
 export type WarehouseRow = typeof warehouses.$inferSelect;
 
@@ -110,6 +111,40 @@ export async function updateWarehouse(
         canSell: input.canSell,
         allowNegativeStock: input.allowNegativeStock,
         useBinLocations: input.useBinLocations,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
+  });
+}
+
+/**
+ * Вкладка «Адресне зберігання» — окремий явний "Зберегти" (не автозбереження,
+ * conventions.md: свідомий виняток для дій із ширшим наслідком — тут
+ * подальша масова генерація комірок), тож своя функція, не через
+ * updateWarehouse/WarehouseFormInput.
+ */
+export async function updateWarehouseBinConfig(
+  tenantId: string,
+  id: string,
+  input: WarehouseBinConfigInput
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(warehouses)
+      .set({
+        binLevel1Name: input.level1Name,
+        binLevel2Name: input.level2Name,
+        binLevel3Name: input.level3Name,
+        binLevel1Format: input.level1Format,
+        binLevel2Format: input.level2Format,
+        binLevel3Format: input.level3Format,
+        binSeparator: input.separator,
+        binGenerateBarcodes: input.generateBarcodes,
+        binGenerateQr: input.generateQr,
+        binAllowLabelReprint: input.allowLabelReprint,
+        binStreetsCount: input.streetsCount,
+        binRacksPerStreet: input.racksPerStreet,
+        binCellsPerRack: input.cellsPerRack,
         updatedAt: new Date(),
       })
       .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));

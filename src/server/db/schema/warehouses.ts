@@ -1,4 +1,15 @@
-import { boolean, index, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
 
@@ -9,6 +20,15 @@ export const warehouseTypeEnum = pgEnum("warehouse_type", [
   "defective",
   "disposal",
   "production",
+]);
+
+// Роздільник між рівнями адреси комірки (WarehouseBinLocationsTab), спільний
+// pure-хелпер для показу й реальної генерації — src/lib/warehouse/bin-address.ts.
+export const warehouseBinSeparatorEnum = pgEnum("warehouse_bin_separator", [
+  "space",
+  "dash",
+  "slash",
+  "none",
 ]);
 
 // Години роботи — гнучкий список довільних груп днів (не 7 фіксованих
@@ -53,6 +73,27 @@ export const warehouses = pgTable(
     canSell: boolean("can_sell").notNull().default(true),
     allowNegativeStock: boolean("allow_negative_stock").notNull().default(false),
     useBinLocations: boolean("use_bin_locations").notNull().default(false),
+    // Структура адрес (вкладка «Адресне зберігання») — рівень-формат зберігає
+    // ЗРАЗОК стартового значення: цифровий рядок ("101"/"01") — стартове число
+    // й ширина падінгу нулями, буквений ("A") — стартова літера, послідовність
+    // Excel-стилем (A..Z, AA..). Парсинг — src/lib/warehouse/bin-address.ts,
+    // спільний для клієнтського превью й реальної генерації на сервері.
+    binLevel1Name: text("bin_level1_name").notNull().default("Вулиця"),
+    binLevel2Name: text("bin_level2_name").notNull().default("Стелаж"),
+    binLevel3Name: text("bin_level3_name").notNull().default("Комірка"),
+    binLevel1Format: text("bin_level1_format").notNull().default("101"),
+    binLevel2Format: text("bin_level2_format").notNull().default("A"),
+    binLevel3Format: text("bin_level3_format").notNull().default("01"),
+    binSeparator: warehouseBinSeparatorEnum("bin_separator").notNull().default("space"),
+    binGenerateBarcodes: boolean("bin_generate_barcodes").notNull().default(true),
+    binGenerateQr: boolean("bin_generate_qr").notNull().default(false),
+    binAllowLabelReprint: boolean("bin_allow_label_reprint").notNull().default(true),
+    // Останні використані параметри генератора (Блок 3) — щоб форма
+    // відкривалась з попередніми числами, не порожня щоразу; nullable, поки
+    // жодного разу не генерували.
+    binStreetsCount: integer("bin_streets_count"),
+    binRacksPerStreet: integer("bin_racks_per_street"),
+    binCellsPerRack: integer("bin_cells_per_rack"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

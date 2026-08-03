@@ -25,9 +25,11 @@ import { productCharacteristicValues } from "./product-characteristic-values";
 import { productMaterialComposition } from "./product-material-composition";
 import { productActivityLog } from "./product-activity-log";
 import { warehouses } from "./warehouses";
+import { warehouseBinLocations } from "./warehouse-bin-locations";
 
 export * from "./tenants";
 export * from "./warehouses";
+export * from "./warehouse-bin-locations";
 export * from "./category-images";
 export * from "./products";
 export * from "./product-skus";
@@ -120,6 +122,14 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   sizeTypes: many(sizeTypes),
   measurementTypes: many(measurementTypes),
   warehouses: many(warehouses),
+}));
+
+export const warehousesRelations = relations(warehouses, ({ many }) => ({
+  binLocations: many(warehouseBinLocations),
+}));
+
+export const warehouseBinLocationsRelations = relations(warehouseBinLocations, ({ one }) => ({
+  warehouse: one(warehouses, { fields: [warehouseBinLocations.warehouseId], references: [warehouses.id] }),
 }));
 
 export const sizeTypesRelations = relations(sizeTypes, ({ many }) => ({

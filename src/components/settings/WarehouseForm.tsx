@@ -9,8 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { WarehouseWorkHoursField } from "@/components/settings/WarehouseWorkHoursField";
+import { WarehouseBinLocationsTab } from "@/components/settings/WarehouseBinLocationsTab";
 import { WarehouseFormHeader } from "@/components/settings/WarehouseFormHeader";
 import { WAREHOUSE_TYPE_OPTIONS, type WarehouseType } from "@/lib/constants/warehouse-options";
 import type { WarehouseFormInput, WarehouseWorkHourInput } from "@/lib/types/warehouse";
@@ -135,22 +137,7 @@ export function WarehouseForm({
     : null;
   const errorMessage = warehouse ? (saveStatus === "error" ? error : null) : error;
 
-  return (
-    <div className="flex flex-1 flex-col">
-      <WarehouseFormHeader
-        warehouse={warehouse}
-        primaryAction={primaryAction}
-        secondaryAction={secondaryAction}
-        statusMessage={statusMessage}
-        errorMessage={errorMessage}
-      />
-
-      <div className="border-b border-border px-6 pt-3">
-        <span className="inline-flex items-center gap-1.5 border-b-2 border-primary px-1.5 py-1 text-sm font-medium text-foreground">
-          Основні налаштування
-        </span>
-      </div>
-
+  const generalTab = (
       <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-2">
         <Card className="gap-0 py-4">
           <CardContent className="flex flex-col gap-4 px-4">
@@ -346,6 +333,38 @@ export function WarehouseForm({
           </CardContent>
         </Card>
       </div>
+  );
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <WarehouseFormHeader
+        warehouse={warehouse}
+        primaryAction={primaryAction}
+        secondaryAction={secondaryAction}
+        statusMessage={statusMessage}
+        errorMessage={errorMessage}
+      />
+
+      {warehouse ? (
+        <Tabs defaultValue="general" className="flex flex-1 flex-col gap-0">
+          <div className="border-b border-border px-6 pt-3">
+            <TabsList variant="line">
+              <TabsTrigger value="general">Основні налаштування</TabsTrigger>
+              <TabsTrigger value="bin-locations">Адресне зберігання</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="general">{generalTab}</TabsContent>
+          <TabsContent value="bin-locations">
+            <WarehouseBinLocationsTab
+              warehouse={warehouse}
+              useBinLocations={useBinLocations}
+              onUseBinLocationsChange={setUseBinLocations}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        generalTab
+      )}
     </div>
   );
 }
