@@ -17,16 +17,19 @@ import { WarehouseFormHeader } from "@/components/settings/WarehouseFormHeader";
 import { WAREHOUSE_TYPE_OPTIONS, type WarehouseType } from "@/lib/constants/warehouse-options";
 import type { WarehouseFormInput, WarehouseWorkHourInput } from "@/lib/types/warehouse";
 import type { WarehouseRow } from "@/server/data/warehouses";
+import type { WarehouseBinStreetRow } from "@/server/data/warehouse-bin-locations";
 import { createWarehouseAction, updateWarehouseAction } from "@/app/settings/warehouses/actions";
 
 export function WarehouseForm({
   warehouse,
   countries,
   currencies,
+  initialStreets,
 }: {
   warehouse: WarehouseRow | null;
   countries: { id: string; name: string }[];
   currencies: { code: string; symbol: string }[];
+  initialStreets: WarehouseBinStreetRow[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -357,8 +360,8 @@ export function WarehouseForm({
           <TabsContent value="bin-locations">
             <WarehouseBinLocationsTab
               warehouse={warehouse}
+              initialStreets={initialStreets}
               useBinLocations={useBinLocations}
-              onUseBinLocationsChange={setUseBinLocations}
             />
           </TabsContent>
         </Tabs>

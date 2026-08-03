@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { WarehouseForm } from "@/components/settings/WarehouseForm";
 import { getWarehouseById } from "@/server/data/warehouses";
+import { listStreets } from "@/server/data/warehouse-bin-locations";
 import { listReferenceItems } from "@/server/data/reference-items";
 import { listCurrencies } from "@/server/data/currencies";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
@@ -19,10 +20,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function EditWarehousePage({ params }: PageProps) {
   const { id } = await params;
   const tenantId = getDevTenantId();
-  const [warehouse, countries, currencies] = await Promise.all([
+  const [warehouse, countries, currencies, streets] = await Promise.all([
     getWarehouseById(tenantId, id),
     listReferenceItems(tenantId, "countries"),
     listCurrencies(tenantId),
+    listStreets(tenantId, id),
   ]);
 
   if (!warehouse) notFound();
@@ -34,6 +36,7 @@ export default async function EditWarehousePage({ params }: PageProps) {
         warehouse={warehouse}
         countries={countries}
         currencies={currencies.map((c) => ({ code: c.code, symbol: c.symbol }))}
+        initialStreets={streets}
       />
     </DevBlockLabel>
   );

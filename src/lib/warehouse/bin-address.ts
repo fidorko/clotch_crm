@@ -1,16 +1,6 @@
-// Чиста логіка адресації комірок складу (WarehouseBinLocationsTab) — без
+// Чиста логіка адресації комірок складу (WarehouseBinExplorer) — без
 // залежності від БД/React, щоб один і той самий код рахував і клієнтський
-// «Попередній перегляд» (перші N адрес), і реальну генерацію на сервері
-// (server/data/warehouse-bin-locations.ts) — не дублювати формулу двічі.
-
-export type BinSeparator = "space" | "dash" | "slash" | "none";
-
-export const BIN_SEPARATOR_CHARS: Record<BinSeparator, string> = {
-  space: " ",
-  dash: "-",
-  slash: "/",
-  none: "",
-};
+// стан, і реальне створення на сервері (server/data/warehouse-bin-locations.ts).
 
 function isNumericFormat(format: string): boolean {
   return /^\d+$/.test(format);
@@ -61,59 +51,39 @@ function indexToAlpha(index: number): string {
   return result;
 }
 
-export function composeBinCode(
-  level1: string,
-  level2: string,
-  level3: string,
-  separator: BinSeparator
-): string {
-  return [level1, level2, level3].join(BIN_SEPARATOR_CHARS[separator]);
-}
-
-export interface BinGeneratorParams {
-  level1Format: string;
-  level2Format: string;
-  level3Format: string;
-  separator: BinSeparator;
-  streetsCount: number;
-  racksPerStreet: number;
-  cellsPerRack: number;
-}
-
-export interface GeneratedBin {
-  level1: string;
-  level2: string;
-  level3: string;
-  code: string;
-}
-
-export function binGeneratorTotal(params: Pick<BinGeneratorParams, "streetsCount" | "racksPerStreet" | "cellsPerRack">): number {
-  const { streetsCount, racksPerStreet, cellsPerRack } = params;
-  if (streetsCount <= 0 || racksPerStreet <= 0 || cellsPerRack <= 0) return 0;
-  return streetsCount * racksPerStreet * cellsPerRack;
+// Роздільник між рівнями адреси — фіксований пробіл (погоджено з людиною,
+// налаштування прибрано разом зі "Структура адрес"). "101 A 01".
+export function composeBinCode(level1: string, level2: string, level3: string): string {
+  return [level1, level2, level3].join(" ");
 }
 
 /**
- * `limit` — для клієнтського превью (лише перші кілька рядків, не всі
- * потенційно тисячі комбінацій); реальна генерація на сервері викликає без
- * ліміту (Infinity за замовчуванням).
+ * Наступні `count` вільних значень рівня за форматом, які ще не зайняті
+ * серед `existingValues` (вулиці складу / стелажі конкретної вулиці / комірки
+ * конкретного стелажа — залежно від рівня виклику). Не покладається на
+ * "старт = кількість наявних": після видалення значення "в середині"
+ * послідовності (напр. стелаж 102 з наявних 101/102/103) наївний підрахунок
+ * за довжиною видав би вже зайняте значення повторно — тут справді фільтрує
+ * зайняті й розширює вікно пошуку, поки не набереться потрібна кількість.
+ * Так само коректно працює, якщо серед existingValues є довільні значення,
+ * введені вручну (одиничне створення — без формату) — вони просто ніколи не
+ * збігаються з кандидатами послідовності.
  */
-export function generateBinCombinations(
-  params: BinGeneratorParams,
-  limit: number = Infinity
-): GeneratedBin[] {
-  const streets = generateLevelSequence(params.level1Format, params.streetsCount);
-  const racks = generateLevelSequence(params.level2Format, params.racksPerStreet);
-  const cells = generateLevelSequence(params.level3Format, params.cellsPerRack);
+export function nextSequenceValues(
+  format: string,
+  existingValues: readonly string[],
+  count: number
+): string[] {
+  if (count <= 0) return [];
+  const existing = new Set(existingValues);
+  let limit = existing.size + count;
+  const maxLimit = (existing.size + count) * 50 + 1000;
 
-  const result: GeneratedBin[] = [];
-  outer: for (const s of streets) {
-    for (const r of racks) {
-      for (const c of cells) {
-        if (result.length >= limit) break outer;
-        result.push({ level1: s, level2: r, level3: c, code: composeBinCode(s, r, c, params.separator) });
-      }
-    }
+  while (limit <= maxLimit) {
+    const seq = generateLevelSequence(format, limit);
+    const fresh = seq.filter((v) => !existing.has(v));
+    if (fresh.length >= count) return fresh.slice(0, count);
+    limit *= 2;
   }
-  return result;
+  return [];
 }

@@ -2,7 +2,6 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import { warehouses } from "@/server/db/schema";
 import type { WarehouseFormInput } from "@/lib/types/warehouse";
-import type { WarehouseBinConfigInput } from "@/lib/types/warehouse-bin";
 
 export type WarehouseRow = typeof warehouses.$inferSelect;
 
@@ -118,35 +117,42 @@ export async function updateWarehouse(
 }
 
 /**
- * Вкладка «Адресне зберігання» — окремий явний "Зберегти" (не автозбереження,
- * conventions.md: свідомий виняток для дій із ширшим наслідком — тут
- * подальша масова генерація комірок), тож своя функція, не через
- * updateWarehouse/WarehouseFormInput.
+ * Назва рівня колонки (WarehouseBinColumn, «Вулиці»/«Стелажі»/«Комірки») —
+ * перегляд+олівчик, автозберігається одразу (conventions.md, типове правило,
+ * без окремого «Зберегти» — попередня причина винятку, «перед масовою
+ * генерацією», зникла разом зі старим bulk-генератором).
  */
-export async function updateWarehouseBinConfig(
+export async function updateWarehouseBinLevelName(
   tenantId: string,
   id: string,
-  input: WarehouseBinConfigInput
+  level: 1 | 2 | 3,
+  name: string
 ): Promise<void> {
   await withTenant(tenantId, async (tx) => {
+    const column = level === 1 ? "binLevel1Name" : level === 2 ? "binLevel2Name" : "binLevel3Name";
     await tx
       .update(warehouses)
-      .set({
-        binLevel1Name: input.level1Name,
-        binLevel2Name: input.level2Name,
-        binLevel3Name: input.level3Name,
-        binLevel1Format: input.level1Format,
-        binLevel2Format: input.level2Format,
-        binLevel3Format: input.level3Format,
-        binSeparator: input.separator,
-        binGenerateBarcodes: input.generateBarcodes,
-        binGenerateQr: input.generateQr,
-        binAllowLabelReprint: input.allowLabelReprint,
-        binStreetsCount: input.streetsCount,
-        binRacksPerStreet: input.racksPerStreet,
-        binCellsPerRack: input.cellsPerRack,
-        updatedAt: new Date(),
-      })
+      .set({ [column]: name, updatedAt: new Date() })
+      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
+  });
+}
+
+/**
+ * Формат/зразок рівня — запам'ятовується при кожному масовому створенні
+ * (WarehouseBinColumn, «Додати декілька»), щоб наступного разу поле вже було
+ * заповнене останнім використаним значенням.
+ */
+export async function updateWarehouseBinLevelFormat(
+  tenantId: string,
+  id: string,
+  level: 1 | 2 | 3,
+  format: string
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    const column = level === 1 ? "binLevel1Format" : level === 2 ? "binLevel2Format" : "binLevel3Format";
+    await tx
+      .update(warehouses)
+      .set({ [column]: format, updatedAt: new Date() })
       .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
   });
 }

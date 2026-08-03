@@ -24,6 +24,7 @@ export default async function NewWarehousePage() {
         warehouse={null}
         countries={countries}
         currencies={currencies.map((c) => ({ code: c.code, symbol: c.symbol }))}
+        initialStreets={[]}
       />
     </DevBlockLabel>
   );

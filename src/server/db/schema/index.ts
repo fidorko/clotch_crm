@@ -25,7 +25,7 @@ import { productCharacteristicValues } from "./product-characteristic-values";
 import { productMaterialComposition } from "./product-material-composition";
 import { productActivityLog } from "./product-activity-log";
 import { warehouses } from "./warehouses";
-import { warehouseBinLocations } from "./warehouse-bin-locations";
+import { warehouseBinStreets, warehouseBinRacks, warehouseBinCells } from "./warehouse-bin-locations";
 
 export * from "./tenants";
 export * from "./warehouses";
@@ -125,11 +125,21 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
 }));
 
 export const warehousesRelations = relations(warehouses, ({ many }) => ({
-  binLocations: many(warehouseBinLocations),
+  binStreets: many(warehouseBinStreets),
 }));
 
-export const warehouseBinLocationsRelations = relations(warehouseBinLocations, ({ one }) => ({
-  warehouse: one(warehouses, { fields: [warehouseBinLocations.warehouseId], references: [warehouses.id] }),
+export const warehouseBinStreetsRelations = relations(warehouseBinStreets, ({ one, many }) => ({
+  warehouse: one(warehouses, { fields: [warehouseBinStreets.warehouseId], references: [warehouses.id] }),
+  racks: many(warehouseBinRacks),
+}));
+
+export const warehouseBinRacksRelations = relations(warehouseBinRacks, ({ one, many }) => ({
+  street: one(warehouseBinStreets, { fields: [warehouseBinRacks.streetId], references: [warehouseBinStreets.id] }),
+  cells: many(warehouseBinCells),
+}));
+
+export const warehouseBinCellsRelations = relations(warehouseBinCells, ({ one }) => ({
+  rack: one(warehouseBinRacks, { fields: [warehouseBinCells.rackId], references: [warehouseBinRacks.id] }),
 }));
 
 export const sizeTypesRelations = relations(sizeTypes, ({ many }) => ({
