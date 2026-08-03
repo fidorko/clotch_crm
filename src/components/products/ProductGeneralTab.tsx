@@ -118,7 +118,7 @@ export function ProductGeneralTab({
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className={cn("h-full", isCategoryBlocked && "pointer-events-none opacity-40")}>
-              <DevBlockLabel name="ProductPhotoGallery" enabled={dev}>
+              <DevBlockLabel name="ProductPhotoGallery" enabled={dev} stretch>
                 <ProductPhotoGallery
                   colors={skuMatrix.colors}
                   onSetMainPhoto={skuMatrix.setMainPhoto}
@@ -127,7 +127,7 @@ export function ProductGeneralTab({
               </DevBlockLabel>
             </div>
             <div className="h-full">
-              <DevBlockLabel name="ProductInfoPanel" enabled={dev}>
+              <DevBlockLabel name="ProductInfoPanel" enabled={dev} stretch>
                 <ProductInfoPanel
                   product={product}
                   categories={categories}
@@ -138,7 +138,7 @@ export function ProductGeneralTab({
               </DevBlockLabel>
             </div>
             <div className={cn("h-full", isCategoryBlocked && "pointer-events-none opacity-40")}>
-              <DevBlockLabel name="ProductCharacteristicsPanel" enabled={dev}>
+              <DevBlockLabel name="ProductCharacteristicsPanel" enabled={dev} stretch>
                 <ProductCharacteristicsPanel
                   rows={infoRows}
                   metaRows={metaRows}
@@ -165,7 +165,7 @@ export function ProductGeneralTab({
             )}
           >
             <div className="h-full">
-              <DevBlockLabel name="ProductSkuSection" enabled={dev}>
+              <DevBlockLabel name="ProductSkuSection" enabled={dev} stretch>
                 <ProductSkuSection
                   productId={product.id}
                   colorOptions={colorOptions}
@@ -174,7 +174,7 @@ export function ProductGeneralTab({
                 />
               </DevBlockLabel>
             </div>
-            <DevBlockLabel name="SKUDetail" enabled={dev}>
+            <DevBlockLabel name="SKUDetail" enabled={dev} stretch>
               <SKUDetail
                 // key — на перемиканні SKU локальний стан редагування коду/
                 // штрихкоду скидається чисто (remount), без ручної синхронізації

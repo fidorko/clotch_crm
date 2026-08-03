@@ -224,6 +224,11 @@ UI — дві окремі плитки `SizesTile`/`MeasurementsTile` (2026-08-
 
 **Іконки месенджерів/соцмереж — справжні бренд-лого через `react-icons`.** `lucide-react` підтверджено не має брендових іконок (Facebook, Instagram, Telegram, Twitter, Youtube, Linkedin, Github — усі відсутні). Погоджено з людиною (`AskUserQuestion`) додати `react-icons` (набір `fa6`, tree-shakeable) замість самописних SVG — кожна іконка в кольоровому кружечку брендового кольору (`lib/constants/supplier-options.ts`). Деталі — `decisions.md`.
 
+### warehouses
+Довідник складів (`settings` → «Склади», `settings-warehouses.md`). `tenant_id`, `name`, `code` (генерується сервером, `WH-0001`...; UNIQUE `(tenant_id, code)`, той самий ретрай-патерн на `23505`, що `suppliers`), `type` (enum `warehouse_type`: `main`/`pos`/`returns`/`defective`/`disposal`/`production`), `is_active`, `responsible_person`, `responsible_phone` (нормалізований `+380XXXXXXXXX`, conventions.md), `country`/`city`/`address`, `notes`, `work_hours` (`jsonb`, довільний список `{id,label,isDayOff,from,to}` — не окрема таблиця, 3-5 рядків на склад), `currency_code`, `can_sell`/`allow_negative_stock`/`use_bin_locations` (boolean). Індекс `(tenant_id, created_at)`.
+
+**Країна/валюта — копія значення (текст/код), не FK** на `reference_items`/`currencies` — той самий принцип, що `colors`→`product_skus` і `suppliers.country`: видалення довідникового значення заднім числом не ламає вже створений склад.
+
 ## Що свідомо НЕ нормалізовано зараз (і чому)
 Розміри (`SIZE_OPTIONS`), типи замірів (`MEASUREMENT_TYPE_OPTIONS`) — лишаються app-константами, не таблицями. Причини: (1) роадмап цього проходу обмежений `products`/`product_skus` + логічно пов'язаним; (2) список поки спільний для всіх тенантів — таблиця зараз стартувала б як ще один глобальний виняток без реальної потреби; (3) `product_skus.size` вже зараз — копія значення на момент створення SKU, не посилання. Кольори вже нормалізовані (`colors`, вище) — той самий перехід, коли знадобиться, підходить і для розмірів: `sizes(id, tenant_id, label)` з FK.
 

@@ -281,6 +281,13 @@
       "when": 1785760450659,
       "tag": "0039_volatile_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785764759402,
+      "tag": "0040_black_rictor",
+      "breakpoints": true
     }
   ]
 }
