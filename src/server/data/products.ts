@@ -94,7 +94,7 @@ export async function getProductById(
     const colorPhotosByColor = new Map<string, { id: string; url: string; alt: string }[]>();
     for (const row of colorPhotoRows) {
       const list = colorPhotosByColor.get(row.color) ?? [];
-      list.push({ id: row.id, url: row.url, alt: "" });
+      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" });
       colorPhotosByColor.set(row.color, list);
     }
 
@@ -226,7 +226,7 @@ export async function listProducts(
               .from(productSkus)
               .where(and(eq(productSkus.tenantId, tenantId), inArray(productSkus.productId, ids))),
             tx
-              .select({ productId: productPhotos.productId, url: productPhotos.url })
+              .select({ productId: productPhotos.productId, id: productPhotos.id })
               .from(productPhotos)
               .where(
                 and(eq(productPhotos.tenantId, tenantId), inArray(productPhotos.productId, ids))
@@ -240,7 +240,9 @@ export async function listProducts(
     }
     const photoByProduct = new Map<string, string>();
     for (const row of photoRows) {
-      if (!photoByProduct.has(row.productId)) photoByProduct.set(row.productId, row.url);
+      if (!photoByProduct.has(row.productId)) {
+        photoByProduct.set(row.productId, `/api/uploads/products/${row.id}`);
+      }
     }
 
     const items: ProductListItem[] = rows.map((row) => {

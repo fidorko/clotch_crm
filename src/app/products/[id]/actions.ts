@@ -21,7 +21,7 @@ import {
   deleteColorPhoto,
   deleteColorPhotosByColor,
 } from "@/server/data/product-color-photos";
-import { deleteProductImageByUrl, saveProductImage } from "@/server/storage/product-images";
+import { validateImageFile } from "@/server/images/validate-image";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
@@ -79,8 +79,8 @@ export async function uploadProductPhotoAction(
   if (!(file instanceof File)) {
     throw new Error("Файл не передано");
   }
-  const { url } = await saveProductImage(tenantId, "products", file);
-  const photo = await addProductPhoto(tenantId, productId, url, file.name);
+  const { data, mimeType } = await validateImageFile(file);
+  const photo = await addProductPhoto(tenantId, productId, data, mimeType, file.name);
   revalidatePath(`/products/${productId}`);
   revalidatePath("/products");
   return photo;
@@ -88,8 +88,7 @@ export async function uploadProductPhotoAction(
 
 export async function deleteProductPhotoAction(photoId: string, productId: string): Promise<void> {
   const tenantId = getDevTenantId();
-  const url = await deleteProductPhoto(tenantId, photoId);
-  if (url) await deleteProductImageByUrl(tenantId, "products", url);
+  await deleteProductPhoto(tenantId, photoId);
   revalidatePath(`/products/${productId}`);
   revalidatePath("/products");
 }
@@ -145,24 +144,22 @@ export async function uploadColorPhotoAction(
   if (existingCount >= MAX_COLOR_PHOTOS) {
     throw new Error(`Максимум ${MAX_COLOR_PHOTOS} фото на колір`);
   }
-  const { url } = await saveProductImage(tenantId, "product-colors", file);
-  const photo = await addColorPhoto(tenantId, productId, color, url);
+  const { data, mimeType } = await validateImageFile(file);
+  const photo = await addColorPhoto(tenantId, productId, color, data, mimeType);
   revalidatePath(`/products/${productId}`);
   return photo;
 }
 
 export async function deleteColorPhotoAction(photoId: string, productId: string): Promise<void> {
   const tenantId = getDevTenantId();
-  const url = await deleteColorPhoto(tenantId, photoId);
-  if (url) await deleteProductImageByUrl(tenantId, "product-colors", url);
+  await deleteColorPhoto(tenantId, photoId);
   revalidatePath(`/products/${productId}`);
 }
 
 /** Видалення кольору цілком (ProductSkuTable → DeleteColorButton) чистить і всі його фото. */
 export async function deleteColorPhotosAction(productId: string, color: string): Promise<void> {
   const tenantId = getDevTenantId();
-  const urls = await deleteColorPhotosByColor(tenantId, productId, color);
-  await Promise.all(urls.map((url) => deleteProductImageByUrl(tenantId, "product-colors", url)));
+  await deleteColorPhotosByColor(tenantId, productId, color);
   revalidatePath(`/products/${productId}`);
 }
 

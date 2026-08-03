@@ -37,7 +37,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Script id="theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})();`}
+          {`(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})();${
+            process.env.NODE_ENV !== "production"
+              ? `(function(){var e=console.error;console.error=function(){if(typeof arguments[0]==="string"&&arguments[0].indexOf("Encountered a script tag while rendering React component")!==-1)return;e.apply(console,arguments)}})();`
+              : ""
+          }`}
         </Script>
         <TooltipProvider>
           <div className="flex h-screen w-full overflow-hidden bg-background">

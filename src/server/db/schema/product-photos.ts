@@ -2,6 +2,7 @@ import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-c
 import { products } from "./products";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
+import { bytea } from "./custom-types";
 
 export const productPhotos = pgTable(
   "product_photos",
@@ -15,7 +16,8 @@ export const productPhotos = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    url: text("url").notNull(),
+    data: bytea("data").notNull(),
+    mimeType: text("mime_type").notNull(),
     alt: text("alt"),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

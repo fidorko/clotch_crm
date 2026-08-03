@@ -20,7 +20,7 @@
 | src/app/settings/categories/new/page.tsx, [id]/page.tsx | Server Components — тягнуть категорії/характеристики, рендерять `CategoryForm`; `[id]` — `notFound()` |
 | src/app/settings/categories/actions.ts | Server Actions: `createCategoryAction`, `updateCategoryAction` (захист від циклу — `isDescendantCategory`), `deleteCategoryAction`, `deleteCategoriesAction` (масове, глибші першими), `toggleCategoryActiveAction`, `uploadCategoryImageAction` |
 | src/server/data/categories.ts | `listCategories`, `getCategoryById`, `createCategory`, `updateCategory`, `deleteCategory` (FK-порушення `23503` → дружній текст), `toggleCategoryActive`, `getProductCountsByCategory` |
-| src/server/storage/category-images.ts, src/app/api/uploads/categories/[filename]/route.ts | реальне файлове сховище — диск поза webroot, per-tenant теки, роздача через route handler із `tenantId` із сесії |
+| src/server/data/category-images.ts, src/app/api/uploads/categories/[id]/route.ts | зображення в БД (`category_images`, `bytea`), роздача через route handler за `id` рядка, `tenantId` — із сесії (`db.md`) |
 | src/lib/categories/tree.ts | `buildCategoryTree`, `isDescendantCategory`, `getDescendantIds`, `categoryDepth`, `getCategoryPath` |
 | src/components/ui/checkbox.tsx | базовий компонент (shadcn CLI) — масове виділення в `CategoriesTab` |
 | — (див. `settings-references.md`) | Розділ «Довідники» (`?tab=references`) — 8+ довідників групи «Характеристики товару» (Кольори/Тип тканини/Матеріали/Інструкція по догляду/Розміри/Заміри/довільні `custom_characteristics`) + 5 «Системні» (Виробники/Постачальники/Країни/Валюти/Одиниці виміру). Файли/дані/повна історія — в піддокументі |

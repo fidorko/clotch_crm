@@ -10,7 +10,7 @@ import {
   type CategoryInput,
   type CategoryRow,
 } from "@/server/data/categories";
-import { saveCategoryImage } from "@/server/storage/category-images";
+import { saveCategoryImage } from "@/server/data/category-images";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { categoryDepth, isDescendantCategory } from "@/lib/categories/tree";
 

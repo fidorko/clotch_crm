@@ -27,6 +27,7 @@ import { productMaterialComposition } from "./product-material-composition";
 import { productActivityLog } from "./product-activity-log";
 
 export * from "./tenants";
+export * from "./category-images";
 export * from "./products";
 export * from "./product-skus";
 export * from "./product-photos";

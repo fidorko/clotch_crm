@@ -2,6 +2,7 @@ import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-c
 import { products } from "./products";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
+import { bytea } from "./custom-types";
 
 // Фото прив'язане до кольору товару, не до окремого SKU — на колір завжди
 // припадає кілька SKU (по одному на кожен розмір), і фото моделі в цьому
@@ -20,7 +21,8 @@ export const productColorPhotos = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     color: text("color").notNull(),
-    url: text("url").notNull(),
+    data: bytea("data").notNull(),
+    mimeType: text("mime_type").notNull(),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

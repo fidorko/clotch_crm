@@ -44,7 +44,7 @@ export function mapProductRow(
 
   const photos: ProductPhoto[] = photoRows.map((p) => ({
     id: p.id,
-    url: p.url,
+    url: `/api/uploads/products/${p.id}`,
     alt: p.alt ?? "",
   }));
 

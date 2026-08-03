@@ -3,6 +3,8 @@ import { withTenant } from "@/server/db/client";
 import { productColorPhotos } from "@/server/db/schema";
 import type { ProductPhoto } from "@/lib/types/product";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Групування по кольору — для одного пакетного запиту в getProductById (без N+1). */
 export async function listColorPhotosByProductId(
   tenantId: string,
@@ -18,10 +20,24 @@ export async function listColorPhotosByProductId(
     const result = new Map<string, ProductPhoto[]>();
     for (const row of rows) {
       const list = result.get(row.color) ?? [];
-      list.push({ id: row.id, url: row.url, alt: "" });
+      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" });
       result.set(row.color, list);
     }
     return result;
+  });
+}
+
+export async function readColorPhoto(
+  tenantId: string,
+  id: string
+): Promise<{ data: Buffer; mimeType: string } | null> {
+  if (!UUID_RE.test(id)) return null;
+  return withTenant(tenantId, async (tx) => {
+    const [row] = await tx
+      .select({ data: productColorPhotos.data, mimeType: productColorPhotos.mimeType })
+      .from(productColorPhotos)
+      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.id, id)));
+    return row ?? null;
   });
 }
 
@@ -46,14 +62,15 @@ export async function countColorPhotos(
 }
 
 /**
- * Ліміт (MAX_COLOR_PHOTOS) перевіряється окремо в Server Action до завантаження
- * файлу на диск (щоб не лишати "осиротілий" файл при відмові) — тут лише запис у БД.
+ * Ліміт (MAX_COLOR_PHOTOS) перевіряється окремо в Server Action до вставки
+ * рядка (щоб не завантажувати зайве в БД при відмові) — тут лише запис.
  */
 export async function addColorPhoto(
   tenantId: string,
   productId: string,
   color: string,
-  url: string
+  data: Buffer,
+  mimeType: string
 ): Promise<ProductPhoto> {
   return withTenant(tenantId, async (tx) => {
     const [{ maxPosition }] = await tx
@@ -69,36 +86,36 @@ export async function addColorPhoto(
 
     const [row] = await tx
       .insert(productColorPhotos)
-      .values({ tenantId, productId, color, url, position: maxPosition + 1 })
+      .values({ tenantId, productId, color, data, mimeType, position: maxPosition + 1 })
       .returning();
 
-    return { id: row.id, url: row.url, alt: "" };
+    return { id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" };
   });
 }
 
-/** WHERE tenant_id + id разом (правило 7 розділу 6 CLAUDE.md). Повертає url для очищення файлу на диску. */
-export async function deleteColorPhoto(tenantId: string, photoId: string): Promise<string | null> {
-  return withTenant(tenantId, async (tx) => {
-    const [row] = await tx
+/**
+ * WHERE tenant_id + id разом (правило 7 розділу 6 CLAUDE.md). Байти лежать у
+ * тому самому рядку — видалення рядка саме по собі прибирає й зображення.
+ */
+export async function deleteColorPhoto(tenantId: string, photoId: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
       .delete(productColorPhotos)
-      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.id, photoId)))
-      .returning({ url: productColorPhotos.url });
-    return row?.url ?? null;
+      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.id, photoId)));
   });
 }
 
 /**
  * Видалення кольору цілком (ProductSkuTable → DeleteColorButton): color — вільний
  * текст, не FK (db.md), тому cascade за FK тут не спрацює — чистимо явно.
- * Повертає url усіх видалених фото для очищення файлів на диску.
  */
 export async function deleteColorPhotosByColor(
   tenantId: string,
   productId: string,
   color: string
-): Promise<string[]> {
-  return withTenant(tenantId, async (tx) => {
-    const rows = await tx
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
       .delete(productColorPhotos)
       .where(
         and(
@@ -106,8 +123,6 @@ export async function deleteColorPhotosByColor(
           eq(productColorPhotos.productId, productId),
           eq(productColorPhotos.color, color)
         )
-      )
-      .returning({ url: productColorPhotos.url });
-    return rows.map((r) => r.url);
+      );
   });
 }

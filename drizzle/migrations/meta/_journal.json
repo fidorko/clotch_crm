@@ -246,6 +246,20 @@
       "when": 1785703472232,
       "tag": "0034_complex_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785742339570,
+      "tag": "0035_nappy_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785742393036,
+      "tag": "0036_supreme_iron_man",
+      "breakpoints": true
     }
   ]
 }
