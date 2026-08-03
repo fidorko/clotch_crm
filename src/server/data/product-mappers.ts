@@ -1,10 +1,9 @@
 import type { Product, ProductColorPhotos, ProductPhoto, ProductSku } from "@/lib/types/product";
-import type { products, productSkus, productPhotos } from "@/server/db/schema";
+import type { products, productSkus } from "@/server/db/schema";
 import type { SizeMeasurementEntry } from "./product-size-measurements";
 
 type ProductRow = typeof products.$inferSelect;
 type ProductSkuRow = typeof productSkus.$inferSelect;
-type ProductPhotoRow = typeof productPhotos.$inferSelect;
 type TagRow = { id: string; label: string };
 type MaterialCompositionRow = { materialId: string; percent: number };
 
@@ -24,7 +23,6 @@ function formatDateTime(date: Date): string {
 export function mapProductRow(
   product: ProductRow,
   skuRows: ProductSkuRow[],
-  photoRows: ProductPhotoRow[],
   sizeMeasurements: SizeMeasurementEntry[],
   tagRows: TagRow[],
   colorPhotosByColor: Map<string, ProductPhoto[]> = new Map(),
@@ -40,12 +38,6 @@ export function mapProductRow(
     barcode: s.barcode ?? "",
     stock: s.stock,
     cell: s.cell ?? "",
-  }));
-
-  const photos: ProductPhoto[] = photoRows.map((p) => ({
-    id: p.id,
-    url: `/api/uploads/products/${p.id}`,
-    alt: p.alt ?? "",
   }));
 
   const colorPhotos: ProductColorPhotos[] = [...colorPhotosByColor.entries()].map(
@@ -107,8 +99,8 @@ export function mapProductRow(
         amount: toAmount(product.retailDiscountAmount),
         percent: toAmount(product.retailDiscountPercent),
       },
+      sameForAllSizes: product.sameSizePricing,
     },
-    photos,
     colorPhotos,
     sizeMeasurements,
     meta: {

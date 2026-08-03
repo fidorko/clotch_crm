@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
 import { productSkus } from "@/server/db/schema";
 import type { ProductSku } from "@/lib/types/product";
@@ -94,6 +94,36 @@ export async function deleteSku(tenantId: string, skuId: string): Promise<void> 
   await withTenant(tenantId, async (tx) => {
     await tx.delete(productSkus).where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, skuId)));
   });
+}
+
+/**
+ * Штрихкод — жорстка привʼязка до SKU (пряма вказівка людини: прийомка по ШК,
+ * скан має однозначно знаходити один SKU). Унікальність у межах тенанта вже
+ * забезпечена БД (`product_skus_tenant_barcode_key`, частковий UNIQUE WHERE
+ * barcode IS NOT NULL — db.md) — тут лише ловимо порушення й повертаємо
+ * дружнє повідомлення (загальний принцип помилок, conventions.md). WHERE
+ * tenant_id + id разом (правило 7 розділу 6 CLAUDE.md).
+ */
+export async function updateSkuBarcode(
+  tenantId: string,
+  skuId: string,
+  barcode: string | null
+): Promise<ProductSku> {
+  try {
+    return await withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .update(productSkus)
+        .set({ barcode, updatedAt: sql`now()` })
+        .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, skuId)))
+        .returning();
+      return mapSkuRow(row);
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new Error(`Штрихкод «${barcode}» уже привʼязаний до іншого SKU`);
+    }
+    throw error;
+  }
 }
 
 /** Масове видалення (видалення кольору/розміру цілком — усі SKU цього кольору/розміру). */

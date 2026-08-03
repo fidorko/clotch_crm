@@ -69,6 +69,10 @@ export const products = pgTable(
     retailDiscountPercent: numeric("retail_discount_percent", { precision: 5, scale: 2 })
       .notNull()
       .default("0"),
+    // Перемикач "Ціна та маржа" (ProductPricingPanel): true (за замовч.) — ціна
+    // однакова для всіх розмірів SKU, SKUDetail не показує override-поля цін
+    // узагалі; false — кожен SKU може мати власну ціну (override-поля видимі).
+    sameSizePricing: boolean("same_size_pricing").notNull().default(true),
     // meta.* — supplierId: реальний FK на suppliers (settings → Довідники), не вільний
     // текст (як раніше "supplier"). ON DELETE SET NULL, той самий патерн, що categoryId.
     supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),

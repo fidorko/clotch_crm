@@ -1,4 +1,5 @@
-import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { products } from "./products";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
@@ -24,6 +25,11 @@ export const productColorPhotos = pgTable(
     data: bytea("data").notNull(),
     mimeType: text("mime_type").notNull(),
     position: integer("position").notNull().default(0),
+    // Основне фото товару (ProductPhotoGallery) — на весь товар, не на колір;
+    // людина обирає одне з наявних фото кліком. Частковий UNIQUE (лише де
+    // is_main=true) гарантує щонайбільше одне основне фото на товар навіть при
+    // паралельних запитах — не покладаємось тільки на "update решти в false".
+    isMain: boolean("is_main").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -33,6 +39,9 @@ export const productColorPhotos = pgTable(
       table.color,
       table.position
     ),
+    uniqueIndex("product_color_photos_tenant_product_main_key")
+      .on(table.tenantId, table.productId)
+      .where(sql`${table.isMain}`),
     tenantIsolationPolicy(table.tenantId),
   ]
 ).enableRLS();

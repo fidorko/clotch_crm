@@ -7,23 +7,22 @@ import {
   updateProductName as updateProductNameInDb,
   type SaveProductInput,
 } from "@/server/data/products";
-import { addProductPhoto, deleteProductPhoto } from "@/server/data/product-photos";
 import {
   createSku as createSkuInDb,
   createSkus as createSkusInDb,
   deleteSku as deleteSkuInDb,
   deleteSkus as deleteSkusInDb,
+  updateSkuBarcode as updateSkuBarcodeInDb,
   type CreateSkuInput,
 } from "@/server/data/product-skus";
 import {
   addColorPhoto,
-  countColorPhotos,
   deleteColorPhoto,
   deleteColorPhotosByColor,
+  setMainColorPhoto as setMainColorPhotoInDb,
 } from "@/server/data/product-color-photos";
 import { validateImageFile } from "@/server/images/validate-image";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
-import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
 import {
   listProductActivityLog,
@@ -69,30 +68,6 @@ export async function saveProductAction(
   revalidatePath("/products");
 }
 
-/** «Фото моделі» (ProductPhotoGallery) — завантаження одразу зберігається в БД. */
-export async function uploadProductPhotoAction(
-  productId: string,
-  formData: FormData
-): Promise<ProductPhoto> {
-  const tenantId = getDevTenantId();
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    throw new Error("Файл не передано");
-  }
-  const { data, mimeType } = await validateImageFile(file);
-  const photo = await addProductPhoto(tenantId, productId, data, mimeType, file.name);
-  revalidatePath(`/products/${productId}`);
-  revalidatePath("/products");
-  return photo;
-}
-
-export async function deleteProductPhotoAction(photoId: string, productId: string): Promise<void> {
-  const tenantId = getDevTenantId();
-  await deleteProductPhoto(tenantId, photoId);
-  revalidatePath(`/products/${productId}`);
-  revalidatePath("/products");
-}
-
 /** Один SKU (клітинка "+" на перетині кольору й розміру в конструкторі матриці). */
 export async function createSkuAction(input: CreateSkuInput): Promise<ProductSku> {
   const tenantId = getDevTenantId();
@@ -118,6 +93,22 @@ export async function deleteSkuAction(skuId: string, productId: string): Promise
   revalidatePath(`/products/${productId}`);
 }
 
+/**
+ * Штрихкод — жорстка привʼязка до SKU (пряма вказівка людини): унікальність у
+ * межах тенанта перевіряється в БД (product-skus.ts), тут лише повертаємо
+ * дружню помилку користувачу, деталі — в exception message з data-шару.
+ */
+export async function updateSkuBarcodeAction(
+  skuId: string,
+  productId: string,
+  barcode: string
+): Promise<ProductSku> {
+  const tenantId = getDevTenantId();
+  const sku = await updateSkuBarcodeInDb(tenantId, skuId, barcode.trim() || null);
+  revalidatePath(`/products/${productId}`);
+  return sku;
+}
+
 /** Видалення кольору/розміру цілком — усі SKU цього кольору/розміру одним запитом. */
 export async function deleteSkusAction(skuIds: string[], productId: string): Promise<void> {
   const tenantId = getDevTenantId();
@@ -127,8 +118,8 @@ export async function deleteSkusAction(skuIds: string[], productId: string): Pro
 
 /**
  * Фото прив'язане до кольору (усі розміри цього кольору), не до окремого SKU —
- * колір може мати кілька SKU (по одному на розмір). Ліміт (MAX_COLOR_PHOTOS = 3)
- * перевіряється до збереження файлу на диск, щоб не лишати "осиротілий" файл.
+ * колір може мати кілька SKU (по одному на розмір). Без ліміту кількості —
+ * прибрано за прямою вказівкою людини (2026-08-03, раніше MAX_COLOR_PHOTOS = 3).
  */
 export async function uploadColorPhotoAction(
   productId: string,
@@ -139,10 +130,6 @@ export async function uploadColorPhotoAction(
   const file = formData.get("file");
   if (!(file instanceof File)) {
     throw new Error("Файл не передано");
-  }
-  const existingCount = await countColorPhotos(tenantId, productId, color);
-  if (existingCount >= MAX_COLOR_PHOTOS) {
-    throw new Error(`Максимум ${MAX_COLOR_PHOTOS} фото на колір`);
   }
   const { data, mimeType } = await validateImageFile(file);
   const photo = await addColorPhoto(tenantId, productId, color, data, mimeType);
@@ -161,6 +148,14 @@ export async function deleteColorPhotosAction(productId: string, color: string):
   const tenantId = getDevTenantId();
   await deleteColorPhotosByColor(tenantId, productId, color);
   revalidatePath(`/products/${productId}`);
+}
+
+/** Основне фото товару (ProductPhotoGallery, клік на фото) — щонайбільше одне на товар. */
+export async function setMainColorPhotoAction(productId: string, photoId: string): Promise<void> {
+  const tenantId = getDevTenantId();
+  await setMainColorPhotoInDb(tenantId, productId, photoId);
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/products");
 }
 
 /** «Показати ще» в журналі подій (ProductActivityLogSection) — курсор по occurredAt останнього вже показаного рядка. */

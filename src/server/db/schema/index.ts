@@ -1,7 +1,6 @@
 import { relations } from "drizzle-orm";
 import { products } from "./products";
 import { productSkus } from "./product-skus";
-import { productPhotos } from "./product-photos";
 import { productColorPhotos } from "./product-color-photos";
 import { productSizeMeasurements } from "./product-size-measurements";
 import { productTags } from "./product-tags";
@@ -30,7 +29,6 @@ export * from "./tenants";
 export * from "./category-images";
 export * from "./products";
 export * from "./product-skus";
-export * from "./product-photos";
 export * from "./product-color-photos";
 export * from "./product-size-measurements";
 export * from "./product-tags";
@@ -58,7 +56,8 @@ export * from "./product-activity-log";
 
 export const productsRelations = relations(products, ({ many }) => ({
   skus: many(productSkus),
-  photos: many(productPhotos),
+  // Фото товару — тільки за кольором (product_color_photos); окремої таблиці
+  // "фото моделі" більше немає (db.md, 2026-08-03).
   colorPhotos: many(productColorPhotos),
   sizeMeasurements: many(productSizeMeasurements),
   productTags: many(productTags),
@@ -86,10 +85,6 @@ export const productSkusRelations = relations(productSkus, ({ one }) => ({
 
 export const productColorPhotosRelations = relations(productColorPhotos, ({ one }) => ({
   product: one(products, { fields: [productColorPhotos.productId], references: [products.id] }),
-}));
-
-export const productPhotosRelations = relations(productPhotos, ({ one }) => ({
-  product: one(products, { fields: [productPhotos.productId], references: [products.id] }),
 }));
 
 export const productSizeMeasurementsRelations = relations(productSizeMeasurements, ({ one }) => ({

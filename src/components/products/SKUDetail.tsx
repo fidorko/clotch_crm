@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ArrowRightLeft, History, Pencil, Printer, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
 import { DetailRow } from "@/components/ui/detail-row";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { updateSkuBarcodeAction } from "@/app/products/[id]/actions";
 import type { SkuPricing } from "@/components/products/useProductSkuMatrix";
 
 interface SkuDetail {
+  id: string;
   code: string;
   inStock: boolean;
   barcode: string;
@@ -78,70 +80,153 @@ function EditablePriceRow({
   );
 }
 
-function BarcodeDetailRow({ value }: { value: string }) {
-  const [barcode, setBarcode] = useState(value);
+/**
+ * Штрихкод — жорстка привʼязка до SKU (пряма вказівка людини, 2026-08-03):
+ * реальне поле product_skus.barcode, зберігається одразу (Server Action),
+ * унікальність у межах тенанта перевіряє БД (product_skus_tenant_barcode_key).
+ * onSaved піднімає підтверджене значення в useProductSkuMatrix.skus, щоб
+ * ProductSkuTable (де ШК теж показано) лишався тим самим джерелом даних.
+ */
+function BarcodeDetailRow({
+  skuId,
+  productId,
+  value,
+  onSaved,
+}: {
+  skuId: string;
+  productId: string;
+  value: string;
+  onSaved: (barcode: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
   const [isEditing, setIsEditing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function save(next: string) {
+    if (next === value) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const saved = await updateSkuBarcodeAction(skuId, productId, next);
+        setDraft(saved.barcode);
+        onSaved(saved.barcode);
+      } catch (err) {
+        setDraft(value);
+        setError(err instanceof Error ? err.message : "Не вдалося зберегти штрихкод");
+      }
+    });
+  }
 
   function generate() {
     const digits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join("");
-    setBarcode(`482${digits}`);
+    const next = `482${digits}`;
+    setDraft(next);
+    save(next);
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5">
-      <span className="text-sm text-muted-foreground">Штрихкод (EAN)
-              <Button
+    <div className="flex flex-col gap-1 py-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm text-muted-foreground">
+          Штрихкод (EAN)
+          <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             aria-label="Згенерувати штрихкод"
             onClick={generate}
+            disabled={isPending}
           >
             <RefreshCw className="size-3.5" />
           </Button>
-      </span>
+        </span>
 
-      {isEditing ? (
-        <div className="flex items-center gap-1">
+        {isEditing ? (
           <Input
             autoFocus
-            value={barcode}
-            onChange={(e) => setBarcode(e.target.value)}
-            onBlur={() => setIsEditing(false)}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              setIsEditing(false);
+              save(draft);
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") setIsEditing(false);
+              if (e.key === "Enter") {
+                setIsEditing(false);
+                save(draft);
+              }
             }}
             className="h-7 w-32 px-1.5 text-right text-sm"
           />
-
-        </div>
-      ) : (
-        <div className="flex items-center gap-1">
-          <span className="text-sm text-foreground">{barcode}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Редагувати штрихкод"
-            onClick={() => setIsEditing(true)}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-foreground">{value || "—"}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Редагувати штрихкод"
+              onClick={() => {
+                setDraft(value);
+                setIsEditing(true);
+              }}
+              disabled={isPending}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
+  );
+}
+
+function StockDetailRows({ sku }: { sku: SkuDetail }) {
+  return (
+    <>
+      <DetailRow label="Залишок" value={sku.reserve + sku.available} />
+      <DetailRow label="Резерв" value={sku.reserve} />
+      <DetailRow
+        label="Доступно"
+        value={<span className="font-semibold text-primary">{sku.available}</span>}
+      />
+      <DetailRow label="Партія" value={sku.batch} />
+      <DetailRow
+        label="Комірки"
+        value={
+          <div className="flex flex-col items-end gap-0.5">
+            {sku.cells.map((cell) => (
+              <span key={cell.code}>
+                {cell.code} ({cell.qty} шт)
+              </span>
+            ))}
+          </div>
+        }
+      />
+    </>
   );
 }
 
 // Раніше ProductSkuDetailPanel/"Деталі SKU" — перейменовано, тепер окрема
 // колонка сусідня з ProductSkuSection (ProductGeneralTab), а не вкладена
 // всередину нього; той самий контент і `sku`/`pricing` контракт, products.md.
+// sameForAllSizes (перемикач у ProductPricingPanel) визначає компонування:
+// true — ціни не показуються взагалі, досить однієї колонки (штрихкод +
+// залишки); false — override-ціни повертаються, для них окрема колонка.
 export function SKUDetail({
   sku,
+  productId,
+  onBarcodeSaved,
   pricing,
+  sameForAllSizes,
 }: {
   sku?: SkuDetail;
+  productId: string;
+  onBarcodeSaved: (skuId: string, barcode: string) => void;
   pricing: SkuPricing;
+  sameForAllSizes: boolean;
 }) {
   const [codeOverride, setCodeOverride] = useState<string | null>(null);
   const [isEditingCode, setIsEditingCode] = useState(false);
@@ -192,40 +277,32 @@ export function SKUDetail({
         <Badge variant="success">В наявності</Badge>
       </CardHeader>
       <CardContent className="@container px-4">
-        <div className="grid grid-cols-1 gap-x-6 @sm:grid-cols-2">
+        <div className={cn("grid grid-cols-1 gap-x-6", !sameForAllSizes && "@sm:grid-cols-2")}>
           <div className="flex flex-col divide-y divide-border">
-            <BarcodeDetailRow value={sku.barcode} />
-            <EditablePriceRow label="Закупівельна ціна" value={pricing.purchasePrice} />
-            <EditablePriceRow label="Моя роздрібна ціна" value={pricing.retail} emphasis />
-            <EditablePriceRow label="Ціна зі знижкою(роздріб)" value={pricing.retailDiscount} />
-            <EditablePriceRow label="Перечеркнута ціна" value={pricing.oldPrice} />
-            <EditablePriceRow label="Моя оптова ціна" value={pricing.wholesale} />
-            <EditablePriceRow label="Моя ціна дропшипперам" value={pricing.dropship} />
-
+            <BarcodeDetailRow
+              skuId={sku.id}
+              productId={productId}
+              value={sku.barcode}
+              onSaved={(barcode) => onBarcodeSaved(sku.id, barcode)}
+            />
+            {!sameForAllSizes && (
+              <>
+                <EditablePriceRow label="Закупівельна ціна" value={pricing.purchasePrice} />
+                <EditablePriceRow label="Моя роздрібна ціна" value={pricing.retail} emphasis />
+                <EditablePriceRow label="Ціна зі знижкою(роздріб)" value={pricing.retailDiscount} />
+                <EditablePriceRow label="Перечеркнута ціна" value={pricing.oldPrice} />
+                <EditablePriceRow label="Моя оптова ціна" value={pricing.wholesale} />
+                <EditablePriceRow label="Моя ціна дропшипперам" value={pricing.dropship} />
+              </>
+            )}
+            {sameForAllSizes && <StockDetailRows sku={sku} />}
           </div>
 
-          <div className="flex flex-col divide-y divide-border">
-            <DetailRow label="Залишок" value={sku.reserve + sku.available} />
-            <DetailRow label="Резерв" value={sku.reserve} />
-            <DetailRow
-              label="Доступно"
-              value={<span className="font-semibold text-primary">{sku.available}</span>}
-            />
-            <DetailRow label="Партія" value={sku.batch} />
-            <DetailRow
-              label="Комірки"
-              value={
-                <div className="flex flex-col items-end gap-0.5">
-                  {sku.cells.map((cell) => (
-                    <span key={cell.code}>
-                      {cell.code} ({cell.qty} шт)
-                    </span>
-                  ))}
-                </div>
-              }
-            />
-
-          </div>
+          {!sameForAllSizes && (
+            <div className="flex flex-col divide-y divide-border">
+              <StockDetailRows sku={sku} />
+            </div>
+          )}
         </div>
 
         <Separator className="my-3" />

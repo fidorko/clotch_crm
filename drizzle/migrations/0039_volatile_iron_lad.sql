@@ -1,0 +1,2 @@
+ALTER TABLE "product_color_photos" ADD COLUMN "is_main" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "product_color_photos_tenant_product_main_key" ON "product_color_photos" USING btree ("tenant_id","product_id") WHERE "product_color_photos"."is_main";

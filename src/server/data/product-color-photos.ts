@@ -1,4 +1,4 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
 import { productColorPhotos } from "@/server/db/schema";
 import type { ProductPhoto } from "@/lib/types/product";
@@ -20,7 +20,7 @@ export async function listColorPhotosByProductId(
     const result = new Map<string, ProductPhoto[]>();
     for (const row of rows) {
       const list = result.get(row.color) ?? [];
-      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" });
+      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "", isMain: row.isMain });
       result.set(row.color, list);
     }
     return result;
@@ -41,29 +41,8 @@ export async function readColorPhoto(
   });
 }
 
-export async function countColorPhotos(
-  tenantId: string,
-  productId: string,
-  color: string
-): Promise<number> {
-  return withTenant(tenantId, async (tx) => {
-    const [{ value }] = await tx
-      .select({ value: count() })
-      .from(productColorPhotos)
-      .where(
-        and(
-          eq(productColorPhotos.tenantId, tenantId),
-          eq(productColorPhotos.productId, productId),
-          eq(productColorPhotos.color, color)
-        )
-      );
-    return value;
-  });
-}
-
 /**
- * Ліміт (MAX_COLOR_PHOTOS) перевіряється окремо в Server Action до вставки
- * рядка (щоб не завантажувати зайве в БД при відмові) — тут лише запис.
+ * Без ліміту кількості (MAX_COLOR_PHOTOS прибрано, 2026-08-03) — тут лише запис.
  */
 export async function addColorPhoto(
   tenantId: string,
@@ -89,7 +68,31 @@ export async function addColorPhoto(
       .values({ tenantId, productId, color, data, mimeType, position: maxPosition + 1 })
       .returning();
 
-    return { id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" };
+    return { id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "", isMain: row.isMain };
+  });
+}
+
+/**
+ * Основне фото товару (ProductPhotoGallery, клік на будь-яке наявне фото) —
+ * щонайбільше одне на товар. Два послідовні UPDATE в одній транзакції (спершу
+ * усі в false, тоді обране в true) — частковий UNIQUE (product_color_photos.
+ * is_main) не конфліктує між кроками, бо перевіряється по завершенню кожного
+ * стейтменту, а не всієї транзакції.
+ */
+export async function setMainColorPhoto(
+  tenantId: string,
+  productId: string,
+  photoId: string
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(productColorPhotos)
+      .set({ isMain: false })
+      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.productId, productId)));
+    await tx
+      .update(productColorPhotos)
+      .set({ isMain: true })
+      .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.id, photoId)));
   });
 }
 

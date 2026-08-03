@@ -4,7 +4,6 @@ import {
   customCharacteristicValues,
   customCharacteristics,
   productColorPhotos,
-  productPhotos,
   products,
   productSkus,
   productTags,
@@ -61,17 +60,12 @@ export async function getProductById(
 
     if (!productRow) return null;
 
-    const [skuRows, photoRows, sizeMeasurements, tagRows, characteristics, materialComposition] =
+    const [skuRows, sizeMeasurements, tagRows, characteristics, materialComposition] =
       await Promise.all([
       tx
         .select()
         .from(productSkus)
         .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.productId, productId))),
-      tx
-        .select()
-        .from(productPhotos)
-        .where(and(eq(productPhotos.tenantId, tenantId), eq(productPhotos.productId, productId)))
-        .orderBy(productPhotos.position),
       getProductSizeMeasurements(tx, tenantId, productId),
       tx
         .select({ id: customCharacteristicValues.id, label: customCharacteristicValues.value })
@@ -91,17 +85,16 @@ export async function getProductById(
       .where(and(eq(productColorPhotos.tenantId, tenantId), eq(productColorPhotos.productId, productId)))
       .orderBy(productColorPhotos.position);
 
-    const colorPhotosByColor = new Map<string, { id: string; url: string; alt: string }[]>();
+    const colorPhotosByColor = new Map<string, { id: string; url: string; alt: string; isMain: boolean }[]>();
     for (const row of colorPhotoRows) {
       const list = colorPhotosByColor.get(row.color) ?? [];
-      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "" });
+      list.push({ id: row.id, url: `/api/uploads/product-colors/${row.id}`, alt: "", isMain: row.isMain });
       colorPhotosByColor.set(row.color, list);
     }
 
     return mapProductRow(
       productRow,
       skuRows,
-      photoRows,
       sizeMeasurements,
       tagRows,
       colorPhotosByColor,
@@ -225,13 +218,25 @@ export async function listProducts(
               .select({ productId: productSkus.productId, stock: productSkus.stock })
               .from(productSkus)
               .where(and(eq(productSkus.tenantId, tenantId), inArray(productSkus.productId, ids))),
+            // Мініатюра списку — основне фото товару (is_main), якщо людина
+            // його обрала (ProductPhotoGallery); інакше перше фото першого
+            // кольору за позицією. Окремої таблиці "фото моделі" більше немає
+            // (db.md, 2026-08-03). orderBy isMain DESC ставить основне фото
+            // першим рядком на продукт — цикл нижче бере перший рядок на id.
             tx
-              .select({ productId: productPhotos.productId, id: productPhotos.id })
-              .from(productPhotos)
+              .select({
+                productId: productColorPhotos.productId,
+                id: productColorPhotos.id,
+                isMain: productColorPhotos.isMain,
+              })
+              .from(productColorPhotos)
               .where(
-                and(eq(productPhotos.tenantId, tenantId), inArray(productPhotos.productId, ids))
+                and(
+                  eq(productColorPhotos.tenantId, tenantId),
+                  inArray(productColorPhotos.productId, ids)
+                )
               )
-              .orderBy(asc(productPhotos.position)),
+              .orderBy(desc(productColorPhotos.isMain), asc(productColorPhotos.position)),
           ]);
 
     const stockByProduct = new Map<string, number>();
@@ -241,7 +246,7 @@ export async function listProducts(
     const photoByProduct = new Map<string, string>();
     for (const row of photoRows) {
       if (!photoByProduct.has(row.productId)) {
-        photoByProduct.set(row.productId, `/api/uploads/products/${row.id}`);
+        photoByProduct.set(row.productId, `/api/uploads/product-colors/${row.id}`);
       }
     }
 
@@ -439,6 +444,7 @@ export async function saveProduct(
       retailDiscountMode: input.pricing.retailDiscount.mode,
       retailDiscountAmount: String(input.pricing.retailDiscount.amount),
       retailDiscountPercent: String(input.pricing.retailDiscount.percent),
+      sameSizePricing: input.pricing.sameForAllSizes,
       internalCode: input.meta.internalCode,
       supplierCode: input.meta.supplierCode,
       packageLengthCm: input.meta.packageLengthCm,

@@ -22,7 +22,7 @@ export function ProductSkuSection({
   matrix: ProductSkuMatrix;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex h-full flex-col gap-2">
       {matrix.error && <p className="text-sm text-destructive">{matrix.error}</p>}
       <ProductSkuTable
         productId={productId}

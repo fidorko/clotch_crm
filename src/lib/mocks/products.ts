@@ -25,16 +25,8 @@ export const mockProduct: Product = {
     wholesale: { mode: "amount", amount: 999, percent: 15 },
     dropship: { mode: "amount", amount: 899, percent: 10 },
     retailDiscount: { mode: "percent", amount: 100, percent: 20 },
+    sameForAllSizes: true,
   },
-  photos: [
-    { id: "p1", url: "", alt: "Футболка Basic Oversize — головне фото" },
-    { id: "p2", url: "", alt: "Вигляд спереду" },
-    { id: "p3", url: "", alt: "Вигляд збоку" },
-    { id: "p4", url: "", alt: "Вигляд ззаду" },
-    { id: "p5", url: "", alt: "Деталь: горловина" },
-    { id: "p6", url: "", alt: "Деталь: тканина" },
-    { id: "p7", url: "", alt: "Деталь: рукав" },
-  ],
   colorPhotos: [],
   sizeMeasurements: [],
   meta: {

@@ -260,6 +260,27 @@
       "when": 1785742393036,
       "tag": "0036_supreme_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785757428030,
+      "tag": "0037_regular_human_robot",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785758769886,
+      "tag": "0038_dapper_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1785760450659,
+      "tag": "0039_volatile_iron_lad",
+      "breakpoints": true
     }
   ]
 }

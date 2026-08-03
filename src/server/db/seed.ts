@@ -12,14 +12,6 @@ import { mockMeasurementTypes } from "@/lib/mocks/measurement-types";
 import { mockFabricTypes } from "@/lib/mocks/fabric-types";
 import * as schema from "./schema";
 
-// Мок мав лише посилання-заглушку (placehold.co) — тепер фото зберігається
-// байтами в БД, тож для сіду потрібен реальний, хай і мінімальний, PNG.
-const PLACEHOLDER_PHOTO_DATA = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64"
-);
-const PLACEHOLDER_PHOTO_MIME_TYPE = "image/png";
-
 /**
  * Dev-сід: підключається як власник схеми (DATABASE_URL, обходить RLS), бо
  * заповнення довідникових даних — адміністративна дія, а не тенант-скоупований
@@ -93,19 +85,6 @@ async function main() {
           barcode: `4820${String(index).padStart(9, "0")}`,
           stock: sku.stock,
           cell: sku.cell || null,
-        }))
-      );
-    }
-
-    if (mockProduct.photos.length > 0) {
-      await db.insert(schema.productPhotos).values(
-        mockProduct.photos.map((photo, index) => ({
-          tenantId: devTenantId,
-          productId: product.id,
-          data: PLACEHOLDER_PHOTO_DATA,
-          mimeType: PLACEHOLDER_PHOTO_MIME_TYPE,
-          alt: photo.alt,
-          position: index,
         }))
       );
     }

@@ -4,6 +4,9 @@ export interface ProductPhoto {
   id: string;
   url: string;
   alt: string;
+  // Основне фото товару (ProductPhotoGallery) — щонайбільше одне true на товар
+  // (частковий UNIQUE, product_color_photos.is_main, db.md).
+  isMain: boolean;
 }
 
 export interface ProductSku {
@@ -82,8 +85,13 @@ export interface Product {
     wholesale: PriceModeValue;
     dropship: PriceModeValue;
     retailDiscount: PriceModeValue;
+    // true (за замовч.) — ціна однакова для всіх розмірів SKU, SKUDetail не
+    // показує override-поля цін узагалі; false — кожен SKU може мати власну
+    // ціну (ProductPricingPanel, SKUDetail).
+    sameForAllSizes: boolean;
   };
-  photos: ProductPhoto[];
+  // Фото товару — тільки за кольором: окремих «фото моделі» більше немає,
+  // додаються лише в таблиці варіантів (db.md, modules/products.md).
   colorPhotos: ProductColorPhotos[];
   sizeMeasurements: ProductSizeMeasurement[];
   meta: {

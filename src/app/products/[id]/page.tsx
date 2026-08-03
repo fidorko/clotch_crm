@@ -3,6 +3,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { ProductHeader } from "@/components/products/ProductHeader";
 import { ProductEditorProvider } from "@/components/products/ProductEditorContext";
+import { CharacteristicLayoutProvider } from "@/components/products/ProductCharacteristicLayoutContext";
 import { ProductTabs } from "@/components/products/ProductTabs";
 import { ProductGeneralTab } from "@/components/products/ProductGeneralTab";
 import { ProductTechnicalTab } from "@/components/products/ProductTechnicalTab";
@@ -187,24 +188,25 @@ export default async function ProductDetailPage({ params }: PageProps) {
           />
         </DevBlockLabel>
         <Tabs defaultValue="general" className="flex flex-1 flex-col">
-          <DevBlockLabel name="ProductTabs" enabled={dev}>
-            <ProductTabs />
-          </DevBlockLabel>
+          <CharacteristicLayoutProvider dynamicRows={dynamicRows}>
+            <DevBlockLabel name="ProductTabs" enabled={dev}>
+              <ProductTabs />
+            </DevBlockLabel>
 
-          <TabsContent value="general" className="flex flex-col gap-4 p-6">
-            <ProductGeneralTab
-              product={product}
-              categories={categories}
-              colorOptions={effectiveColorOptions}
-              sizeOptions={sizeOptions}
-              dynamicRows={dynamicRows}
-              careInstructions={careInstructions}
-              fabricTypes={fabricTypes}
-              materials={materials}
-              tagsKey={tagsKey}
-              dev={dev}
-            />
-          </TabsContent>
+            <TabsContent value="general" className="flex flex-col gap-4 p-6">
+              <ProductGeneralTab
+                product={product}
+                categories={categories}
+                colorOptions={effectiveColorOptions}
+                sizeOptions={sizeOptions}
+                careInstructions={careInstructions}
+                fabricTypes={fabricTypes}
+                materials={materials}
+                tagsKey={tagsKey}
+                dev={dev}
+              />
+            </TabsContent>
+          </CharacteristicLayoutProvider>
 
           <TabsContent value="technical" className="flex flex-col gap-4 p-6">
             <DevBlockLabel name="ProductTechnicalTab" enabled={dev}>

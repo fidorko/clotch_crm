@@ -31,6 +31,7 @@ export const PRODUCT_ACTIVITY_FIELD_LABELS: Record<string, string> = {
   retailDiscountMode: "Знижка — режим",
   retailDiscountAmount: "Знижка",
   retailDiscountPercent: "Знижка, %",
+  sameSizePricing: "Ціна однакова для всіх розмірів",
   internalCode: "Внутрішній артикул моделі",
   supplierCode: "Артикул постачальника",
   packageLengthCm: "Довжина посилки, см",

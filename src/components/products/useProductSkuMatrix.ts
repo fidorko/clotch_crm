@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import {
   createSkuAction,
   createSkusAction,
+  deleteColorPhotoAction,
   deleteColorPhotosAction,
   deleteSkuAction,
   deleteSkusAction,
+  setMainColorPhotoAction,
 } from "@/app/products/[id]/actions";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductColorPhotos, ProductPhoto, ProductSku } from "@/lib/types/product";
@@ -186,6 +188,51 @@ export function useProductSkuMatrix({
     setColors((prev) => prev.map((c) => (c.id === colorId ? { ...c, photos } : c)));
   }
 
+  // Штрихкод зберігається в SKUDetail (Server Action викликає компонент сам, як
+  // ColorPhotosControl) — сюди прилітає лише вже підтверджене значення, щоб
+  // таблиця (ProductSkuTable, "ШК: ...") й панель деталей лишались одним
+  // джерелом правди (products.md).
+  function setSkuBarcode(skuId: string, barcode: string) {
+    setSkus((prev) => prev.map((s) => (s.id === skuId ? { ...s, barcode } : s)));
+  }
+
+  // Основне фото товару (ProductPhotoGallery, клік на фото) — глобальне на
+  // товар, не на колір, тому позначку isMain знімаємо з усіх фото всіх
+  // кольорів і ставимо лише на обране (щонайбільше одне true, як і в БД).
+  function setMainPhoto(photoId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await setMainColorPhotoAction(productId, photoId);
+        setColors((prev) =>
+          prev.map((c) => ({
+            ...c,
+            photos: c.photos.map((p) => ({ ...p, isMain: p.id === photoId })),
+          }))
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не вдалося обрати основне фото");
+      }
+    });
+  }
+
+  // Видалення фото — тепер лише з ProductPhotoGallery (у таблиці прев'ю
+  // прибрано, 2026-08-03). Колір, якому належить фото, шукаємо самі — галерея
+  // знає лише плаский список фото, не colorId.
+  function deletePhoto(photoId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteColorPhotoAction(photoId, productId);
+        setColors((prev) =>
+          prev.map((c) => ({ ...c, photos: c.photos.filter((p) => p.id !== photoId) }))
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не вдалося видалити фото");
+      }
+    });
+  }
+
   const activeSku = skus.find((s) => s.id === selectedSkuId);
 
   return {
@@ -204,6 +251,9 @@ export function useProductSkuMatrix({
     deleteSize,
     autoGenerate,
     updateColorPhotos,
+    setSkuBarcode,
+    setMainPhoto,
+    deletePhoto,
     activeSku,
   };
 }

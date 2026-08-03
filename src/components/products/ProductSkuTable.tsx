@@ -5,7 +5,6 @@ import { ImageIcon, Loader2, Plus, Printer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDeleteIconButton } from "@/components/ui/confirm-delete-button";
 import {
   Dialog,
   DialogClose,
@@ -30,8 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteColorPhotoAction, uploadColorPhotoAction } from "@/app/products/[id]/actions";
-import { MAX_COLOR_PHOTOS } from "@/lib/constants/color-photos";
+import { uploadColorPhotoAction } from "@/app/products/[id]/actions";
 import type { ColorOption } from "@/lib/constants/sku-variant-options";
 import type { ProductPhoto, ProductSku } from "@/lib/types/product";
 import type { SkuColor } from "@/components/products/useProductSkuMatrix";
@@ -152,6 +150,10 @@ function DeleteSizeButton({
 
 const ADD_TRIGGER_CLASS =
   "flex items-center gap-1 text-xs font-normal text-primary hover:underline";
+// +Колір/+Розмір — жирніше й крупніше за "Додати фото" (пряма вказівка людини,
+// 2026-08-03) — окремий клас, ADD_TRIGGER_CLASS далі лишається для фото.
+const ADD_MAJOR_TRIGGER_CLASS =
+  "flex items-center gap-1 text-sm font-semibold text-primary hover:underline";
 
 function AddColorControl({
   options,
@@ -163,7 +165,7 @@ function AddColorControl({
   if (options.length === 0) return null;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={ADD_TRIGGER_CLASS}>
+      <DropdownMenuTrigger className={ADD_MAJOR_TRIGGER_CLASS}>
         <Plus className="size-3" />
         Колір
       </DropdownMenuTrigger>
@@ -192,7 +194,7 @@ function AddSizeControl({
   if (options.length === 0) return null;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={ADD_TRIGGER_CLASS}>
+      <DropdownMenuTrigger className={ADD_MAJOR_TRIGGER_CLASS}>
         <Plus className="size-3" />
         Розмір
       </DropdownMenuTrigger>
@@ -207,6 +209,11 @@ function AddSizeControl({
   );
 }
 
+// Прев'ю фото кольору тут більше не показуємо (пряма вказівка людини,
+// 2026-08-03) — усі фото товару видно в ProductPhotoGallery (з можливістю
+// обрати основне/видалити/відкрити на повний розмір). Тут лишається тільки
+// точка завантаження — єдине місце, де фото додається, і ліміту на кількість
+// більше немає (MAX_COLOR_PHOTOS прибрано).
 function ColorPhotosControl({
   productId,
   color,
@@ -239,44 +246,17 @@ function ColorPhotosControl({
     });
   }
 
-  function handleDelete(photoId: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await deleteColorPhotoAction(photoId, productId);
-        onPhotosChange(photos.filter((p) => p.id !== photoId));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Не вдалося видалити фото");
-      }
-    });
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {photos.map((photo) => (
-        <div key={photo.id} className="group relative size-8 shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element -- зберігається поза webroot, next/image не роздає такі шляхи */}
-          <img src={photo.url} alt="" className="size-full rounded border border-border object-cover" />
-          <ConfirmDeleteIconButton
-            ariaLabel={`Видалити фото кольору ${color.name}`}
-            title="Видалити фото?"
-            description="Фото кольору буде видалено. Цю дію не можна скасувати."
-            onConfirm={() => handleDelete(photo.id)}
-            className="absolute -top-1.5 -right-1.5 rounded-full bg-background p-0.5 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border transition-opacity group-hover:opacity-100 hover:text-destructive [&_svg]:size-2.5"
-          />
-        </div>
-      ))}
-      {photos.length < MAX_COLOR_PHOTOS && (
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || isPending}
-          className={cn(ADD_TRIGGER_CLASS, "disabled:opacity-50")}
-        >
-          {isPending ? <Loader2 className="size-3 animate-spin" /> : <ImageIcon className="size-3" />}
-          Додати фото
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={disabled || isPending}
+        className={cn(ADD_TRIGGER_CLASS, "disabled:opacity-50")}
+      >
+        {isPending ? <Loader2 className="size-3 animate-spin" /> : <ImageIcon className="size-3" />}
+        Додати фото
+      </button>
       {error && <span className="basis-full text-xs text-destructive">{error}</span>}
       <input
         ref={fileInputRef}

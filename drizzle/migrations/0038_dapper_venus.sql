@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "same_size_pricing" boolean DEFAULT true NOT NULL;
