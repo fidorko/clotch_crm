@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Copy, CornerDownRight, Download, Printer, Trash2 } from "lucide-react";
+import { Copy, CornerDownRight, Download, PackageCheck, Printer, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,16 +24,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { parseUaDate } from "@/lib/date-ua";
 import {
-  RECEIVING_DOC_STATUS_META,
+  RECEIVING_DOC_DISPLAY_STATUS_META,
+  RECEIVING_DOC_TYPE_BADGE,
   RECEIVING_DOC_TYPE_LABEL,
-  type ReceivingDocStatus,
+  computeReceivingDocDisplayStatus,
+  type ReceivingDocDisplayStatus,
   type ReceivingDocumentListItem,
 } from "@/lib/types/receiving";
-import { deleteReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
+import { createActualReceivingFromPlannedAction, deleteReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
 
-const STATUS_FILTER_OPTIONS: { value: ReceivingDocStatus | "all"; label: string }[] = [
+const STATUS_FILTER_OPTIONS: { value: ReceivingDocDisplayStatus | "all"; label: string }[] = [
   { value: "all", label: "Усі статуси" },
-  ...(Object.entries(RECEIVING_DOC_STATUS_META) as [ReceivingDocStatus, { label: string }][]).map(
+  ...(Object.entries(RECEIVING_DOC_DISPLAY_STATUS_META) as [ReceivingDocDisplayStatus, { label: string }][]).map(
     ([value, meta]) => ({ value, label: meta.label })
   ),
 ];
@@ -46,17 +48,24 @@ type Row =
   | { kind: "single"; doc: ReceivingDocumentListItem }
   | { kind: "pair"; planned: ReceivingDocumentListItem; actual: ReceivingDocumentListItem };
 
+// Список сортований за createdAt DESC — фактичне завжди створюється ПІЗНІШЕ
+// планового (через «Прийняти на склад»), тож завжди йде ПЕРЕД ним у списку.
+// Тому пару шукаємо саме від фактичного до його планового (пряме посилання
+// за id), а не навпаки: попередня версія шукала "хто вказує на мене" від
+// планового — на момент, коли цикл доходив до планового, фактичне вже було
+// відвідане й помилково позначене consumed як одиночний рядок, і пара
+// губилась (ловила людина на реальних даних).
 function groupDocuments(docs: ReceivingDocumentListItem[]): Row[] {
   const consumed = new Set<string>();
   const rows: Row[] = [];
   for (const doc of docs) {
     if (consumed.has(doc.id)) continue;
-    if (doc.type === "planned") {
-      const actual = docs.find((d) => d.basedOnId === doc.id && !consumed.has(d.id));
-      if (actual) {
-        rows.push({ kind: "pair", planned: doc, actual });
+    if (doc.type === "actual" && doc.basedOnId) {
+      const planned = docs.find((d) => d.id === doc.basedOnId && !consumed.has(d.id));
+      if (planned) {
+        rows.push({ kind: "pair", planned, actual: doc });
         consumed.add(doc.id);
-        consumed.add(actual.id);
+        consumed.add(planned.id);
         continue;
       }
     }
@@ -69,7 +78,8 @@ function groupDocuments(docs: ReceivingDocumentListItem[]): Row[] {
 // Копіювати/Друк/Експорт — заглушки (нема бекенду під них). Видалення —
 // реальне, і лише для планового: фактичне видалити не можна (пряма вказівка
 // людини) — тому кнопка навіть не рендериться для type=actual, не просто
-// вимкнена.
+// вимкнена. «Прийняти на склад» — так само лише для планового: створює
+// реальний фактичний документ на його основі (warehouse-receiving.md).
 function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -78,6 +88,13 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
     startTransition(async () => {
       await deleteReceivingDocumentAction(doc.id);
       router.refresh();
+    });
+  }
+
+  function handleAccept() {
+    startTransition(async () => {
+      const actual = await createActualReceivingFromPlannedAction(doc.id);
+      router.push(`/warehouse/receiving/${actual.id}`);
     });
   }
 
@@ -92,6 +109,17 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
       <Button variant="ghost" size="icon-sm" aria-label={`Експорт документа ${doc.number}`}>
         <Download className="size-4" />
       </Button>
+      {doc.type === "planned" && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={isPending}
+          aria-label={`Прийняти на склад — ${doc.number}`}
+          onClick={handleAccept}
+        >
+          <PackageCheck className="size-4" />
+        </Button>
+      )}
       {doc.type === "planned" && (
         <Dialog>
           <DialogTrigger
@@ -136,11 +164,13 @@ function DocumentRow({
   groupTint?: boolean;
   noBottomBorder?: boolean;
 }) {
-  const status = RECEIVING_DOC_STATUS_META[doc.status];
+  const displayStatus = RECEIVING_DOC_DISPLAY_STATUS_META[computeReceivingDocDisplayStatus(doc)];
 
   return (
     <TableRow className={cn(groupTint && "bg-accent/[0.04] hover:bg-accent/[0.07]", noBottomBorder && "border-b-0")}>
-      <TableCell className="font-medium text-foreground">
+      <TableCell
+        className={cn("font-medium text-foreground", groupTint && "border-l-2 border-l-accent-foreground/50")}
+      >
         <div className="flex items-center gap-1.5">
           {linkedNote && <CornerDownRight className="size-3.5 shrink-0 text-accent-foreground" />}
           <Link href={`/warehouse/receiving/${doc.id}`} className="hover:underline">
@@ -150,14 +180,14 @@ function DocumentRow({
         {linkedNote && <span className="pl-5 text-xs font-normal text-muted-foreground">{linkedNote}</span>}
       </TableCell>
       <TableCell>
-        <Badge variant={doc.type === "planned" ? "outline" : "secondary"}>
-          {RECEIVING_DOC_TYPE_LABEL[doc.type]}
-        </Badge>
+        <Badge variant={RECEIVING_DOC_TYPE_BADGE[doc.type]}>{RECEIVING_DOC_TYPE_LABEL[doc.type]}</Badge>
       </TableCell>
       <TableCell>{doc.supplier ?? "—"}</TableCell>
       <TableCell className="text-muted-foreground">{doc.date ?? "—"}</TableCell>
       <TableCell>
-        <Badge variant={status.badge}>{status.label}</Badge>
+        <Badge variant="outline" className={cn("border-transparent", displayStatus.className)}>
+          {displayStatus.label}
+        </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">{doc.supplierDocument || "—"}</TableCell>
       <TableCell>
@@ -173,7 +203,7 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
   const [supplier, setSupplier] = useState("all");
   const [number, setNumber] = useState("");
   const [supplierDocument, setSupplierDocument] = useState("");
-  const [status, setStatus] = useState<ReceivingDocStatus | "all">("all");
+  const [status, setStatus] = useState<ReceivingDocDisplayStatus | "all">("all");
 
   const supplierOptions = Array.from(
     new Set(documents.map((d) => d.supplier).filter((s): s is string => Boolean(s)))
@@ -181,7 +211,7 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
 
   const filtered = documents.filter((doc) => {
     if (supplier !== "all" && doc.supplier !== supplier) return false;
-    if (status !== "all" && doc.status !== status) return false;
+    if (status !== "all" && computeReceivingDocDisplayStatus(doc) !== status) return false;
     if (number && !doc.number.toLowerCase().includes(number.toLowerCase())) return false;
     if (
       supplierDocument &&
@@ -248,7 +278,7 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
           </div>
           <div className="flex flex-col gap-1.5">
             <FieldLabel>Статус</FieldLabel>
-            <Select value={status} onValueChange={(v) => setStatus((v as ReceivingDocStatus | "all") ?? "all")}>
+            <Select value={status} onValueChange={(v) => setStatus((v as ReceivingDocDisplayStatus | "all") ?? "all")}>
               <SelectTrigger className="w-40">
                 <SelectValue>
                   {(v: string) => STATUS_FILTER_OPTIONS.find((o) => o.value === v)?.label}

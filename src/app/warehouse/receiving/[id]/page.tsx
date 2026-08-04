@@ -7,6 +7,7 @@ import { listWarehouses } from "@/server/data/warehouses";
 import { listSuppliers } from "@/server/data/suppliers";
 import { listProductSkusCatalog } from "@/server/data/product-skus";
 import { getReceivingDocument, listReceivingCustomFields } from "@/server/data/receiving";
+import { listReceivingDocumentItems } from "@/server/data/receiving-items";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 
 export const metadata: Metadata = { title: "Надходження товару" };
@@ -22,26 +23,24 @@ export default async function ReceivingDocumentPage({ params }: PageProps) {
   const document = await getReceivingDocument(tenantId, id);
   if (!document) notFound();
 
-  // Позиції (SKU/кількості) ще не персистуються (warehouse-receiving.md) —
-  // відкриття наявного документа поки підтримане лише для планового
-  // (єдиний тип, що реально зберігається зараз).
-  if (document.type !== "planned") notFound();
-
-  const [warehouses, suppliers, skuCatalog, customFields] = await Promise.all([
+  const [warehouses, suppliers, skuCatalog, customFields, items] = await Promise.all([
     listWarehouses(tenantId),
     listSuppliers(tenantId),
     listProductSkusCatalog(tenantId),
     listReceivingCustomFields(tenantId, id),
+    listReceivingDocumentItems(tenantId, id),
   ]);
 
   return (
     <PlannedReceivingWorkspace
+      documentType={document.type}
       warehouses={warehouses}
       suppliers={suppliers}
       skuCatalog={skuCatalog}
       dev={DEV_BLOCK_LABELS.warehouse}
       initialDocumentId={document.id}
       initialCustomFields={customFields}
+      initialItems={items}
       initialValues={{
         supplierId: document.supplierId,
         document: document.supplierDocument ?? "",

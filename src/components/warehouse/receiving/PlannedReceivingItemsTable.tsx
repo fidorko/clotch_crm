@@ -17,7 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddSkuCombobox } from "@/components/warehouse/receiving/AddSkuCombobox";
 import { playScanBeep } from "@/lib/warehouse/scan-beep";
-import { RECEIVING_ITEM_STATUS_META, computeReceivingItemStatus, type ReceivingItem } from "@/lib/types/receiving";
+import { RECEIVING_ITEM_STATUS_META, type ReceivingItem } from "@/lib/types/receiving";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
 
 function ItemThumb({ url, alt, onOpen }: { url: string | null; alt: string; onOpen: () => void }) {
@@ -41,19 +41,38 @@ function ItemThumb({ url, alt, onOpen }: { url: string | null; alt: string; onOp
   );
 }
 
+// Презентаційна таблиця — сама нічого не персистує (усі мутації переїхали в
+// PlannedReceivingWorkspace, warehouse-receiving.md, восьмий прохід): і
+// планове, і фактичне надходження мають реальні позиції, різниця лише в
+// тому, яке поле активне.
+// mode="planned": «Замовлено» редаговане, «Прийнято» неактивне/інформативне
+// (пряма вказівка людини — колонку не прибирати, лише зробити read-only).
+// mode="actual": «Замовлено» успадковане з плану (read-only), «Прийнято»
+// редаговане — саме туди йде реально прийнята кількість.
 export function PlannedReceivingItemsTable({
+  mode,
   items,
-  onItemsChange,
   skuCatalog,
+  onScanOrAdd,
+  onUpdateOrdered,
+  onUpdateReceived,
+  onRemoveItem,
+  onRemoveItems,
 }: {
+  mode: "planned" | "actual";
   items: ReceivingItem[];
-  onItemsChange: (items: ReceivingItem[]) => void;
   skuCatalog: ProductSkuCatalogItem[];
+  onScanOrAdd: (sku: ProductSkuCatalogItem) => void;
+  onUpdateOrdered: (itemId: string, ordered: number) => void;
+  onUpdateReceived: (itemId: string, received: number) => void;
+  onRemoveItem: (itemId: string) => void;
+  onRemoveItems: (itemIds: string[]) => void;
 }) {
   const [search, setSearch] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
+  const orderedActive = mode === "planned";
 
   const filtered = items.filter((item) => {
     const q = search.trim().toLowerCase();
@@ -68,29 +87,6 @@ export function PlannedReceivingItemsTable({
   const allSelected = filtered.length > 0 && filtered.every((item) => selectedIds.includes(item.id));
   const someSelected = selectedIds.length > 0;
 
-  function updateOrdered(id: string, ordered: number) {
-    onItemsChange(
-      items.map((item) =>
-        item.id === id ? { ...item, ordered, status: computeReceivingItemStatus(ordered, item.received) } : item
-      )
-    );
-  }
-
-  function updateReceived(id: string, received: number) {
-    onItemsChange(
-      items.map((item) =>
-        item.id === id
-          ? { ...item, received, status: computeReceivingItemStatus(item.ordered, received) }
-          : item
-      )
-    );
-  }
-
-  function removeItem(id: string) {
-    onItemsChange(items.filter((item) => item.id !== id));
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
-  }
-
   function toggleSelect(id: string) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -104,67 +100,28 @@ export function PlannedReceivingItemsTable({
   }
 
   function removeSelected() {
-    onItemsChange(items.filter((item) => !selectedIds.includes(item.id)));
+    onRemoveItems(selectedIds);
     setSelectedIds([]);
   }
 
-  function addSku(sku: ProductSkuCatalogItem) {
-    onItemsChange([
-      ...items,
-      {
-        id: sku.id,
-        sku: sku.sku,
-        barcode: sku.barcode,
-        photoUrl: sku.photoUrl,
-        productName: sku.productName,
-        color: sku.color,
-        colorHex: sku.colorHex,
-        size: sku.size,
-        ordered: 1,
-        received: 0,
-        status: "not_accepted",
-      },
-    ]);
+  function removeItem(id: string) {
+    onRemoveItem(id);
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
   }
 
   // Сканування — максимально швидко, без затримок (пряма вказівка людини):
   // синхронний пошук у вже завантаженому каталозі, без debounce/мережі.
   // Enter — термінатор скану (стандартна поведінка USB/BT-сканерів, що
-  // емулюють клавіатуру). Той самий ШК ще раз — кількість +1, інший ШК —
-  // додається інший товар.
+  // емулюють клавіатуру). Той самий ШК ще раз — кількість +1 (на активному
+  // полі), інший ШК — додається інший товар. Обидва режими шукають по
+  // всьому каталогу — у фактичному теж можна прийняти те, чого не було в
+  // плані (пряме рішення людини).
   function handleScan() {
     const code = search.trim();
     if (!code) return;
     const match = skuCatalog.find((s) => s.barcode === code || s.sku === code);
     if (!match) return;
-
-    const existingIndex = items.findIndex((item) => item.id === match.id);
-    if (existingIndex === -1) {
-      onItemsChange([
-        ...items,
-        {
-          id: match.id,
-          sku: match.sku,
-          barcode: match.barcode,
-          photoUrl: match.photoUrl,
-          productName: match.productName,
-          color: match.color,
-          colorHex: match.colorHex,
-          size: match.size,
-          ordered: 1,
-          received: 0,
-          status: computeReceivingItemStatus(1, 0),
-        },
-      ]);
-    } else {
-      onItemsChange(
-        items.map((item, i) => {
-          if (i !== existingIndex) return item;
-          const ordered = item.ordered + 1;
-          return { ...item, ordered, status: computeReceivingItemStatus(ordered, item.received) };
-        })
-      );
-    }
+    onScanOrAdd(match);
     playScanBeep();
     setSearch("");
   }
@@ -267,22 +224,30 @@ export function PlannedReceivingItemsTable({
                   </TableCell>
                   <TableCell>{item.size}</TableCell>
                   <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={item.ordered}
-                      onChange={(e) => updateOrdered(item.id, Math.max(0, Number(e.target.value)))}
-                      className="h-7 w-16 text-right"
-                    />
+                    {orderedActive ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={item.ordered}
+                        onChange={(e) => onUpdateOrdered(item.id, Math.max(0, Number(e.target.value)))}
+                        className="h-7 w-16 text-right"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">{item.ordered}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={item.received}
-                      onChange={(e) => updateReceived(item.id, Math.max(0, Number(e.target.value)))}
-                      className="h-7 w-16 text-right"
-                    />
+                    {!orderedActive ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={item.received}
+                        onChange={(e) => onUpdateReceived(item.id, Math.max(0, Number(e.target.value)))}
+                        className="h-7 w-16 text-right"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">{item.received}</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={status.badge} className="gap-1">
@@ -308,14 +273,18 @@ export function PlannedReceivingItemsTable({
             {filtered.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={12} className="py-8 text-center text-muted-foreground">
-                  Ще немає жодного товару в плані
+                  {mode === "planned" ? "Ще немає жодного товару в плані" : "Ще немає жодної прийнятої позиції"}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
 
-        <AddSkuCombobox catalog={skuCatalog} excludeIds={items.map((item) => item.id)} onAdd={addSku} />
+        <AddSkuCombobox
+          catalog={skuCatalog}
+          excludeIds={items.map((item) => item.productSkuId)}
+          onAdd={onScanOrAdd}
+        />
       </CardContent>
 
       <Dialog open={Boolean(lightboxUrl)} onOpenChange={(open) => !open && setLightboxUrl(null)}>

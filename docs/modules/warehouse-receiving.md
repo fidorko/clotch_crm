@@ -1,75 +1,82 @@
 # Модуль: warehouse-receiving
-**Статус:** UI `в роботі` · Логіка `в роботі` (планове — реальний бекенд заголовка) · Бек `в роботі` · БД `в роботі`
-**Маршрут:** /warehouse/receiving (список), /warehouse/receiving/[id] (перегляд/редагування планового), /warehouse/receiving/new?type=planned|actual (створення)
+**Статус:** UI `в роботі` · Логіка `в роботі` · Бек `в роботі` · БД `в роботі`
+**Маршрут:** /warehouse/receiving (список), /warehouse/receiving/[id] (перегляд/редагування планового або фактичного), /warehouse/receiving/new?type=planned|actual (створення)
 **Оновлено:** 2026-08-04
 
 ## Призначення
 Приймання надходження товару на склад — з картки складу (`/warehouse`, кнопка «Надходження») або напряму.
 
-**`/warehouse/receiving` — список документів, п'ятий-шостий прохід: реальні дані + дії.** KPI-картки, кнопки «Планове»/«Швидке надходження», фільтри, таблиця з групуванням планове→фактичне парою (стрілка-конектор) — усе тепер тягнеться з `receiving_documents` (`listReceivingDocuments`, join `suppliers`/`warehouses` за назвою). Мок-файл (`lib/mocks/receiving-documents.ts`) видалено остаточно (пряма вказівка людини) — типи/мапи підписів статусу-типу переїхали в `lib/types/receiving.ts`, `parseUaDate`/`formatTodayUa`/`formatDateUa` — у `lib/date-ua.ts`. Список читає лише реальні документи тенанта — порожньо, доки нічого не створено (чесний empty state).
+**`/warehouse/receiving` — список документів.** KPI-картки, кнопки «Планове»/«Швидке надходження», фільтри (дата від-до через `DatePicker`-календар/постачальник/номер/№ видаткової/статус), таблиця з реальними даними (`listReceivingDocuments`). Групує планове→фактичне парою — стрілка-конектор (`CornerDownRight`) + підпис «на основі №…» + суцільна кольорова риска зліва вздовж обох рядків (`border-l-2 border-l-accent-foreground/50` на комірці номера, спільний тінт фону), коли `actual.basedOnId === planned.id`. «Номер документа» — клік → `/warehouse/receiving/[id]`. Колонка «Дії»: Копіювати/Друк/Експорт (заглушки), **Прийняти на склад** і **Видалити** — реальні й лише для `type=planned` (фактичне видалити не можна — пряма вказівка людини).
 
-**«Номер документа» — клік → `/warehouse/receiving/[id]`** (реальний перегляд/редагування, лише для `type=planned` — єдиний тип, що зараз персистується; `type=actual` дає `notFound()`). Колонка «⋮» замінена на колонку **«Дії»** з іконками: Копіювати/Друк/Експорт — заглушки, **Видалити** — реальне (`deleteReceivingDocumentAction`), **рендериться тільки для планового** (фактичне видалити не можна — пряма вказівка людини, умова `type = 'planned'` просто в SQL `WHERE`, не окрема перевірка).
+**Гочта групування (виправлено):** список сортований за `createdAt DESC`, а фактичне завжди створюється ПІЗНІШЕ планового — тож фактичне завжди йде ПЕРЕД своїм плановим у списку. Перша версія `groupDocuments()` шукала пару від планового («хто на мене посилається»); на момент, коли цикл доходив до планового, фактичне вже було відвідане раніше й помилково позначене як одиночний рядок (`consumed`) — пара губилась, стрілка не показувалась (ловила людина на реальних даних). Виправлено: пошук пари тепер від фактичного до його планового за прямим `id`-посиланням (`docs.find(d => d.id === doc.basedOnId)`) — коректно незалежно від порядку.
 
-**`/warehouse/receiving/new?type=planned` — планове надходження, четвертий прохід: реальний бекенд заголовка.** Окремий оркестратор `PlannedReceivingWorkspace` (замінив спільні з `actual` компоненти для цього типу):
+**Колір типу й статусу в списку** (`lib/types/receiving.ts`): тип — Планове жовтим, Фактичне зеленим (`RECEIVING_DOC_TYPE_BADGE`). Статус — не сирий `status`-enum документа, а похідний від реального співвідношення замовлено/прийнято по позиціях (`computeReceivingDocDisplayStatus`, агрегат рахує `listReceivingDocuments` окремим `GROUP BY document_id`): «Очікується поставка» (жовтий), «Прийнято повністю» (зелений), «Розбіжність в плюс» (синій), «Розбіжність в мінус» (червоний), «Є непланові товари» (фіолетовий — є позиція з `ordered=0`, додана понад план). Синій/фіолетовий — єдині кольори поза палітрою `design.md`, Tailwind напряму (`blue-*`/`purple-*`), без нового CSS-токена.
 
-- **Перше «Зберегти» створює документ** (`createReceivingDocumentAction` → `receiving_documents`), **кожна наступна зміна поля автозберігається** (debounce ~500мс, без кнопки — той самий принцип, що картка товару, `conventions.md`). Кнопки «Зберегти»/«Прийняти на склад» (перейменована, перенесена в шапку поруч) — `PlannedReceivingHeader`.
-- **Товари** (`PlannedReceivingItemsTable`) — реальний пошук/додавання SKU (`AddSkuCombobox` → `listProductSkusCatalog`), колонки: чекбокс (виділити) / № / **Фото** (реальне мініатюрне зображення з `product_color_photos`, клік → `Dialog`-лайтбокс на весь розмір, той самий патерн, що `ProductPhotoGallery`) / SKU / **ШК** (штрихкод SKU) / Назва / Колір / Розмір / Замовлено (редаговане) / Прийнято / Статус / ⋮. Без «Комірка» (не актуально на етапі планування). Чекбокс у заголовку — «виділити всі видимі» (той самий патерн, що `ProductsTable`); «Видалити обрані» — рядок над таблицею, зʼявляється лише коли є виділені; масове видалення — локальний фільтр масиву (позиції ще не персистуються, нема що видаляти на сервері).
-- **Сканування штрихкоду** — пошукове поле подвоює роль скан-приймача: Enter — термінатор (стандартна поведінка USB/BT-сканерів під клавіатуру), синхронний пошук у вже завантаженому `skuCatalog` (без мережі/debounce — «максимально швидко», пряма вказівка людини), той самий ШК ще раз → «Замовлено» +1, інший ШК → додається інший товар. «Пік» — `playScanBeep()` (`lib/warehouse/scan-beep.ts`, Web Audio API, без нового пакета/файлу). Кнопка «Сканувати штрихкод» просто фокусує поле.
-- **Інформація про надходження** (`PlannedReceivingInfoForm`) — Постачальник/Склад реальні; «Дата план» (замість «Дата надходження»); ЕН — чекбокс-вибір Нова пошта/Укрпошта (взаємовиключний) + `TtnInput` (маска), **необов'язково** (не блокує збереження); **«+ Додати поле»** — людина вводить довільну назву, «Зберегти» створює `receiving_document_custom_fields`-рядок (неявно створює сам документ, якщо його ще нема), значення автозберігається так само дебаунсом; «Відповідальний» — вільний текст (нема таблиці користувачів).
-- **Позиції (SKU/кількості) НЕ персистяться** — лише заголовок документа. Items-таблиця — далі клієнтський `useState`, як і раніше.
-- «Швидкі дії» — Друк етикеток/Створити товар/Надіслати постачальнику/Дублювати документ (заглушки).
+**«Прийняти на склад»** (кнопка в списку і в шапці планового документа, `PlannedReceivingHeader`) — реальна дія: `createActualReceivingFromPlannedAction` створює новий документ `type=actual`, `basedOnId` на плановий, копіює шапку (постачальник/склад/документ постачальника/ЕН — **не** копіює дату/відповідального/коментар, вони для факту вводяться заново) і всі позиції (`ordered` як у плані, `received=0`), відкриває новий документ.
 
-**`/warehouse/receiving/new?type=actual` — швидке/фактичне надходження.** Без змін цим проходом: мок-рядки (`ReceivingItemsTable`/`MOCK_RECEIVING_ITEMS`), «Комірка» є, «Дата надходження», нема ЕН/кастомних полів/автозбереження. «Зберегти» (`SaveReceivingButton`) — лише візуальне підтвердження кліку, без бекенду (нема документа, до якого прив'язатись).
+**`/warehouse/receiving/[id]` і `/warehouse/receiving/new?type=planned|actual`** — обидва типи тепер ведуть через один оркестратор `PlannedReceivingWorkspace` + одну презентаційну таблицю `PlannedReceivingItemsTable` (проп `mode`), з реальними позиціями (не лише заголовком):
+
+| | Планове (`mode="planned"`) | Фактичне (`mode="actual"`) |
+|---|---|---|
+| «Замовлено» | редаговане | **read-only** (успадковане з плану) |
+| «Прийнято» | **read-only**, завжди 0 (нічого не прийнято проти самого плану) | редаговане — реальна прийнята кількість |
+| Товари понад план | так, вільно (`AddSkuCombobox`/скан) | так, вільно (пряме рішення людини — постачальник міг прислати щось додатково) |
+| Сканування (Enter у пошуку) | збільшує «Замовлено» | збільшує «Прийнято» **і одразу поповнює `product_skus.stock`** |
+| «Прийняти на склад» у шапці | є | нема (документ і є результатом приймання) |
+| «Підсумок» | Позицій/Очікується | Позицій/Очікується/Прийнято/Розбіжностей |
+
+Позиції — реальна таблиця `receiving_document_items` (join `product_skus`+`products`, без денормалізації, `db.md`). Чекбокс-виділення + «Видалити обрані» — масове видалення, реальне (server actions), не лише локальний фільтр. Кожна дія над позицією (скан/додати/редагувати кількість/видалити) — свій server action, редагування кількості — debounce ~500мс (як заголовок), решта — миттєво. Сервер-гард (не лише UI): зміна «Замовлено» ігнорується, якщо документ не `planned`; зміна «Прийнято» — якщо не `actual`.
+
+Спільне для обох типів: реальний пошук/скан SKU (`AddSkuCombobox`+сканування → `listProductSkusCatalog`, фото+ШК з `product_color_photos`, лайтбокс на клік), звуковий сигнал скану (`playScanBeep`, Web Audio, без залежностей), ЕН-блок (Нова пошта/Укрпошта, `TtnInput`, необов'язково), довільні поля людини («+ Додати поле» → `receiving_document_custom_fields`), автозбереження заголовка після першого «Зберегти».
+
+**`/warehouse/receiving/new?type=actual` — окрема, свідомо не займана мок-гілка** (`ReceivingFormHeader.tsx`/`ReceivingItemsTable.tsx`/`ReceivingInfoForm.tsx`/`SaveReceivingButton.tsx`, `lib/mocks/receiving.ts`): пряме рішення людини не чіпати — лишається досяжною окремо від «Прийняти на склад», без реального бекенду, «Зберегти» нічого не зберігає.
 
 ## Файли
 | Шлях | Роль |
 |---|---|
-| src/app/warehouse/receiving/page.tsx | список, тягне `listReceivingDocuments` |
-| src/app/warehouse/receiving/actions.ts | Server Action списку: `deleteReceivingDocumentAction` |
-| src/app/warehouse/receiving/[id]/page.tsx | перегляд/редагування наявного документа — `getReceivingDocument`+`listReceivingCustomFields`, `notFound()` якщо нема або `type≠planned`, рендерить `PlannedReceivingWorkspace` з `initialValues`/`initialDocumentId`/`initialCustomFields` |
-| src/app/warehouse/receiving/new/page.tsx | тягне `listWarehouses`/`listSuppliers`/`listProductSkusCatalog`; `type=planned` → рендерить `PlannedReceivingWorkspace` (порожній, створення), інакше — стара мок-гілка |
-| src/app/warehouse/receiving/new/actions.ts | Server Actions: `createReceivingDocumentAction`, `updateReceivingDocumentAction`, `createReceivingCustomFieldAction`, `updateReceivingCustomFieldValueAction`, `deleteReceivingCustomFieldAction` |
-| src/server/data/receiving.ts | дані `receiving_documents`/`receiving_document_custom_fields`: CRUD + `listReceivingDocuments` (список, join постачальник/склад, `LIMIT 200`), `getReceivingDocument`, `deleteReceivingDocument` (лише `type='planned'` у WHERE) |
-| src/server/db/schema/receiving.ts | схема (розділ вище, `db.md`) |
-| src/server/data/product-skus.ts | + `listProductSkusCatalog` (тепер з `barcode`/`photoUrl` — join `product_color_photos` за `(productId,color)`) |
-| src/components/warehouse/receiving/PlannedReceivingWorkspace.tsx | оркестратор — увесь стан (документ/поля/позиції/кастомні поля), збереження/автозбереження |
-| src/components/warehouse/receiving/PlannedReceivingHeader.tsx | шапка — «Зберегти» (слот з workspace) + «Прийняти на склад» |
-| src/components/warehouse/receiving/PlannedReceivingItemsTable.tsx | контрольована таблиця товарів — фото+лайтбокс, ШК, сканування |
-| src/components/warehouse/receiving/PlannedReceivingInfoForm.tsx | контрольована форма — ЕН, кастомні поля |
-| src/components/warehouse/receiving/AddSkuCombobox.tsx | пошуковий комбобокс реального SKU (спільний для скану й ручного додавання) |
-| src/components/warehouse/receiving/ReceivingFormHeader.tsx, ReceivingItemsTable.tsx, ReceivingInfoForm.tsx | лише `type=actual` — спрощені назад до мок-версії без `type`-розгалужень |
-| src/components/warehouse/receiving/SaveReceivingButton.tsx | `type=actual` — декоративне «Зберегти» (без бекенду) |
-| src/components/warehouse/receiving/ReceivingSummary.tsx, ReceivingQuickActions.tsx | спільні для обох типів |
-| src/lib/types/receiving.ts | `ReceivingItem`/`ReceivingItemStatus` (позиції планового) + `ReceivingDocumentListItem`/`ReceivingDocType`/`ReceivingDocStatus`/мапи підписів (список документів) |
-| src/lib/date-ua.ts | `parseUaDate`/`formatTodayUa`/`formatDateUa` — спільні для фільтрів списку і KPI |
-| src/lib/warehouse/scan-beep.ts | `playScanBeep` — Web Audio, без залежностей |
-| src/components/ui/date-input.tsx | + `parseDateInputToIso` (межа УІ↔БД) |
-| src/components/ui/ttn-input.tsx | маска ЕН (Нова пошта/Укрпошта) |
-| src/lib/mocks/receiving.ts | мок-позиції `type=actual` — не займали цим проходом |
+| src/app/warehouse/receiving/page.tsx | список, `listReceivingDocuments` |
+| src/app/warehouse/receiving/actions.ts | `deleteReceivingDocumentAction`, `createActualReceivingFromPlannedAction` |
+| src/app/warehouse/receiving/[id]/page.tsx | `getReceivingDocument`+`listReceivingCustomFields`+`listReceivingDocumentItems`, рендерить `PlannedReceivingWorkspace` з `documentType={document.type}` |
+| src/app/warehouse/receiving/new/page.tsx | `type=planned` → `PlannedReceivingWorkspace` (порожній, створення); `type=actual` → стара мок-гілка |
+| src/app/warehouse/receiving/new/actions.ts | Server Actions документа/кастомних полів/**позицій**: `upsertReceivingDocumentItemAction`, `updateReceivingDocumentItemOrderedAction`, `updateReceivingDocumentItemReceivedAction`, `deleteReceivingDocumentItemAction(s)` |
+| src/server/data/receiving.ts | `receiving_documents`/custom fields CRUD, `listReceivingDocuments` (+ агрегати ordered/received/hasUnplanned), `createActualReceivingFromPlanned`, гап-стійка генерація номера (нижче) |
+| src/server/data/receiving-items.ts | `receiving_document_items` CRUD: `listReceivingDocumentItems`, `upsertReceivingDocumentItem` (скан/додати, `ON CONFLICT DO UPDATE`), `update{Ordered,Received}` (з сервер-гардом за типом документа), `delete(s)` — усі зі стороннім ефектом на `product_skus.stock`, де стосується `received` |
+| src/server/db/schema/receiving.ts | схема, деталі — `db.md` |
+| src/server/data/product-skus.ts | `listProductSkusCatalog` (+`barcode`/`photoUrl`) і винесений `buildPhotoLookup` (спільний з `receiving-items.ts`) |
+| src/components/warehouse/receiving/PlannedReceivingWorkspace.tsx | оркестратор обох типів (`documentType` проп) — стан, персистенція заголовка/позицій/кастомних полів, «Прийняти на склад» |
+| src/components/warehouse/receiving/PlannedReceivingHeader.tsx | шапка — «Зберегти» + умовне «Прийняти на склад» (лише planned) |
+| src/components/warehouse/receiving/PlannedReceivingItemsTable.tsx | презентаційна таблиця товарів, `mode`-залежні колонки, сама нічого не персистує |
+| src/components/warehouse/receiving/PlannedReceivingInfoForm.tsx | форма — ЕН, кастомні поля |
+| src/components/warehouse/receiving/AddSkuCombobox.tsx | пошуковий комбобокс реального SKU |
+| src/components/warehouse/receiving/ReceivingFormHeader.tsx, ReceivingItemsTable.tsx, ReceivingInfoForm.tsx, SaveReceivingButton.tsx | лише стара мок-гілка `type=actual` (`/new`) |
+| src/components/warehouse/receiving/ReceivingDocumentsTable.tsx | список — фільтри, групування, кольори типу/статусу, «Прийняти на склад»/«Видалити» |
+| src/components/warehouse/receiving/ReceivingSummary.tsx, ReceivingQuickActions.tsx | спільні дрібні картки |
+| src/lib/types/receiving.ts | `ReceivingItem` (+`productSkuId`), `ReceivingDocumentListItem` (+агрегати), `computeReceivingDocDisplayStatus`, усі мапи підписів/кольорів |
+| src/lib/date-ua.ts | `parseUaDate`/`formatTodayUa`/`formatDateUa` |
+| src/lib/warehouse/scan-beep.ts | `playScanBeep` |
+| src/components/ui/{date-input,date-picker,calendar,ttn-input}.tsx | маски/пікери, `ui-kit.md` |
 
 ## Дані
-`receiving_documents`/`receiving_document_custom_fields` — реальні, деталі й мультитенантність — `db.md`. `product_skus`+`product_color_photos` — реальне джерело позицій/фото/ШК планового (`listProductSkusCatalog`). Список документів (`/warehouse/receiving`) — реальний, `listReceivingDocuments`. Позиції самого планового надходження і весь `type=actual` — досі клієнтський мок.
+`receiving_documents`/`receiving_document_custom_fields`/`receiving_document_items` — реальні, деталі й мультитенантність (усі запити `WHERE tenant_id`, `tenantId` лише з `getDevTenantId()` на сервері) — `db.md`. Список і форма для обох типів — реальні. `type=actual` через `/new` (не через «Прийняти на склад») — досі мок, свідомо не займали.
 
 ## Доступ
 Ролі, яким доступний модуль: owner (поки єдина активна роль).
 
 ## Зв'язки
-Залежить від: `server/data/{warehouses,suppliers,product-skus,receiving}.ts`, `ui/{select,date-input,date-picker,calendar,ttn-input,combobox,badge,dialog,checkbox}`, `layout/HeaderActions`
+Залежить від: `server/data/{warehouses,suppliers,product-skus,receiving,receiving-items}.ts`, `ui/{select,date-input,date-picker,calendar,ttn-input,combobox,badge,dialog,checkbox}`, `layout/HeaderActions`
 Від нього залежать: — («Надходження» на картці складу веде на список із `?warehouseId=`)
 
 ## Зроблено
-- 2026-08-04 (сьомий прохід) — фільтри «Дата від»/«Дата до» списку отримали справжній календар-піковер (`DatePicker`/`Calendar`, нові ui-kit, без залежностей) замість голого `DateInput` — пряма вказівка людини. Чекбокси в `PlannedReceivingItemsTable` — виділити/видалити кілька позицій разом (локально, позиції ще не персистуються).
-- 2026-08-04 (шостий прохід) — клік по «Номер документа» відкриває `/warehouse/receiving/[id]` (реальний перегляд/редагування планового); колонку «⋮» замінено на «Дії» з іконками, видалення — реальне й лише для планового.
-- 2026-08-04 (п'ятий прохід) — список `/warehouse/receiving` переведено на реальні дані (`listReceivingDocuments`), мок-файл `receiving-documents.ts` видалено остаточно (пряма вказівка людини) — типи/утиліти переїхали в `lib/types/receiving.ts`/`lib/date-ua.ts`. Реальний тестовий документ (створений скриптом-перевіркою четвертого проходу) підтверджено видимим на живій сторінці. `tsc`/`eslint` чисто, live-HTTP — 200.
-- 2026-08-04 (четвертий прохід) — реальний бекенд заголовка планового надходження: `receiving_documents`/`receiving_document_custom_fields` (нова міграція `0045`), перше «Зберегти» створює, автозбереження після; реальний пошук/скан SKU з фото+ШК (`listProductSkusCatalog` розширено), кастомні поля людини, ЕН необов'язкове. Перевірено прямим скриптом на реальній БД (create/update/custom-field CRUD — усі операції пройшли).
-- 2026-08-04 (третій прохід) — планове стало реальним там, де можливо без бекенду: SKU-каталог, ЕН-маска, «Дата план», «Комірка» прибрано **лише з таблиці позицій** (адресне зберігання складу в `settings-warehouses.md` не чіпали), «Швидкі дії» переосмислено.
-- 2026-08-04 (другий прохід) — проміжний список документів, групування планове→фактичне.
-- 2026-08-04 — перший прохід форми за зразком-скріном людини.
+- 2026-08-04 (восьмий прохід) — реальні позиції для обох типів (`receiving_document_items`, міграція `0046`): «Прийняти на склад» тепер справді копіює план в новий фактичний документ; «Замовлено»/«Прийнято» — редаговане чи read-only залежно від типу; `product_skus.stock` реально поповнюється при прийманні (і відкочується при видаленні/зменшенні). Похідний кольоровий статус/тип у списку. Знайдено й виправлено гочту генерації номера документа (`db.md`) під час прямої перевірки на реальній БД — усі сценарії (upsert/guard/accept/stock delta/rollback) пройшли.
+- 2026-08-04 (сьомий прохід) — `DatePicker`/`Calendar` замість голого `DateInput` у фільтрах списку; чекбокси в таблиці позицій.
+- 2026-08-04 (шостий прохід) — `/warehouse/receiving/[id]`, колонка «Дії» з іконками.
+- 2026-08-04 (п'ятий прохід) — список переведено на реальні дані, мок-файл видалено.
+- 2026-08-04 (перший–четвертий прохід) — форма планового надходження, реальний бекенд заголовка, SKU-каталог, ЕН, кастомні поля.
 
 ## Відкрито
-- [ ] Живий перегляд у браузері людиною — перевірено HTTP-рендером і прямим DB-скриптом, не інтерактивно (нема headless-браузера в сесії): скан/beep/лайтбокс/автозбереження не клікав
-- [ ] Позиції (SKU/кількості) планового надходження НЕ персистяться — лише заголовок; після рефрешу сторінки позиції зникнуть
-- [ ] `type=actual` (швидке/фактичне) — досі повністю мок, не займав
-- [ ] «Прийняти на склад» — поки просто лінк на `?type=actual`, не створює фактичний документ зі звʼязком `based_on_id` на плановий
+- [ ] Живий перегляд у браузері людиною — перевірено HTTP-рендером і прямими DB-скриптами (усі сценарії проходу восьмого пройшли), не інтерактивно (нема headless-браузера в сесії): скан/beep/лайтбокс/чекбокси не клікав
+- [ ] `type=actual` через `/warehouse/receiving/new?type=actual` — досі мок, окремо від реального «Прийняти на склад»; свідомо не займали
 - [ ] «Друк етикеток», «Надіслати постачальнику», «Дублювати документ», «Копіювати»/«Друк»/«Експорт» (список) — заглушки
-- [ ] У БД лишився один тестовий документ (`RCV-2026-002`, статус draft) від скрипта-перевірки — тепер видимий і в списку; можна видалити вручну через `db:studio`, коли знадобиться
+- [ ] Множинні фактичні приймання з одного планового (часткові поставки) — зараз `groupDocuments()` у списку показує пару 1:1, другий `actual` з тим самим `basedOnId` не матиме пари в UI (дані самі по собі коректні)
+- [ ] У БД лишились тестові документи від скриптів-перевірки (`RCV-2026-002/003/004`) — не заважають, чесний dev-сміттьовий слід
+- [ ] Гочта генерації номера (`count()` замість `MAX()`, ретрай в одній транзакції) — та сама помилка потенційно є в `generateWarehouseCode`/`createWarehouse`/`createSku` (`server/data/warehouses.ts`/`product-skus.ts`), там просто ще не траплялась дірка від видалення; не займав, окремий модуль

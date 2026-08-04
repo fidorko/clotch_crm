@@ -1,7 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { withTenant } from "@/server/db/client";
+import { db, withTenant } from "@/server/db/client";
 import { productColorPhotos, productSkus, products } from "@/server/db/schema";
 import type { ProductSku } from "@/lib/types/product";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function isUniqueViolation(error: unknown): boolean {
   // Drizzle обгортає сиру помилку postgres.js — реальний код лежить у error.cause.code,
@@ -155,6 +157,38 @@ export interface ProductSkuCatalogItem {
 // каталогу знадобиться пошук на сервері замість повного списку.
 const CATALOG_LIMIT = 500;
 
+// Фото прив'язане до пари (productId, color) — не до SKU напряму
+// (product-color-photos.ts). Перше фото за позицією — мініатюра. Спільний
+// хелпер — той самий join потрібен і в listReceivingDocumentItems
+// (server/data/receiving-items.ts), не дублювати.
+export async function buildPhotoLookup(
+  tx: Tx,
+  tenantId: string,
+  productIds: string[]
+): Promise<Map<string, string>> {
+  const photoByProductColor = new Map<string, string>();
+  if (productIds.length === 0) return photoByProductColor;
+
+  const photoRows = await tx
+    .select({
+      id: productColorPhotos.id,
+      productId: productColorPhotos.productId,
+      color: productColorPhotos.color,
+      position: productColorPhotos.position,
+    })
+    .from(productColorPhotos)
+    .where(and(eq(productColorPhotos.tenantId, tenantId), inArray(productColorPhotos.productId, productIds)))
+    .orderBy(asc(productColorPhotos.position));
+
+  for (const photo of photoRows) {
+    const key = `${photo.productId}|${photo.color}`;
+    if (!photoByProductColor.has(key)) {
+      photoByProductColor.set(key, `/api/uploads/product-colors/${photo.id}`);
+    }
+  }
+  return photoByProductColor;
+}
+
 export async function listProductSkusCatalog(tenantId: string): Promise<ProductSkuCatalogItem[]> {
   return withTenant(tenantId, async (tx) => {
     const rows = await tx
@@ -175,31 +209,7 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
       .limit(CATALOG_LIMIT);
 
     const productIds = [...new Set(rows.map((r) => r.productId))];
-    // Фото прив'язане до пари (productId, color) — не до SKU напряму
-    // (product-color-photos.ts). Перше фото за позицією — мініатюра.
-    const photoRows =
-      productIds.length === 0
-        ? []
-        : await tx
-            .select({
-              id: productColorPhotos.id,
-              productId: productColorPhotos.productId,
-              color: productColorPhotos.color,
-              position: productColorPhotos.position,
-            })
-            .from(productColorPhotos)
-            .where(
-              and(eq(productColorPhotos.tenantId, tenantId), inArray(productColorPhotos.productId, productIds))
-            )
-            .orderBy(asc(productColorPhotos.position));
-
-    const photoByProductColor = new Map<string, string>();
-    for (const photo of photoRows) {
-      const key = `${photo.productId}|${photo.color}`;
-      if (!photoByProductColor.has(key)) {
-        photoByProductColor.set(key, `/api/uploads/product-colors/${photo.id}`);
-      }
-    }
+    const photoByProductColor = await buildPhotoLookup(tx, tenantId, productIds);
 
     return rows.map((row) => ({
       id: row.id,

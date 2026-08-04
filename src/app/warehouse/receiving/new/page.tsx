@@ -34,6 +34,7 @@ export default async function ReceivingFormPage({ searchParams }: PageProps) {
   if (isPlanned) {
     return (
       <PlannedReceivingWorkspace
+        documentType="planned"
         warehouses={warehouses}
         suppliers={suppliers}
         skuCatalog={skuCatalog}

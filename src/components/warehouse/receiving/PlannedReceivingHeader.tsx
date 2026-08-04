@@ -1,15 +1,23 @@
 import Link from "next/link";
-import { PackageCheck } from "lucide-react";
+import { Check, PackageCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 
 export function PlannedReceivingHeader({
-  warehouseId,
+  documentType,
+  onAccept,
+  accepting,
   saveSlot,
 }: {
-  warehouseId?: string;
+  documentType: "planned" | "actual";
+  // Присутній лише для планового документа — у фактичному "Прийняти на
+  // склад" уже не рендериться (сам документ і є результатом приймання).
+  onAccept?: () => void;
+  accepting?: boolean;
   saveSlot: React.ReactNode;
 }) {
+  const title = documentType === "planned" ? "Планове надходження" : "Фактичне надходження";
+
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
       <div className="flex items-center justify-between gap-3">
@@ -22,22 +30,21 @@ export function PlannedReceivingHeader({
             Надходження
           </Link>
           <span>/</span>
-          <span className="text-foreground">Планове надходження</span>
+          <span className="text-foreground">{title}</span>
         </nav>
         <HeaderActions />
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Планове надходження</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
         <div className="flex items-center gap-2">
           {saveSlot}
-          <Link
-            href={`/warehouse/receiving/new?type=actual${warehouseId ? `&warehouseId=${warehouseId}` : ""}`}
-            className={buttonVariants({})}
-          >
-            <PackageCheck className="size-4" />
-            Прийняти на склад
-          </Link>
+          {onAccept && (
+            <button type="button" onClick={onAccept} disabled={accepting} className={buttonVariants({})}>
+              {accepting ? <Check className="size-4" /> : <PackageCheck className="size-4" />}
+              Прийняти на склад
+            </button>
+          )}
         </div>
       </div>
     </div>

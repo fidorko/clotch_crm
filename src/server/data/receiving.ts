@@ -1,6 +1,12 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, like, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
-import { receivingDocumentCustomFields, receivingDocuments, suppliers, warehouses } from "@/server/db/schema";
+import {
+  receivingDocumentCustomFields,
+  receivingDocumentItems,
+  receivingDocuments,
+  suppliers,
+  warehouses,
+} from "@/server/db/schema";
 import { formatDateUa } from "@/lib/date-ua";
 import type { ReceivingDocumentListItem } from "@/lib/types/receiving";
 
@@ -8,6 +14,13 @@ export type ReceivingDocumentRow = typeof receivingDocuments.$inferSelect;
 export type ReceivingCustomFieldRow = typeof receivingDocumentCustomFields.$inferSelect;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function isUniqueViolation(error: unknown): boolean {
+  const cause = error instanceof Error ? (error as { cause?: unknown }).cause : undefined;
+  return (
+    typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "23505"
+  );
+}
 
 export interface ReceivingDocumentInput {
   type: "planned" | "actual";
@@ -21,14 +34,51 @@ export interface ReceivingDocumentInput {
   comment: string;
 }
 
-/** RCV-2026-001... — той самий патерн, що generateWarehouseCode (server/data/warehouses.ts). */
+/**
+ * RCV-2026-001... — за МАКСИМАЛЬНИМ наявним номером цього року, не
+ * count(): count лишається незмінним, якщо видалили документ і лишилась
+ * дірка (напр. є лише «002», а «001»/«003+» видалено) — тоді count()+1
+ * знову й знову генерував би той самий зайнятий номер, і ретрай на 23505
+ * ніколи не знайшов би вільного (ловили на прямій перевірці).
+ */
 async function generateReceivingNumber(tx: Tx, tenantId: string): Promise<string> {
+  const prefix = `RCV-${new Date().getFullYear()}-`;
   const [row] = await tx
-    .select({ total: count() })
+    .select({ maxNumber: sql<string | null>`max(${receivingDocuments.number})` })
     .from(receivingDocuments)
-    .where(eq(receivingDocuments.tenantId, tenantId));
-  const next = (row?.total ?? 0) + 1;
-  return `RCV-${new Date().getFullYear()}-${String(next).padStart(3, "0")}`;
+    .where(and(eq(receivingDocuments.tenantId, tenantId), like(receivingDocuments.number, `${prefix}%`)));
+  const nextSuffix = row?.maxNumber ? Number(row.maxNumber.slice(prefix.length)) + 1 : 1;
+  return `${prefix}${String(nextSuffix).padStart(3, "0")}`;
+}
+
+/**
+ * Кожна спроба — ОКРЕМА транзакція (withTenant), не одна спільна: Postgres
+ * абортує всю транзакцію після будь-якої помилки (конфлікт унікальності
+ * теж), тож "зловити 23505 і продовжити в тій самій tx" не спрацював би —
+ * наступний запит одразу впав би з "current transaction is aborted" (саме
+ * так і сталось при перевірці цієї функції). Спільна для
+ * createReceivingDocument і createActualReceivingFromPlanned.
+ */
+async function createReceivingDocumentRow(
+  tenantId: string,
+  values: Omit<typeof receivingDocuments.$inferInsert, "id" | "tenantId" | "number" | "createdAt" | "updatedAt">
+): Promise<ReceivingDocumentRow> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await withTenant(tenantId, async (tx) => {
+        const number = await generateReceivingNumber(tx, tenantId);
+        const [row] = await tx
+          .insert(receivingDocuments)
+          .values({ tenantId, number, ...values })
+          .returning();
+        return row;
+      });
+    } catch (error) {
+      if (isUniqueViolation(error) && attempt < 4) continue;
+      throw error;
+    }
+  }
+  throw new Error("Не вдалося згенерувати номер документа надходження");
 }
 
 /** WHERE tenant_id + id разом (правило 7 розділу 6 CLAUDE.md) — чужий документ просто не знайдеться. */
@@ -50,26 +100,17 @@ export async function createReceivingDocument(
   tenantId: string,
   input: ReceivingDocumentInput
 ): Promise<ReceivingDocumentRow> {
-  return withTenant(tenantId, async (tx) => {
-    const number = await generateReceivingNumber(tx, tenantId);
-    const [row] = await tx
-      .insert(receivingDocuments)
-      .values({
-        tenantId,
-        number,
-        type: input.type,
-        status: "draft",
-        supplierId: input.supplierId,
-        warehouseId: input.warehouseId,
-        plannedDate: input.plannedDate,
-        supplierDocument: input.supplierDocument || null,
-        ttnCarrier: input.ttnCarrier,
-        ttnNumber: input.ttnNumber || null,
-        responsiblePerson: input.responsiblePerson || null,
-        comment: input.comment || null,
-      })
-      .returning();
-    return row;
+  return createReceivingDocumentRow(tenantId, {
+    type: input.type,
+    status: "draft",
+    supplierId: input.supplierId,
+    warehouseId: input.warehouseId,
+    plannedDate: input.plannedDate,
+    supplierDocument: input.supplierDocument || null,
+    ttnCarrier: input.ttnCarrier,
+    ttnNumber: input.ttnNumber || null,
+    responsiblePerson: input.responsiblePerson || null,
+    comment: input.comment || null,
   });
 }
 
@@ -213,16 +254,105 @@ export async function listReceivingDocuments(tenantId: string): Promise<Receivin
       .orderBy(desc(receivingDocuments.createdAt))
       .limit(DOCUMENTS_LIMIT);
 
-    return rows.map((row) => ({
-      id: row.id,
-      number: row.number,
-      type: row.type,
-      status: row.status,
-      basedOnId: row.basedOnId,
-      supplier: row.supplierName,
-      warehouse: row.warehouseName,
-      date: formatDateUa(row.plannedDate ?? row.createdAt),
-      supplierDocument: row.supplierDocument,
-    }));
+    // Агрегати замовлено/прийнято на документ — джерело кольору статусу в
+    // списку (computeReceivingDocDisplayStatus, lib/types/receiving.ts).
+    const aggregateRows = await tx
+      .select({
+        documentId: receivingDocumentItems.documentId,
+        totalOrdered: sql<number>`coalesce(sum(${receivingDocumentItems.ordered}), 0)`,
+        totalReceived: sql<number>`coalesce(sum(${receivingDocumentItems.received}), 0)`,
+        hasUnplannedItems: sql<boolean>`bool_or(${receivingDocumentItems.ordered} = 0)`,
+      })
+      .from(receivingDocumentItems)
+      .where(eq(receivingDocumentItems.tenantId, tenantId))
+      .groupBy(receivingDocumentItems.documentId);
+
+    const aggregateByDocument = new Map(aggregateRows.map((a) => [a.documentId, a]));
+
+    return rows.map((row) => {
+      const aggregate = aggregateByDocument.get(row.id);
+      return {
+        id: row.id,
+        number: row.number,
+        type: row.type,
+        status: row.status,
+        basedOnId: row.basedOnId,
+        supplier: row.supplierName,
+        warehouse: row.warehouseName,
+        date: formatDateUa(row.plannedDate ?? row.createdAt),
+        supplierDocument: row.supplierDocument,
+        totalOrdered: Number(aggregate?.totalOrdered ?? 0),
+        totalReceived: Number(aggregate?.totalReceived ?? 0),
+        hasUnplannedItems: aggregate?.hasUnplannedItems ?? false,
+      };
+    });
   });
+}
+
+/**
+ * «Прийняти на склад» — реальне фактичне приймання на основі планового
+ * (пряма вказівка людини, warehouse-receiving.md). Копіює шапку
+ * (постачальник/склад/документ постачальника/ЕН) і всі позиції (ordered як
+ * у плані, received=0). plannedDate/responsiblePerson/comment навмисно НЕ
+ * копіюються — дата фактичного приймання й відповідальний за приймання
+ * вводяться заново, не успадковуються з плану.
+ */
+export async function createActualReceivingFromPlanned(
+  tenantId: string,
+  plannedDocumentId: string
+): Promise<ReceivingDocumentRow> {
+  const planned = await withTenant(tenantId, async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(receivingDocuments)
+      .where(
+        and(
+          eq(receivingDocuments.tenantId, tenantId),
+          eq(receivingDocuments.id, plannedDocumentId),
+          eq(receivingDocuments.type, "planned")
+        )
+      )
+      .limit(1);
+    return row ?? null;
+  });
+  if (!planned) throw new Error("Плановий документ не знайдено");
+
+  const actual = await createReceivingDocumentRow(tenantId, {
+    type: "actual",
+    status: "draft",
+    basedOnId: planned.id,
+    supplierId: planned.supplierId,
+    warehouseId: planned.warehouseId,
+    plannedDate: null,
+    supplierDocument: planned.supplierDocument,
+    ttnCarrier: planned.ttnCarrier,
+    ttnNumber: planned.ttnNumber,
+    responsiblePerson: null,
+    comment: null,
+  });
+
+  await withTenant(tenantId, async (tx) => {
+    const plannedItems = await tx
+      .select()
+      .from(receivingDocumentItems)
+      .where(
+        and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, planned.id))
+      )
+      .orderBy(asc(receivingDocumentItems.position));
+
+    if (plannedItems.length > 0) {
+      await tx.insert(receivingDocumentItems).values(
+        plannedItems.map((item) => ({
+          tenantId,
+          documentId: actual.id,
+          productSkuId: item.productSkuId,
+          ordered: item.ordered,
+          received: 0,
+          position: item.position,
+        }))
+      );
+    }
+  });
+
+  return actual;
 }

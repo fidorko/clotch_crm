@@ -1,8 +1,10 @@
-import { date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
 import { suppliers } from "./suppliers";
 import { warehouses } from "./warehouses";
+import { productSkus } from "./product-skus";
 
 export const receivingDocumentTypeEnum = pgEnum("receiving_document_type", ["planned", "actual"]);
 export const receivingDocumentStatusEnum = pgEnum("receiving_document_status", [
@@ -14,8 +16,7 @@ export const receivingTtnCarrierEnum = pgEnum("receiving_ttn_carrier", ["nova_po
 
 // Документ надходження (заголовок) — перший реальний бекенд для
 // warehouse-receiving.md (третій прохід планового надходження). Позиції
-// (SKU/кількості) поки НЕ мають власної таблиці — автозберігається лише
-// заголовок форми, warehouse-receiving.md.
+// (SKU/кількості) — таблиця receivingDocumentItems нижче (восьмий прохід).
 export const receivingDocuments = pgTable(
   "receiving_documents",
   {
@@ -80,6 +81,58 @@ export const receivingDocumentCustomFields = pgTable(
       table.documentId,
       table.position
     ),
+    tenantIsolationPolicy(table.tenantId),
+  ]
+).enableRLS();
+
+// Позиції (SKU + кількості) одного надходження — восьмий прохід
+// (warehouse-receiving.md): раніше жили лише в useState браузера й
+// губились при перезавантаженні, тепер реальна таблиця. Без денормалізованих
+// полів (назва/колір/розмір/ШК/фото) — усе джойниться живцем з
+// productSkus+products, той самий принцип, що listProductSkusCatalog
+// (server/data/product-skus.ts).
+export const receivingDocumentItems = pgTable(
+  "receiving_document_items",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => receivingDocuments.id, { onDelete: "cascade" }),
+    // Без onDelete — SKU, що колись фігурував у надходженні, видалити не
+    // можна (той самий навмисний RESTRICT-за-замовчуванням, що supplierId/
+    // warehouseId на receivingDocuments вище).
+    productSkuId: uuid("product_sku_id")
+      .notNull()
+      .references(() => productSkus.id),
+    ordered: integer("ordered").notNull().default(0),
+    // Реально прийнята кількість — єдине місце в проєкті, де змінюється
+    // product_skus.stock (server/data/receiving-items.ts), тому й тут
+    // окрема, не похідна від ordered, колонка.
+    received: integer("received").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("receiving_document_items_tenant_document_idx").on(
+      table.tenantId,
+      table.documentId,
+      table.position
+    ),
+    // Повторний скан/вибір того самого SKU оновлює наявний рядок
+    // (ON CONFLICT DO UPDATE), не плодить дублі.
+    unique("receiving_document_items_tenant_document_sku_key").on(
+      table.tenantId,
+      table.documentId,
+      table.productSkuId
+    ),
+    check("receiving_document_items_ordered_nonneg", sql`${table.ordered} >= 0`),
+    check("receiving_document_items_received_nonneg", sql`${table.received} >= 0`),
     tenantIsolationPolicy(table.tenantId),
   ]
 ).enableRLS();
