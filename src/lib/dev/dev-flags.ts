@@ -1,4 +1,5 @@
 export const DEV_BLOCK_LABELS = {
-  products: true,
+  products: false,
   settings: true,
+  warehouse: true,
 } as const;

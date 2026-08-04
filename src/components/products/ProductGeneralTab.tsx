@@ -90,11 +90,17 @@ export function ProductGeneralTab({
     initialSkus: product.skus,
     initialColorPhotos: product.colorPhotos,
   });
-  // barcode — реальне поле (product_skus.barcode), не мок; решта (reserve/
-  // available/cells/batch) лишається мок-заглушкою, окремий відкритий пункт
-  // (products.md) — не стосується жорсткої привʼязки штрихкоду до SKU.
+  // barcode і stock (залишок) — реальні поля (product_skus.barcode/stock);
+  // cells/batch лишаються мок-заглушкою, окремий відкритий пункт (products.md)
+  // — немає ще ні партій, ні розбивки залишку по кількох комірках у БД.
   const activeSkuDetail = skuMatrix.activeSku
-    ? { ...defaultSelectedSku, id: skuMatrix.activeSku.id, code: skuMatrix.activeSku.code, barcode: skuMatrix.activeSku.barcode }
+    ? {
+        ...defaultSelectedSku,
+        id: skuMatrix.activeSku.id,
+        code: skuMatrix.activeSku.code,
+        barcode: skuMatrix.activeSku.barcode,
+        stock: skuMatrix.activeSku.stock,
+      }
     : undefined;
 
   return (

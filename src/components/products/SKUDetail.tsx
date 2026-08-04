@@ -17,8 +17,10 @@ interface SkuDetail {
   code: string;
   inStock: boolean;
   barcode: string;
-  reserve: number;
-  available: number;
+  // Реальне поле product_skus.stock (products.md) — заміняє колишню мок-пару
+  // reserve/available: резервування в БД поки не існує, а разом ці два мок-
+  // числа виглядали б неузгоджено поруч зі справжнім залишком.
+  stock: number;
   cells: { code: string; qty: number }[];
   batch: string;
 }
@@ -186,11 +188,9 @@ function BarcodeDetailRow({
 function StockDetailRows({ sku }: { sku: SkuDetail }) {
   return (
     <>
-      <DetailRow label="Залишок" value={sku.reserve + sku.available} />
-      <DetailRow label="Резерв" value={sku.reserve} />
       <DetailRow
-        label="Доступно"
-        value={<span className="font-semibold text-primary">{sku.available}</span>}
+        label="Залишок"
+        value={<span className="font-semibold text-primary">{sku.stock}</span>}
       />
       <DetailRow label="Партія" value={sku.batch} />
       <DetailRow

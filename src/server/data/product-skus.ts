@@ -1,6 +1,6 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
-import { productSkus } from "@/server/db/schema";
+import { productColorPhotos, productSkus, products } from "@/server/db/schema";
 import type { ProductSku } from "@/lib/types/product";
 
 function isUniqueViolation(error: unknown): boolean {
@@ -133,5 +133,83 @@ export async function deleteSkus(tenantId: string, skuIds: string[]): Promise<vo
     await tx
       .delete(productSkus)
       .where(and(eq(productSkus.tenantId, tenantId), inArray(productSkus.id, skuIds)));
+  });
+}
+
+export interface ProductSkuCatalogItem {
+  id: string;
+  sku: string;
+  barcode: string | null;
+  productName: string;
+  color: string;
+  colorHex: string;
+  size: string;
+  photoUrl: string | null;
+}
+
+// Джерело для пошуку/додавання позиції в надходження (AddSkuCombobox і
+// сканування штрихкоду в ReceivingItemsTable, warehouse-receiving.md) —
+// клієнтська фільтрація/пошук по `barcode`, як і решта Combobox у проєкті
+// (ui-kit.md), тому весь каталог тенанта одним запитом. LIMIT — правило
+// "На списках завжди LIMIT" (CLAUDE.md розділ 7); для дуже великого
+// каталогу знадобиться пошук на сервері замість повного списку.
+const CATALOG_LIMIT = 500;
+
+export async function listProductSkusCatalog(tenantId: string): Promise<ProductSkuCatalogItem[]> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx
+      .select({
+        id: productSkus.id,
+        productId: productSkus.productId,
+        sku: productSkus.code,
+        barcode: productSkus.barcode,
+        productName: products.name,
+        color: productSkus.color,
+        colorHex: productSkus.colorHex,
+        size: productSkus.size,
+      })
+      .from(productSkus)
+      .innerJoin(products, and(eq(products.id, productSkus.productId), eq(products.tenantId, tenantId)))
+      .where(eq(productSkus.tenantId, tenantId))
+      .orderBy(asc(products.name), asc(productSkus.size))
+      .limit(CATALOG_LIMIT);
+
+    const productIds = [...new Set(rows.map((r) => r.productId))];
+    // Фото прив'язане до пари (productId, color) — не до SKU напряму
+    // (product-color-photos.ts). Перше фото за позицією — мініатюра.
+    const photoRows =
+      productIds.length === 0
+        ? []
+        : await tx
+            .select({
+              id: productColorPhotos.id,
+              productId: productColorPhotos.productId,
+              color: productColorPhotos.color,
+              position: productColorPhotos.position,
+            })
+            .from(productColorPhotos)
+            .where(
+              and(eq(productColorPhotos.tenantId, tenantId), inArray(productColorPhotos.productId, productIds))
+            )
+            .orderBy(asc(productColorPhotos.position));
+
+    const photoByProductColor = new Map<string, string>();
+    for (const photo of photoRows) {
+      const key = `${photo.productId}|${photo.color}`;
+      if (!photoByProductColor.has(key)) {
+        photoByProductColor.set(key, `/api/uploads/product-colors/${photo.id}`);
+      }
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      sku: row.sku,
+      barcode: row.barcode,
+      productName: row.productName,
+      color: row.color,
+      colorHex: row.colorHex,
+      size: row.size,
+      photoUrl: photoByProductColor.get(`${row.productId}|${row.color}`) ?? null,
+    }));
   });
 }

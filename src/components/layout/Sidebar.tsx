@@ -41,7 +41,7 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
   { href: "#", label: "Замовлення", icon: ShoppingCart },
   { href: "#", label: "Клієнти", icon: Users },
   { href: "#", label: "Постачальники", icon: Truck },
-  { href: "#", label: "Склад", icon: Boxes },
+  { href: "/warehouse", label: "Склад", icon: Boxes },
   { href: "#", label: "Аналітика", icon: BarChart3 },
   { href: "#", label: "Маркетинг", icon: Megaphone },
 ];
@@ -71,6 +71,17 @@ function isActive(pathname: string, href: string): boolean {
 function isTabActive(pathname: string, searchTab: string | null, href: string): boolean {
   const [path, query] = href.split("?tab=");
   if (!pathname.startsWith(path)) return false;
+
+  // Розділи з власними вкладеними маршрутами, не query-параметром (наразі
+  // лише «Склади»: /settings/warehouses/new, /settings/warehouses/[id]) —
+  // визначаємо за сегментом шляху. Без цієї гілки на таких сторінках
+  // searchTab==null і спрацьовував дефолт "categories" нижче — підсвічувало
+  // «Категорії товару» замість «Склади» (баг, помічено людиною 2026-08-04).
+  if (pathname === `/settings/${query}` || pathname.startsWith(`/settings/${query}/`)) {
+    return true;
+  }
+  if (pathname !== "/settings") return false;
+
   return (searchTab ?? "categories") === query;
 }
 

@@ -26,10 +26,12 @@ import { productMaterialComposition } from "./product-material-composition";
 import { productActivityLog } from "./product-activity-log";
 import { warehouses } from "./warehouses";
 import { warehouseBinStreets, warehouseBinRacks, warehouseBinCells } from "./warehouse-bin-locations";
+import { receivingDocuments, receivingDocumentCustomFields } from "./receiving";
 
 export * from "./tenants";
 export * from "./warehouses";
 export * from "./warehouse-bin-locations";
+export * from "./receiving";
 export * from "./category-images";
 export * from "./products";
 export * from "./product-skus";
@@ -122,6 +124,18 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   sizeTypes: many(sizeTypes),
   measurementTypes: many(measurementTypes),
   warehouses: many(warehouses),
+  receivingDocuments: many(receivingDocuments),
+}));
+
+export const receivingDocumentsRelations = relations(receivingDocuments, ({ many }) => ({
+  customFields: many(receivingDocumentCustomFields),
+}));
+
+export const receivingDocumentCustomFieldsRelations = relations(receivingDocumentCustomFields, ({ one }) => ({
+  document: one(receivingDocuments, {
+    fields: [receivingDocumentCustomFields.documentId],
+    references: [receivingDocuments.id],
+  }),
 }));
 
 export const warehousesRelations = relations(warehouses, ({ many }) => ({
