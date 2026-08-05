@@ -7,6 +7,8 @@ import { productTags } from "./product-tags";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
 import { colors } from "./colors";
+import { deliveryMethods } from "./delivery-methods";
+import { deliveryMethodStatusRules } from "./delivery-method-status-rules";
 import { orderStatuses } from "./order-statuses";
 import { currencies } from "./currencies";
 import { customCharacteristics, customCharacteristicValues } from "./custom-characteristics";
@@ -46,6 +48,8 @@ export * from "./product-size-measurements";
 export * from "./product-tags";
 export * from "./categories";
 export * from "./colors";
+export * from "./delivery-methods";
+export * from "./delivery-method-status-rules";
 export * from "./order-statuses";
 export * from "./currencies";
 export * from "./custom-characteristics";
@@ -120,7 +124,9 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   products: many(products),
   categories: many(categories),
   colors: many(colors),
+  deliveryMethods: many(deliveryMethods),
   orderStatuses: many(orderStatuses),
+  deliveryMethodStatusRules: many(deliveryMethodStatusRules),
   currencies: many(currencies),
   suppliers: many(suppliers),
   referenceItems: many(referenceItems),
@@ -229,6 +235,21 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 
 export const categoryCharacteristicsRelations = relations(categoryCharacteristics, ({ one }) => ({
   category: one(categories, { fields: [categoryCharacteristics.categoryId], references: [categories.id] }),
+}));
+
+export const deliveryMethodsRelations = relations(deliveryMethods, ({ many }) => ({
+  statusRules: many(deliveryMethodStatusRules),
+}));
+
+export const deliveryMethodStatusRulesRelations = relations(deliveryMethodStatusRules, ({ one }) => ({
+  deliveryMethod: one(deliveryMethods, {
+    fields: [deliveryMethodStatusRules.deliveryMethodId],
+    references: [deliveryMethods.id],
+  }),
+  orderStatus: one(orderStatuses, {
+    fields: [deliveryMethodStatusRules.orderStatusId],
+    references: [orderStatuses.id],
+  }),
 }));
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({

@@ -3,11 +3,13 @@ import { SettingsHeader } from "@/components/settings/SettingsHeader";
 import { ReferencesList } from "@/components/settings/ReferencesList";
 import { CategoriesTab } from "@/components/settings/CategoriesTab";
 import { WarehousesTab } from "@/components/settings/WarehousesTab";
+import { DeliveryTab } from "@/components/settings/DeliveryTab";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listWarehouses } from "@/server/data/warehouses";
 import { listColors } from "@/server/data/colors";
+import { listAllDeliveryMethodStatusRules, listDeliveryMethods } from "@/server/data/delivery-methods";
 import { listOrderStatuses } from "@/server/data/order-statuses";
 import { listCurrencies } from "@/server/data/currencies";
 import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
@@ -32,7 +34,6 @@ const EMPTY_SECTION_TITLES: Record<string, string> = {
   storefront: "Вітрина магазину",
   general: "Загальні",
   orders: "Замовлення",
-  delivery: "Доставка",
   payment: "Оплата",
   plan: "Тарифний план",
 };
@@ -56,6 +57,19 @@ async function WarehousesSection({ tenantId, dev }: { tenantId: string; dev: boo
   return (
     <DevBlockLabel name="WarehousesTab" enabled={dev}>
       <WarehousesTab warehouses={warehouses} />
+    </DevBlockLabel>
+  );
+}
+
+async function DeliverySection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
+  const [deliveryMethods, statusRules, orderStatuses] = await Promise.all([
+    listDeliveryMethods(tenantId),
+    listAllDeliveryMethodStatusRules(tenantId),
+    listOrderStatuses(tenantId),
+  ]);
+  return (
+    <DevBlockLabel name="DeliveryTab" enabled={dev}>
+      <DeliveryTab deliveryMethods={deliveryMethods} statusRules={statusRules} orderStatuses={orderStatuses} />
     </DevBlockLabel>
   );
 }
@@ -128,7 +142,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   // Невідоме/відсутнє значення ?tab= тихо трактується як "categories" —
   // URL-параметр ніколи не повинен ламати чи спорожняти сторінку.
   const tab =
-    rawTab === "references" || rawTab === "warehouses" || (rawTab && rawTab in EMPTY_SECTION_TITLES)
+    rawTab === "references" ||
+    rawTab === "warehouses" ||
+    rawTab === "delivery" ||
+    (rawTab && rawTab in EMPTY_SECTION_TITLES)
       ? rawTab
       : "categories";
   const dev = DEV_BLOCK_LABELS.settings;
@@ -144,6 +161,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         {tab === "categories" && <CategoriesSection tenantId={tenantId} dev={dev} />}
         {tab === "references" && <ReferencesSection tenantId={tenantId} dev={dev} />}
         {tab === "warehouses" && <WarehousesSection tenantId={tenantId} dev={dev} />}
+        {tab === "delivery" && <DeliverySection tenantId={tenantId} dev={dev} />}
         {tab in EMPTY_SECTION_TITLES && (
           <p className="text-sm text-muted-foreground">
             Розділ «{EMPTY_SECTION_TITLES[tab]}» ще в розробці.

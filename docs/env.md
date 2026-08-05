@@ -18,6 +18,7 @@
 | `APP_DATABASE_URL` | Non-owner роль `app_user` (Supabase, Session pooler) — запити застосунку (`src/server/db/client.ts`). RLS діє. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | `docker-compose.yml` — локальний офлайн-фолбек, не використовується за замовчуванням |
 | `DEV_TENANT_ID` | `TODO(auth)` — тимчасовий tenantId, доки нема сесій. Див. `db.md`. |
+| `NP_API_KEY` | Ключ API Нової пошти (`api.novaposhta.ua/v2.0/json/`) — лише для `db:seed`, підставляється в дев-тенант («Доставка» → «Нова Пошта», `settings-delivery.md`). Реальний ключ живе тільки в `.env` (не в моках/сіді/комітах); без нього сід просто лишає той рядок без ключа (статус «Потрібен ключ»). |
 
 ## Supabase — підключення
 Project ref `edgqipyltkrlvgniurvd`. Пряме підключення (`db.<ref>.supabase.co:5432`) резолвиться лише в IPv6 — у мережах без IPv6-маршруту таймаутить, тому підключення йде через **Session pooler** (`aws-0-eu-west-1.pooler.supabase.com:5432`, IPv4), не Transaction pooler (не годиться для DDL/міграцій). Username для pooler — `<role>.<project-ref>` (напр. `app_user.edgqipyltkrlvgniurvd`), сам Postgres-роль без суфікса (`app_user`) створює/оновлює `db:setup-role` за іменем з `APP_DATABASE_URL`. Роль уже створена й спільна — на новій машині досить скопіювати `.env`, повторний `db:setup-role` (через `predev`) лише підтвердить пароль, нічого не зламає.

@@ -1,0 +1,1 @@
+ALTER TABLE "delivery_methods" ADD CONSTRAINT "delivery_methods_tenant_name_key" UNIQUE("tenant_id","name");

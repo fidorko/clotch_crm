@@ -351,6 +351,48 @@
       "when": 1785951733757,
       "tag": "0049_shocking_ronan",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785957357718,
+      "tag": "0050_jittery_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785958305641,
+      "tag": "0051_freezing_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1785959096221,
+      "tag": "0052_nervous_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785959811714,
+      "tag": "0053_careless_leper_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1785960943492,
+      "tag": "0054_optimal_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785960973458,
+      "tag": "0055_cute_stature",
+      "breakpoints": true
     }
   ]
 }
