@@ -86,7 +86,7 @@ export function PlannedReceivingInfoForm({
   const [newFieldLabel, setNewFieldLabel] = useState("");
 
   const hasRealSuppliers = suppliers.length > 0;
-  const supplierValue = values.supplierId ?? undefined;
+  const supplierValue = values.supplierId ?? "";
   const selectedWarehouseName = warehouses.find((w) => w.id === values.warehouseId)?.name;
 
   function submitNewField() {
@@ -157,7 +157,7 @@ export function PlannedReceivingInfoForm({
               </span>
             ) : (
               <Select
-                value={values.warehouseId || undefined}
+                value={values.warehouseId || ""}
                 onValueChange={(v) => v && onChange({ warehouseId: v })}
                 disabled={locked}
               >
@@ -257,7 +257,7 @@ export function PlannedReceivingInfoForm({
         <div className="flex flex-col gap-1.5">
           <RequiredFieldLabel>Відповідальна особа</RequiredFieldLabel>
           <Select
-            value={values.responsible || undefined}
+            value={values.responsible || ""}
             onValueChange={(v) => v && onChange({ responsible: v })}
             disabled={locked}
           >
