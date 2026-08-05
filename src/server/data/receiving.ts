@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, like, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import {
+  productSkus,
   receivingDocumentCustomFields,
   receivingDocumentItems,
   receivingDocuments,
@@ -19,6 +20,13 @@ function isUniqueViolation(error: unknown): boolean {
   const cause = error instanceof Error ? (error as { cause?: unknown }).cause : undefined;
   return (
     typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "23505"
+  );
+}
+
+function isCheckViolation(error: unknown): boolean {
+  const cause = error instanceof Error ? (error as { cause?: unknown }).cause : undefined;
+  return (
+    typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "23514"
   );
 }
 
@@ -196,23 +204,42 @@ export async function updateReceivingCustomFieldValue(
 }
 
 /**
- * Лише планове можна видалити — фактичне ні (пряма вказівка людини). Умова
- * — `type = 'planned'` прямо в WHERE поруч із `tenant_id`, а не окрема
- * перевірка після читання: чужий/фактичний документ просто не знайдеться
- * й не видалиться, без різниці в повідомленні про причину.
+ * Планове й фактичне можна видалити (за прямою вказівкою людини — раніше
+ * фактичне було заборонено, warehouse-receiving.md). Для фактичного —
+ * спершу відкочуємо `product_skus.stock` за кожною прийнятою позицією (той
+ * самий принцип, що `deleteReceivingDocumentItems`), потім видаляємо сам
+ * документ — `receiving_document_items` видаляються каскадно (FK
+ * `onDelete: cascade`). Якщо частину прийнятого залишку вже витрачено
+ * деінде, відкат впаде на тому самому `CHECK (stock >= 0)`, що й ручне
+ * зменшення «Прийнято» — та сама помилка користувачу.
  */
 export async function deleteReceivingDocument(tenantId: string, id: string): Promise<void> {
-  await withTenant(tenantId, async (tx) => {
-    await tx
-      .delete(receivingDocuments)
-      .where(
-        and(
-          eq(receivingDocuments.tenantId, tenantId),
-          eq(receivingDocuments.id, id),
-          eq(receivingDocuments.type, "planned")
-        )
-      );
-  });
+  try {
+    await withTenant(tenantId, async (tx) => {
+      const items = await tx
+        .select({ productSkuId: receivingDocumentItems.productSkuId, received: receivingDocumentItems.received })
+        .from(receivingDocumentItems)
+        .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, id)));
+
+      for (const item of items) {
+        if (item.received !== 0) {
+          await tx
+            .update(productSkus)
+            .set({ stock: sql`${productSkus.stock} - ${item.received}`, updatedAt: new Date() })
+            .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
+        }
+      }
+
+      await tx
+        .delete(receivingDocuments)
+        .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, id)));
+    });
+  } catch (error) {
+    if (isCheckViolation(error)) {
+      throw new Error("Неможливо видалити — прийнятий залишок цього надходження вже використано деінде");
+    }
+    throw error;
+  }
 }
 
 export async function deleteReceivingCustomField(tenantId: string, id: string): Promise<void> {

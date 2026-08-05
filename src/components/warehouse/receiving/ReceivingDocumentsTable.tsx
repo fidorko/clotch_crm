@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Copy, CornerDownRight, Download, PackageCheck, Printer, Trash2 } from "lucide-react";
@@ -76,18 +76,22 @@ function groupDocuments(docs: ReceivingDocumentListItem[]): Row[] {
 }
 
 // Копіювати/Друк/Експорт — заглушки (нема бекенду під них). Видалення —
-// реальне, і лише для планового: фактичне видалити не можна (пряма вказівка
-// людини) — тому кнопка навіть не рендериться для type=actual, не просто
-// вимкнена. «Прийняти на склад» — так само лише для планового: створює
-// реальний фактичний документ на його основі (warehouse-receiving.md).
+// реальне для обох типів (за прямою вказівкою людини); для фактичного
+// сервер попутно відкочує product_skus.stock за прийнятими позиціями
+// (server/data/receiving.ts). «Прийняти на склад» — лише для планового:
+// створює реальний фактичний документ на його основі (warehouse-receiving.md).
 function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
     startTransition(async () => {
-      await deleteReceivingDocumentAction(doc.id);
-      router.refresh();
+      try {
+        await deleteReceivingDocumentAction(doc.id);
+        router.refresh();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "Не вдалося видалити документ");
+      }
     });
   }
 
@@ -120,35 +124,37 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
           <PackageCheck className="size-4" />
         </Button>
       )}
-      {doc.type === "planned" && (
-        <Dialog>
-          <DialogTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={isPending}
-                aria-label={`Видалити документ ${doc.number}`}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              />
-            }
-          >
-            <Trash2 className="size-4" />
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Видалити документ?</DialogTitle>
-              <DialogDescription>Планове надходження «{doc.number}» буде видалено остаточно.</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>Скасувати</DialogClose>
-              <DialogClose render={<Button type="button" variant="destructive" onClick={handleDelete} />}>
-                Видалити
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog>
+        <DialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={isPending}
+              aria-label={`Видалити документ ${doc.number}`}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            />
+          }
+        >
+          <Trash2 className="size-4" />
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Видалити документ?</DialogTitle>
+            <DialogDescription>
+              {doc.type === "planned"
+                ? `Планове надходження «${doc.number}» буде видалено остаточно.`
+                : `Фактичне надходження «${doc.number}» буде видалено остаточно. Прийнята кількість буде списана зі складського залишку.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Скасувати</DialogClose>
+            <DialogClose render={<Button type="button" variant="destructive" onClick={handleDelete} />}>
+              Видалити
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -312,15 +318,14 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
               row.kind === "single" ? (
                 <DocumentRow key={row.doc.id} doc={row.doc} />
               ) : (
-                <>
-                  <DocumentRow key={row.planned.id} doc={row.planned} groupTint noBottomBorder />
+                <Fragment key={row.planned.id}>
+                  <DocumentRow doc={row.planned} groupTint noBottomBorder />
                   <DocumentRow
-                    key={row.actual.id}
                     doc={row.actual}
                     groupTint
                     linkedNote={`на основі ${row.planned.number}`}
                   />
-                </>
+                </Fragment>
               )
             )}
             {rows.length === 0 && (
