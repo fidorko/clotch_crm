@@ -6,8 +6,9 @@ export type DeliveryMethodRow = typeof deliveryMethods.$inferSelect;
 export type DeliveryMethodStatusRuleRow = typeof deliveryMethodStatusRules.$inferSelect;
 export type DeliveryMethodPayer = "sender" | "recipient" | "third_party";
 export type DeliveryMethodDeclaredValueMode = "order_amount" | "minimum_amount";
-export type DeliveryMethodPackaging = "none" | "carrier_packaging" | "own_packaging";
 export type DeliveryMethodDescriptionContent = "order_id" | "product_sku" | "product_names";
+export type DeliveryMethodSenderAddressType = "warehouse" | "address";
+export type DeliveryMethodMarkingPrinterType = "thermal" | "regular";
 
 export interface DeliveryMethodStatusRuleInput {
   carrierStatus: string;
@@ -24,22 +25,21 @@ export interface DeliveryMethodInput {
   senderContactPersonRef: string | null;
   senderContactPerson: string | null;
   senderPhone: string | null;
+  senderAddressType: DeliveryMethodSenderAddressType;
   senderCityRef: string | null;
   senderCity: string | null;
   senderWarehouseRef: string | null;
   senderAddressOrWarehouse: string | null;
-  allowedServiceTypes: string[];
+  senderStreetRef: string | null;
+  senderStreet: string | null;
+  senderHouseNumber: string | null;
   payer: DeliveryMethodPayer;
   declaredValueMode: DeliveryMethodDeclaredValueMode;
   declaredValueMinimum: string | null;
   syncFrequencyMinutes: number | null;
   orderReturnOnRefusal: boolean;
-  packaging: DeliveryMethodPackaging;
-  packRef: string | null;
-  packDescription: string | null;
-  labelFormat: string | null;
-  waybillFormat: string | null;
-  printerName: string | null;
+  useCarrierPackaging: boolean;
+  markingPrinterType: DeliveryMethodMarkingPrinterType;
   descriptionContent: DeliveryMethodDescriptionContent;
   descriptionIncludeQuantity: boolean;
   statusRules: DeliveryMethodStatusRuleInput[];
@@ -197,22 +197,21 @@ function valuesFromInput(input: DeliveryMethodInput) {
     senderContactPersonRef: input.senderContactPersonRef,
     senderContactPerson: input.senderContactPerson,
     senderPhone: input.senderPhone,
+    senderAddressType: input.senderAddressType,
     senderCityRef: input.senderCityRef,
     senderCity: input.senderCity,
     senderWarehouseRef: input.senderWarehouseRef,
     senderAddressOrWarehouse: input.senderAddressOrWarehouse,
-    allowedServiceTypes: input.allowedServiceTypes,
+    senderStreetRef: input.senderStreetRef,
+    senderStreet: input.senderStreet,
+    senderHouseNumber: input.senderHouseNumber,
     payer: input.payer,
     declaredValueMode: input.declaredValueMode,
     declaredValueMinimum: input.declaredValueMinimum,
     syncFrequencyMinutes: input.syncFrequencyMinutes,
     orderReturnOnRefusal: input.orderReturnOnRefusal,
-    packaging: input.packaging,
-    packRef: input.packRef,
-    packDescription: input.packDescription,
-    labelFormat: input.labelFormat,
-    waybillFormat: input.waybillFormat,
-    printerName: input.printerName,
+    useCarrierPackaging: input.useCarrierPackaging,
+    markingPrinterType: input.markingPrinterType,
     descriptionContent: input.descriptionContent,
     descriptionIncludeQuantity: input.descriptionIncludeQuantity,
   };

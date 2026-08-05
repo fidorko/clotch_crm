@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition, type ReactElement } from "react";
 import {
   Dialog,
@@ -12,23 +13,30 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { DeliveryMethodSenderFields } from "@/components/settings/DeliveryMethodSenderFields";
-import { DeliveryMethodShippingRulesFields } from "@/components/settings/DeliveryMethodShippingRulesFields";
+import {
+  DeliveryMethodDescriptionFields,
+  DeliveryMethodPayerFields,
+} from "@/components/settings/DeliveryMethodShippingRulesFields";
 import { DeliveryMethodAutomationFields, type StatusRuleDraft } from "@/components/settings/DeliveryMethodAutomationFields";
 import { DeliveryMethodPackagingFields } from "@/components/settings/DeliveryMethodPackagingFields";
 import type { DeliveryMethodRow, DeliveryMethodStatusRuleRow } from "@/server/data/delivery-methods";
 import type { OrderStatusRow } from "@/server/data/order-statuses";
-import type { NpCounterparty, NpPackItem } from "@/server/integrations/nova-poshta";
+import type { CarrierCounterparty } from "@/server/carriers/carrier.interface";
 import {
   createDeliveryMethodAction,
   testDeliveryApiKeyAction,
   updateDeliveryMethodAction,
   type DeliveryMethodFormInput,
 } from "@/app/settings/delivery/actions";
-import { listPackListAction, listSenderCounterpartiesAction } from "@/app/settings/delivery/np-lookup-actions";
-import { NOVA_POSHTA_SERVICE_TYPES } from "@/lib/constants/nova-poshta";
+import { listSenderCounterpartiesAction } from "@/app/settings/delivery/np-lookup-actions";
+import { CARRIER_LOGOS, SYSTEM_CARRIER_KEYS } from "@/lib/constants/carrier-logos";
+
+/** Обгортка-картка — візуальне розділення попапу на логічні блоки (пряма вказівка людини, 2026-08-06). */
+function FormSection({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={`rounded-lg border border-border bg-muted/20 p-4 ${className ?? ""}`}>{children}</div>;
+}
 
 function defaultsFrom(method: DeliveryMethodRow | undefined): DeliveryMethodFormInput {
   if (!method) {
@@ -42,22 +50,21 @@ function defaultsFrom(method: DeliveryMethodRow | undefined): DeliveryMethodForm
       senderContactPersonRef: "",
       senderContactPerson: "",
       senderPhone: "",
+      senderAddressType: "warehouse",
       senderCityRef: "",
       senderCity: "",
       senderWarehouseRef: "",
       senderAddressOrWarehouse: "",
-      allowedServiceTypes: NOVA_POSHTA_SERVICE_TYPES.map((t) => t.ref),
+      senderStreetRef: "",
+      senderStreet: "",
+      senderHouseNumber: "",
       payer: "recipient",
       declaredValueMode: "order_amount",
       declaredValueMinimum: "500",
       syncFrequencyMinutes: "",
       orderReturnOnRefusal: false,
-      packaging: "none",
-      packRef: "",
-      packDescription: "",
-      labelFormat: "",
-      waybillFormat: "",
-      printerName: "",
+      useCarrierPackaging: false,
+      markingPrinterType: "regular",
       descriptionContent: "product_names",
       descriptionIncludeQuantity: true,
       statusRules: [],
@@ -73,22 +80,21 @@ function defaultsFrom(method: DeliveryMethodRow | undefined): DeliveryMethodForm
     senderContactPersonRef: method.senderContactPersonRef ?? "",
     senderContactPerson: method.senderContactPerson ?? "",
     senderPhone: method.senderPhone ?? "",
+    senderAddressType: method.senderAddressType,
     senderCityRef: method.senderCityRef ?? "",
     senderCity: method.senderCity ?? "",
     senderWarehouseRef: method.senderWarehouseRef ?? "",
     senderAddressOrWarehouse: method.senderAddressOrWarehouse ?? "",
-    allowedServiceTypes: method.allowedServiceTypes,
+    senderStreetRef: method.senderStreetRef ?? "",
+    senderStreet: method.senderStreet ?? "",
+    senderHouseNumber: method.senderHouseNumber ?? "",
     payer: method.payer,
     declaredValueMode: method.declaredValueMode,
     declaredValueMinimum: method.declaredValueMinimum ?? "",
     syncFrequencyMinutes: method.syncFrequencyMinutes?.toString() ?? "",
     orderReturnOnRefusal: method.orderReturnOnRefusal,
-    packaging: method.packaging,
-    packRef: method.packRef ?? "",
-    packDescription: method.packDescription ?? "",
-    labelFormat: method.labelFormat ?? "",
-    waybillFormat: method.waybillFormat ?? "",
-    printerName: method.printerName ?? "",
+    useCarrierPackaging: method.useCarrierPackaging,
+    markingPrinterType: method.markingPrinterType,
     descriptionContent: method.descriptionContent,
     descriptionIncludeQuantity: method.descriptionIncludeQuantity,
     statusRules: [],
@@ -114,6 +120,8 @@ export function DeliveryMethodFormDialog({
 }) {
   const isEdit = Boolean(method);
   const isNovaPoshta = method?.carrierKey === "nova_poshta";
+  const isSystemCarrier = Boolean(method && SYSTEM_CARRIER_KEYS.includes(method.carrierKey));
+  const logo = method ? CARRIER_LOGOS[method.carrierKey] : undefined;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DeliveryMethodFormInput>(() => defaultsFrom(method));
   const [rules, setRules] = useState<StatusRuleDraft[]>(() => draftsFrom(statusRules));
@@ -121,8 +129,7 @@ export function DeliveryMethodFormDialog({
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isTesting, startTesting] = useTransition();
-  const [senderCounterparties, setSenderCounterparties] = useState<NpCounterparty[]>([]);
-  const [packList, setPackList] = useState<NpPackItem[]>([]);
+  const [senderCounterparties, setSenderCounterparties] = useState<CarrierCounterparty[]>([]);
   const [npDataError, setNpDataError] = useState<string | null>(null);
 
   function setField<K extends keyof DeliveryMethodFormInput>(field: K, value: DeliveryMethodFormInput[K]) {
@@ -139,15 +146,10 @@ export function DeliveryMethodFormDialog({
       setTestResult(null);
       setNpDataError(null);
       setSenderCounterparties([]);
-      setPackList([]);
       if (isNovaPoshta && initial.apiKey) {
-        Promise.all([
-          listSenderCounterpartiesAction(initial.apiKey),
-          listPackListAction(initial.apiKey),
-        ]).then(([counterpartiesResult, packListResult]) => {
-          if (counterpartiesResult.ok) setSenderCounterparties(counterpartiesResult.items);
-          else setNpDataError(counterpartiesResult.message);
-          if (packListResult.ok) setPackList(packListResult.items);
+        listSenderCounterpartiesAction(initial.apiKey).then((result) => {
+          if (result.ok) setSenderCounterparties(result.items);
+          else setNpDataError(result.message);
         });
       }
     }
@@ -185,9 +187,14 @@ export function DeliveryMethodFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Редагувати спосіб доставки" : "Додати спосіб доставки"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {logo && (
+              <Image src={logo} alt="" width={24} height={24} className="rounded object-contain" unoptimized />
+            )}
+            {isEdit ? "Редагувати спосіб доставки" : "Додати спосіб доставки"}
+          </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Зміни зберігаються одразу для всього тенанта."
@@ -195,10 +202,10 @@ export function DeliveryMethodFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          <FormSection>
             <h3 className="text-sm font-semibold text-foreground">Дані API</h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="mt-3 flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground" htmlFor="delivery-method-name">
                 Назва *
               </label>
@@ -207,74 +214,75 @@ export function DeliveryMethodFormDialog({
                 value={form.name}
                 onChange={(e) => setField("name", e.target.value)}
                 placeholder="Наприклад, Нова Пошта"
-                autoFocus
+                autoFocus={!isSystemCarrier}
+                disabled={isSystemCarrier}
+                className="sm:w-1/2"
               />
+              {isSystemCarrier && (
+                <p className="text-xs text-muted-foreground">Системний спосіб доставки — назва не редагується.</p>
+              )}
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <Checkbox
-                checked={form.requiresApiKey}
-                onCheckedChange={(v) => setField("requiresApiKey", v === true)}
-              />
-              Потребує API-ключ перевізника
-            </label>
-
             {form.requiresApiKey && (
-              <>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-foreground" htmlFor="delivery-method-api-key">
-                    API Key
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="delivery-method-api-key"
-                      value={form.apiKey}
-                      onChange={(e) => setField("apiKey", e.target.value)}
-                      placeholder="Ключ з особистого кабінету перевізника"
-                      type="password"
-                      className="flex-1"
-                    />
-                    <Button type="button" variant="outline" onClick={handleTestConnection} disabled={isTesting}>
-                      Перевірити підключення
-                    </Button>
-                  </div>
-                  {testResult && (
-                    <p className={testResult.ok ? "text-sm text-success" : "text-sm text-destructive"}>
-                      {testResult.message}
-                    </p>
-                  )}
+              <div className="mt-3 flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground" htmlFor="delivery-method-api-key">
+                  API Key
+                </label>
+                <div className="flex items-center gap-2 sm:w-2/3">
+                  <Input
+                    id="delivery-method-api-key"
+                    value={form.apiKey}
+                    onChange={(e) => setField("apiKey", e.target.value)}
+                    placeholder="Ключ з особистого кабінету перевізника"
+                    type="password"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" onClick={handleTestConnection} disabled={isTesting}>
+                    Перевірити підключення
+                  </Button>
                 </div>
-              </>
+                {testResult && (
+                  <p className={testResult.ok ? "text-sm text-success" : "text-sm text-destructive"}>
+                    {testResult.message}
+                  </p>
+                )}
+              </div>
             )}
-
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <Checkbox checked={form.isEnabled} onCheckedChange={(v) => setField("isEnabled", v === true)} />
-              Увімкнено
-            </label>
-          </div>
+          </FormSection>
 
           {form.requiresApiKey && (
             <>
-              <DeliveryMethodSenderFields
-                form={form}
-                setField={setField}
-                isNovaPoshta={isNovaPoshta}
-                senderCounterparties={senderCounterparties}
-              />
-              <DeliveryMethodShippingRulesFields form={form} setField={setField} />
-              <DeliveryMethodAutomationFields
-                form={form}
-                setField={setField}
-                statusRules={rules}
-                onStatusRulesChange={setRules}
-                orderStatuses={orderStatuses}
-              />
-              <DeliveryMethodPackagingFields
-                form={form}
-                setField={setField}
-                isNovaPoshta={isNovaPoshta}
-                packList={packList}
-              />
+              <FormSection>
+                <DeliveryMethodSenderFields
+                  form={form}
+                  setField={setField}
+                  isNovaPoshta={isNovaPoshta}
+                  senderCounterparties={senderCounterparties}
+                />
+              </FormSection>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormSection>
+                  <DeliveryMethodPayerFields form={form} setField={setField} />
+                </FormSection>
+                <FormSection className="flex flex-col gap-4">
+                  <DeliveryMethodPackagingFields form={form} setField={setField} />
+                </FormSection>
+              </div>
+
+              <FormSection>
+                <DeliveryMethodDescriptionFields form={form} setField={setField} />
+              </FormSection>
+
+              <FormSection>
+                <DeliveryMethodAutomationFields
+                  form={form}
+                  setField={setField}
+                  statusRules={rules}
+                  onStatusRulesChange={setRules}
+                  orderStatuses={orderStatuses}
+                />
+              </FormSection>
             </>
           )}
 

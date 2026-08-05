@@ -1,12 +1,13 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Repeat, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
 import type { OrderStatusRow } from "@/server/data/order-statuses";
+import { NOVA_POSHTA_TRACKING_STATUSES } from "@/lib/constants/nova-poshta";
 
 export interface StatusRuleDraft {
   key: string;
@@ -42,7 +43,10 @@ export function DeliveryMethodAutomationFields({
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-foreground">Автоматичні дії</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <Repeat className="size-4 text-muted-foreground" />
+        Автоматичні дії
+      </h3>
 
       <div className="flex flex-col gap-1.5">
         <label className="text-xs text-muted-foreground">Частота синхронізації, хв</label>
@@ -71,12 +75,25 @@ export function DeliveryMethodAutomationFields({
         <span className="text-xs text-muted-foreground">При статусі перевізника → змінити статус замовлення на</span>
         {statusRules.map((rule) => (
           <div key={rule.key} className="flex items-center gap-2">
-            <Input
+            <Select
               value={rule.carrierStatus}
-              onChange={(e) => updateRule(rule.key, { carrierStatus: e.target.value })}
-              placeholder="Напр. Видано"
-              className="flex-1"
-            />
+              onValueChange={(v) => updateRule(rule.key, { carrierStatus: v ?? "" })}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue>
+                  {(v: string) =>
+                    NOVA_POSHTA_TRACKING_STATUSES.find((s) => s.code === v)?.label ?? "Оберіть статус перевізника"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {NOVA_POSHTA_TRACKING_STATUSES.map((s) => (
+                  <SelectItem key={s.code} value={s.code}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select
               value={rule.orderStatusId ?? ""}
               onValueChange={(v) => updateRule(rule.key, { orderStatusId: v || null })}

@@ -393,6 +393,20 @@
       "when": 1785960973458,
       "tag": "0055_cute_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785968608966,
+      "tag": "0056_early_wendigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1785968674488,
+      "tag": "0057_long_epoch",
+      "breakpoints": true
     }
   ]
 }

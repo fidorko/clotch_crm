@@ -9,13 +9,14 @@ import {
   type DeliveryMethodDeclaredValueMode,
   type DeliveryMethodDescriptionContent,
   type DeliveryMethodInput,
-  type DeliveryMethodPackaging,
+  type DeliveryMethodMarkingPrinterType,
   type DeliveryMethodPayer,
   type DeliveryMethodRow,
+  type DeliveryMethodSenderAddressType,
   type DeliveryMethodStatusRuleInput,
 } from "@/server/data/delivery-methods";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
-import { searchNovaPoshtaCities } from "@/server/integrations/nova-poshta";
+import { NovaPoshtaProvider } from "@/server/carriers/novaposhta/provider";
 
 export interface DeliveryMethodFormInput {
   name: string;
@@ -27,22 +28,21 @@ export interface DeliveryMethodFormInput {
   senderContactPersonRef: string;
   senderContactPerson: string;
   senderPhone: string;
+  senderAddressType: DeliveryMethodSenderAddressType;
   senderCityRef: string;
   senderCity: string;
   senderWarehouseRef: string;
   senderAddressOrWarehouse: string;
-  allowedServiceTypes: string[];
+  senderStreetRef: string;
+  senderStreet: string;
+  senderHouseNumber: string;
   payer: DeliveryMethodPayer;
   declaredValueMode: DeliveryMethodDeclaredValueMode;
   declaredValueMinimum: string;
   syncFrequencyMinutes: string;
   orderReturnOnRefusal: boolean;
-  packaging: DeliveryMethodPackaging;
-  packRef: string;
-  packDescription: string;
-  labelFormat: string;
-  waybillFormat: string;
-  printerName: string;
+  useCarrierPackaging: boolean;
+  markingPrinterType: DeliveryMethodMarkingPrinterType;
   descriptionContent: DeliveryMethodDescriptionContent;
   descriptionIncludeQuantity: boolean;
   statusRules: DeliveryMethodStatusRuleInput[];
@@ -69,22 +69,21 @@ function parseDeliveryMethodInput(raw: DeliveryMethodFormInput): DeliveryMethodI
     senderContactPersonRef: raw.senderContactPersonRef.trim() || null,
     senderContactPerson: raw.senderContactPerson.trim() || null,
     senderPhone: raw.senderPhone.trim() || null,
+    senderAddressType: raw.senderAddressType,
     senderCityRef: raw.senderCityRef.trim() || null,
     senderCity: raw.senderCity.trim() || null,
     senderWarehouseRef: raw.senderWarehouseRef.trim() || null,
     senderAddressOrWarehouse: raw.senderAddressOrWarehouse.trim() || null,
-    allowedServiceTypes: raw.allowedServiceTypes,
+    senderStreetRef: raw.senderStreetRef.trim() || null,
+    senderStreet: raw.senderStreet.trim() || null,
+    senderHouseNumber: raw.senderHouseNumber.trim() || null,
     payer: raw.payer,
     declaredValueMode: raw.declaredValueMode,
     declaredValueMinimum: raw.declaredValueMinimum.trim() || null,
     syncFrequencyMinutes,
     orderReturnOnRefusal: raw.orderReturnOnRefusal,
-    packaging: raw.packaging,
-    packRef: raw.packRef.trim() || null,
-    packDescription: raw.packDescription.trim() || null,
-    labelFormat: raw.labelFormat.trim() || null,
-    waybillFormat: raw.waybillFormat.trim() || null,
-    printerName: raw.printerName.trim() || null,
+    useCarrierPackaging: raw.useCarrierPackaging,
+    markingPrinterType: raw.markingPrinterType,
     descriptionContent: raw.descriptionContent,
     descriptionIncludeQuantity: raw.descriptionIncludeQuantity,
     statusRules: raw.statusRules,
@@ -128,22 +127,21 @@ export async function toggleDeliveryMethodAction(
     senderContactPersonRef: current.senderContactPersonRef,
     senderContactPerson: current.senderContactPerson,
     senderPhone: current.senderPhone,
+    senderAddressType: current.senderAddressType,
     senderCityRef: current.senderCityRef,
     senderCity: current.senderCity,
     senderWarehouseRef: current.senderWarehouseRef,
     senderAddressOrWarehouse: current.senderAddressOrWarehouse,
-    allowedServiceTypes: current.allowedServiceTypes,
+    senderStreetRef: current.senderStreetRef,
+    senderStreet: current.senderStreet,
+    senderHouseNumber: current.senderHouseNumber,
     payer: current.payer,
     declaredValueMode: current.declaredValueMode,
     declaredValueMinimum: current.declaredValueMinimum,
     syncFrequencyMinutes: current.syncFrequencyMinutes,
     orderReturnOnRefusal: current.orderReturnOnRefusal,
-    packaging: current.packaging,
-    packRef: current.packRef,
-    packDescription: current.packDescription,
-    labelFormat: current.labelFormat,
-    waybillFormat: current.waybillFormat,
-    printerName: current.printerName,
+    useCarrierPackaging: current.useCarrierPackaging,
+    markingPrinterType: current.markingPrinterType,
     descriptionContent: current.descriptionContent,
     descriptionIncludeQuantity: current.descriptionIncludeQuantity,
     // Тогл не редагує правила статусів — читаємо й пишемо назад той самий
@@ -186,7 +184,7 @@ export async function testDeliveryApiKeyAction(
     return { ok: false, message: "Перевірку підключення для цього перевізника ще не реалізовано" };
   }
   try {
-    await searchNovaPoshtaCities(apiKey.trim(), "Київ");
+    await new NovaPoshtaProvider(apiKey.trim()).testConnection();
     return { ok: true, message: "Ключ дійсний, з'єднання з Новою поштою працює" };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Не вдалося з'єднатися з Новою поштою" };

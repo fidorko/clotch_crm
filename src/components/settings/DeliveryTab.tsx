@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Plus, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   deleteDeliveryMethodAction,
   toggleDeliveryMethodAction,
 } from "@/app/settings/delivery/actions";
+import { CARRIER_LOGOS } from "@/lib/constants/carrier-logos";
 
 function statusOf(method: DeliveryMethodRow): { label: string; variant: "success" | "secondary" | "warning" } {
   if (!method.isEnabled) return { label: "Не активний", variant: "secondary" };
@@ -123,7 +125,21 @@ export function DeliveryTab({
                         aria-label={`Увімкнути ${method.name}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{method.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {CARRIER_LOGOS[method.carrierKey] && (
+                          <Image
+                            src={CARRIER_LOGOS[method.carrierKey]}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="rounded object-contain"
+                            unoptimized
+                          />
+                        )}
+                        {method.name}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>

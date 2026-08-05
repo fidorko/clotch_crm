@@ -1,120 +1,79 @@
 "use client";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { Package, Printer } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxInput,
-  ComboboxInputGroup,
-  ComboboxItem,
-  ComboboxTrigger,
-} from "@/components/ui/combobox";
 import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
-import type { NpPackItem } from "@/server/integrations/nova-poshta";
 
-/** «Пакування» + «Друк» — DeliveryMethodFormDialog.tsx переріс ліміт, винесено окремим компонентом (CLAUDE.md, розділ 0/9.6). 2026-08-05, третій прохід: коли обрано «Пакування перевізника» для Нової пошти — реальний перелік CommonGeneral.getPackList (пряма вказівка людини), не декоративний варіант. */
+/**
+ * «Пакування» + «Маркування» — DeliveryMethodFormDialog.tsx переріс ліміт,
+ * винесено окремим компонентом (CLAUDE.md, розділ 0/9.6).
+ *
+ * 2026-08-06, шостий прохід (пряма вказівка людини):
+ * - «Пакування» — лише вмикач можливості (конкретну позицію з реального
+ *   CommonGeneral.getPackList обирають пізніше, при створенні замовлення, не
+ *   тут — раніше тут був 3-radio + пошуковий Combobox, прибрано).
+ * - «Маркування» — вибір типу принтера (термо/звичайний) з реальними
+ *   розмірами й поясненням (docs/carriers/novaposhta/printing.md, дослідив
+ *   офіційні джерела Нової пошти — 101×101мм рулон для термопринтера, A4 6
+ *   етикеток по 105×99мм для звичайного) замість вільних текстових полів
+ *   «Формат етикетки»/«Формат ЕН»/«Принтер» (прибрано).
+ */
 export function DeliveryMethodPackagingFields({
   form,
   setField,
-  isNovaPoshta,
-  packList,
 }: {
   form: DeliveryMethodFormInput;
   setField: <K extends keyof DeliveryMethodFormInput>(field: K, value: DeliveryMethodFormInput[K]) => void;
-  isNovaPoshta: boolean;
-  packList: NpPackItem[];
 }) {
-  const [packQuery, setPackQuery] = useState(form.packDescription);
-  const byRef = new Map(packList.map((p) => [p.ref, p]));
-  const refs = packList.map((p) => p.ref);
-
   return (
     <>
       <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">Пакування</h3>
-        <RadioGroup
-          value={form.packaging}
-          onValueChange={(v) => setField("packaging", v as DeliveryMethodFormInput["packaging"])}
-        >
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <RadioGroupItem value="none" />
-            Не використовувати
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <RadioGroupItem value="carrier_packaging" />
-            {isNovaPoshta ? "Пакування Нової пошти" : "Пакування перевізника"}
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <RadioGroupItem value="own_packaging" />
-            Власне пакування
-          </label>
-        </RadioGroup>
-        {form.packaging === "carrier_packaging" && isNovaPoshta && (
-          <div className="pl-6">
-            <Combobox
-              items={refs}
-              value={form.packRef || null}
-              onValueChange={(ref: string | null) => {
-                if (!ref) return;
-                const item = byRef.get(ref);
-                setField("packRef", ref);
-                setField("packDescription", item?.description ?? "");
-                setPackQuery(item?.description ?? "");
-              }}
-              inputValue={packQuery}
-              onInputValueChange={setPackQuery}
-              itemToStringLabel={(ref: string) => byRef.get(ref)?.description ?? ref}
-            >
-              <ComboboxInputGroup>
-                <ComboboxInput placeholder="Пошук пакування..." />
-                <ComboboxTrigger />
-              </ComboboxInputGroup>
-              <ComboboxContent>
-                {(ref: string) => {
-                  const item = byRef.get(ref);
-                  if (!item) return null;
-                  return (
-                    <ComboboxItem key={ref} value={ref}>
-                      {item.description}
-                    </ComboboxItem>
-                  );
-                }}
-              </ComboboxContent>
-            </Combobox>
-          </div>
-        )}
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Package className="size-4 text-muted-foreground" />
+          Пакування
+        </h3>
+        <label className="flex items-center justify-between gap-3 text-sm text-foreground">
+          Використовувати пакування Нової пошти
+          <Switch
+            checked={form.useCarrierPackaging}
+            onCheckedChange={(v) => setField("useCarrierPackaging", v)}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Конкретний вид пакування (конверт, коробка тощо) обирається пізніше, під час оформлення замовлення.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">Друк</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Формат етикетки</label>
-            <Input
-              value={form.labelFormat}
-              onChange={(e) => setField("labelFormat", e.target.value)}
-              placeholder="Напр. 100x100 мм"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Формат ЕН</label>
-            <Input
-              value={form.waybillFormat}
-              onChange={(e) => setField("waybillFormat", e.target.value)}
-              placeholder="Напр. A4"
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Принтер</label>
-          <Input
-            value={form.printerName}
-            onChange={(e) => setField("printerName", e.target.value)}
-            placeholder="Назва принтера"
-          />
-        </div>
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Printer className="size-4 text-muted-foreground" />
+          Маркування
+        </h3>
+        <span className="text-xs text-muted-foreground">Яке маркування використовувати для друку</span>
+        <RadioGroup
+          value={form.markingPrinterType}
+          onValueChange={(v) => setField("markingPrinterType", v as DeliveryMethodFormInput["markingPrinterType"])}
+        >
+          <label className="flex items-start gap-2 text-sm text-foreground">
+            <RadioGroupItem value="thermal" className="mt-0.5" />
+            <span>
+              Термопринтер
+              <span className="block text-xs text-muted-foreground">
+                101×101 мм, рулон на 500 етикеток (напр. Zebra GC420d)
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-foreground">
+            <RadioGroupItem value="regular" className="mt-0.5" />
+            <span>
+              Звичайний принтер
+              <span className="block text-xs text-muted-foreground">
+                A4, 6 етикеток по 105×99 мм на аркуш (самоклейкий папір)
+              </span>
+            </span>
+          </label>
+        </RadioGroup>
       </div>
     </>
   );
