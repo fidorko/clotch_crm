@@ -38,7 +38,7 @@ interface NavItem {
 const PRIMARY_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Головна", icon: Home },
   { href: "/products", label: "Товари", icon: LayoutGrid },
-  { href: "#", label: "Замовлення", icon: ShoppingCart },
+  { href: "/orders", label: "Замовлення", icon: ShoppingCart },
   { href: "#", label: "Клієнти", icon: Users },
   { href: "#", label: "Постачальники", icon: Truck },
   { href: "/warehouse", label: "Склад", icon: Boxes },
