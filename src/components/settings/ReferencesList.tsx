@@ -5,6 +5,7 @@ import { QuickAddReferenceItemButton } from "@/components/settings/QuickAddRefer
 import { CustomCharacteristicFormDialog } from "@/components/settings/CustomCharacteristicFormDialog";
 import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
 import { ColorsTile } from "@/components/settings/ColorsTile";
+import { OrderStatusesTile } from "@/components/settings/OrderStatusesTile";
 import { FabricTypesTile } from "@/components/settings/FabricTypesTile";
 import { MaterialsTile } from "@/components/settings/MaterialsTile";
 import { CareInstructionsTile } from "@/components/settings/CareInstructionsTile";
@@ -14,6 +15,7 @@ import { ReferenceDictionaryFlagsRow } from "@/components/settings/ReferenceDict
 import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
 import type { ColorRow } from "@/server/data/colors";
+import type { OrderStatusRow } from "@/server/data/order-statuses";
 import type { FabricTypeDetail } from "@/server/data/fabric-types";
 import type { MaterialRow } from "@/server/data/materials";
 import type { CareInstructionRow } from "@/server/data/care-instructions";
@@ -195,6 +197,7 @@ function ReferenceTile({ item, flags }: { item: ReferenceItem; flags?: Dictionar
 
 export function ReferencesList({
   colors = [],
+  orderStatuses = [],
   currencies = [],
   suppliers = [],
   referenceItemsByKind = {},
@@ -207,6 +210,7 @@ export function ReferencesList({
   measurementTypes = [],
 }: {
   colors?: ColorRow[];
+  orderStatuses?: OrderStatusRow[];
   currencies?: { code: string; symbol: string }[];
   suppliers?: { id: string; name: string }[];
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
@@ -296,6 +300,7 @@ export function ReferencesList({
       <section className="flex flex-col gap-4">
         <h2 className="text-sm font-semibold text-foreground">{GROUP_TITLES.system}</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <OrderStatusesTile statuses={orderStatuses} />
           {systemItems.map((item) => (
             <ReferenceTile key={item.id} item={item} />
           ))}

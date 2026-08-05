@@ -7,6 +7,7 @@ import { productTags } from "./product-tags";
 import { tenants } from "./tenants";
 import { categories } from "./categories";
 import { colors } from "./colors";
+import { orderStatuses } from "./order-statuses";
 import { currencies } from "./currencies";
 import { customCharacteristics, customCharacteristicValues } from "./custom-characteristics";
 import { suppliers } from "./suppliers";
@@ -45,6 +46,7 @@ export * from "./product-size-measurements";
 export * from "./product-tags";
 export * from "./categories";
 export * from "./colors";
+export * from "./order-statuses";
 export * from "./currencies";
 export * from "./custom-characteristics";
 export * from "./suppliers";
@@ -118,6 +120,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   products: many(products),
   categories: many(categories),
   colors: many(colors),
+  orderStatuses: many(orderStatuses),
   currencies: many(currencies),
   suppliers: many(suppliers),
   referenceItems: many(referenceItems),

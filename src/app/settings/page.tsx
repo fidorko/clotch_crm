@@ -8,6 +8,7 @@ import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listWarehouses } from "@/server/data/warehouses";
 import { listColors } from "@/server/data/colors";
+import { listOrderStatuses } from "@/server/data/order-statuses";
 import { listCurrencies } from "@/server/data/currencies";
 import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
 import { listSuppliers } from "@/server/data/suppliers";
@@ -62,6 +63,7 @@ async function WarehousesSection({ tenantId, dev }: { tenantId: string; dev: boo
 async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
   const [
     colors,
+    orderStatuses,
     currencies,
     suppliers,
     referenceItemsByKind,
@@ -74,6 +76,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
     measurementTypes,
   ] = await Promise.all([
     listColors(tenantId),
+    listOrderStatuses(tenantId),
     listCurrencies(tenantId),
     listSuppliers(tenantId),
     listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
@@ -104,6 +107,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
     <DevBlockLabel name="ReferencesList" enabled={dev}>
       <ReferencesList
         colors={colors}
+        orderStatuses={orderStatuses}
         currencies={currencyItems}
         suppliers={supplierItems}
         referenceItemsByKind={itemsByKind}
