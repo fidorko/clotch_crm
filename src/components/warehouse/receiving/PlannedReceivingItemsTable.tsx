@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { ImageIcon, MoreVertical, ScanLine, Search, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +16,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddSkuCombobox } from "@/components/warehouse/receiving/AddSkuCombobox";
 import { playScanBeep } from "@/lib/warehouse/scan-beep";
-import { RECEIVING_ITEM_STATUS_META, type ReceivingItem } from "@/lib/types/receiving";
+import { cn } from "@/lib/utils";
+import type { ReceivingItem } from "@/lib/types/receiving";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
 
 function ItemThumb({ url, alt, onOpen }: { url: string | null; alt: string; onOpen: () => void }) {
@@ -41,16 +41,18 @@ function ItemThumb({ url, alt, onOpen }: { url: string | null; alt: string; onOp
   );
 }
 
-// Презентаційна таблиця — сама нічого не персистує (усі мутації переїхали в
-// PlannedReceivingWorkspace, warehouse-receiving.md, восьмий прохід): і
-// планове, і фактичне надходження мають реальні позиції, різниця лише в
-// тому, яке поле активне.
-// mode="planned": «Замовлено» редаговане, «Прийнято» неактивне/інформативне
-// (пряма вказівка людини — колонку не прибирати, лише зробити read-only).
-// mode="actual": «Замовлено» успадковане з плану (read-only), «Прийнято»
-// редаговане — саме туди йде реально прийнята кількість.
+// Презентаційна таблиця — сама нічого не персистує (мутації в
+// PlannedReceivingWorkspace). Один документ, не два типи (warehouse-receiving.md,
+// 2026-08-05): «Замовлено» рендериться лише для планового (showOrderedColumn),
+// «Прийнято» — завжди, але редаговане лише коли receivedEditable (для
+// планового — після «Прийняти на склад», для простого — від створення).
+// «Замовлено» лишається редагованим навіть після початку приймання (пряма
+// вказівка людини) — orderedEditable, а не завжди-read-only після якогось кроку.
 export function PlannedReceivingItemsTable({
-  mode,
+  showOrderedColumn,
+  orderedEditable,
+  receivedEditable,
+  locked,
   items,
   skuCatalog,
   onScanOrAdd,
@@ -59,7 +61,10 @@ export function PlannedReceivingItemsTable({
   onRemoveItem,
   onRemoveItems,
 }: {
-  mode: "planned" | "actual";
+  showOrderedColumn: boolean;
+  orderedEditable: boolean;
+  receivedEditable: boolean;
+  locked: boolean;
   items: ReceivingItem[];
   skuCatalog: ProductSkuCatalogItem[];
   onScanOrAdd: (sku: ProductSkuCatalogItem) => void;
@@ -72,7 +77,7 @@ export function PlannedReceivingItemsTable({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
-  const orderedActive = mode === "planned";
+  const columnCount = 10 + (showOrderedColumn ? 1 : 0);
 
   const filtered = items.filter((item) => {
     const q = search.trim().toLowerCase();
@@ -113,10 +118,10 @@ export function PlannedReceivingItemsTable({
   // синхронний пошук у вже завантаженому каталозі, без debounce/мережі.
   // Enter — термінатор скану (стандартна поведінка USB/BT-сканерів, що
   // емулюють клавіатуру). Той самий ШК ще раз — кількість +1 (на активному
-  // полі), інший ШК — додається інший товар. Обидва режими шукають по
-  // всьому каталогу — у фактичному теж можна прийняти те, чого не було в
-  // плані (пряме рішення людини).
+  // полі), інший ШК — додається інший товар. Куди саме йде +1 (ordered чи
+  // received) вирішує workspace через qtyField у onScanOrAdd.
   function handleScan() {
+    if (locked) return;
     const code = search.trim();
     if (!code) return;
     const match = skuCatalog.find((s) => s.barcode === code || s.sku === code);
@@ -151,11 +156,17 @@ export function PlannedReceivingItemsTable({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
+              disabled={locked}
               placeholder="Пошук за назвою, SKU або штрихкодом — Enter скановує"
               className="pl-9"
             />
           </div>
-          <Button variant="default" className="shrink-0" onClick={() => searchRef.current?.focus()}>
+          <Button
+            variant="default"
+            className="shrink-0"
+            disabled={locked}
+            onClick={() => searchRef.current?.focus()}
+          >
             <ScanLine className="size-4" />
             Сканувати штрихкод
           </Button>
@@ -164,7 +175,7 @@ export function PlannedReceivingItemsTable({
         {someSelected && (
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <span className="text-sm text-muted-foreground">Обрано: {selectedIds.length}</span>
-            <Button variant="destructive" size="sm" onClick={removeSelected}>
+            <Button variant="destructive" size="sm" onClick={removeSelected} disabled={locked}>
               <Trash2 className="size-3.5" />
               Видалити обрані
             </Button>
@@ -175,7 +186,12 @@ export function PlannedReceivingItemsTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-8">
-                <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} aria-label="Виділити всі" />
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  disabled={locked}
+                  aria-label="Виділити всі"
+                />
               </TableHead>
               <TableHead>№</TableHead>
               <TableHead>Фото</TableHead>
@@ -184,47 +200,51 @@ export function PlannedReceivingItemsTable({
               <TableHead>Назва товару</TableHead>
               <TableHead>Колір</TableHead>
               <TableHead>Розмір</TableHead>
-              <TableHead className="text-right">Замовлено</TableHead>
+              {showOrderedColumn && <TableHead className="text-right">Планова кількість</TableHead>}
               <TableHead className="text-right">Прийнято</TableHead>
-              <TableHead>Статус</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((item, index) => {
-              const status = RECEIVING_ITEM_STATUS_META[item.status];
-              return (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.includes(item.id)}
-                      onCheckedChange={() => toggleSelect(item.id)}
-                      aria-label={`Виділити ${item.sku}`}
+            {filtered.map((item, index) => (
+              <TableRow
+                key={item.id}
+                className={cn(
+                  showOrderedColumn && item.ordered === item.received && item.ordered > 0 && "bg-success/10 hover:bg-success/15"
+                )}
+              >
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.includes(item.id)}
+                    onCheckedChange={() => toggleSelect(item.id)}
+                    disabled={locked}
+                    aria-label={`Виділити ${item.sku}`}
+                  />
+                </TableCell>
+                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                <TableCell>
+                  <ItemThumb
+                    url={item.photoUrl}
+                    alt={`${item.productName}, ${item.color}`}
+                    onOpen={() => item.photoUrl && setLightboxUrl(item.photoUrl)}
+                  />
+                </TableCell>
+                <TableCell className="font-medium text-foreground">{item.sku}</TableCell>
+                <TableCell className="text-muted-foreground">{item.barcode ?? "—"}</TableCell>
+                <TableCell>{item.productName}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="size-3.5 shrink-0 rounded-full border border-border"
+                      style={{ backgroundColor: item.colorHex }}
                     />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>
-                    <ItemThumb
-                      url={item.photoUrl}
-                      alt={`${item.productName}, ${item.color}`}
-                      onOpen={() => item.photoUrl && setLightboxUrl(item.photoUrl)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">{item.sku}</TableCell>
-                  <TableCell className="text-muted-foreground">{item.barcode ?? "—"}</TableCell>
-                  <TableCell>{item.productName}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="size-3.5 shrink-0 rounded-full border border-border"
-                        style={{ backgroundColor: item.colorHex }}
-                      />
-                      {item.color}
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.size}</TableCell>
+                    {item.color}
+                  </div>
+                </TableCell>
+                <TableCell>{item.size}</TableCell>
+                {showOrderedColumn && (
                   <TableCell className="text-right">
-                    {orderedActive ? (
+                    {orderedEditable ? (
                       <Input
                         type="number"
                         min={0}
@@ -236,55 +256,53 @@ export function PlannedReceivingItemsTable({
                       <span className="text-muted-foreground">{item.ordered}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {!orderedActive ? (
-                      <Input
-                        type="number"
-                        min={0}
-                        value={item.received}
-                        onChange={(e) => onUpdateReceived(item.id, Math.max(0, Number(e.target.value)))}
-                        className="h-7 w-16 text-right"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground">{item.received}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={status.badge} className="gap-1">
-                      {status.label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-                        aria-label={`Дії з рядком ${item.sku}`}
-                      >
-                        <MoreVertical className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => removeItem(item.id)}>Видалити</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                )}
+                <TableCell className="text-right">
+                  {receivedEditable ? (
+                    <Input
+                      type="number"
+                      min={0}
+                      value={item.received}
+                      onChange={(e) => onUpdateReceived(item.id, Math.max(0, Number(e.target.value)))}
+                      className="h-7 w-16 text-right"
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">{item.received}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                      disabled={locked}
+                      aria-label={`Дії з рядком ${item.sku}`}
+                    >
+                      <MoreVertical className="size-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => removeItem(item.id)}>Видалити</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
             {filtered.length === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={12} className="py-8 text-center text-muted-foreground">
-                  {mode === "planned" ? "Ще немає жодного товару в плані" : "Ще немає жодної прийнятої позиції"}
+                <TableCell colSpan={columnCount} className="py-8 text-center text-muted-foreground">
+                  {showOrderedColumn ? "Ще немає жодного товару в плані" : "Ще немає жодної прийнятої позиції"}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
 
-        <AddSkuCombobox
-          catalog={skuCatalog}
-          excludeIds={items.map((item) => item.productSkuId)}
-          onAdd={onScanOrAdd}
-        />
+        {!locked && (
+          <AddSkuCombobox
+            catalog={skuCatalog}
+            excludeIds={items.map((item) => item.productSkuId)}
+            onAdd={onScanOrAdd}
+          />
+        )}
       </CardContent>
 
       <Dialog open={Boolean(lightboxUrl)} onOpenChange={(open) => !open && setLightboxUrl(null)}>

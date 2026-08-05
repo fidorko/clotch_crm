@@ -17,20 +17,23 @@ export function DatePicker({
   onChange,
   placeholder = "Оберіть дату",
   className,
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const selected = value ? parseUaDate(value) : null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={(next) => !disabled && setOpen(next)}>
       <PopoverTrigger
+        disabled={disabled}
         className={cn(
-          "flex h-8 w-full items-center gap-2 rounded-lg border border-input bg-transparent px-2.5 text-left text-sm transition-colors outline-none hover:border-muted-foreground/40 dark:bg-input/30",
+          "flex h-8 w-full items-center gap-2 rounded-lg border border-input bg-transparent px-2.5 text-left text-sm transition-colors outline-none hover:border-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
           !selected && "text-muted-foreground",
           className
         )}

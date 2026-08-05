@@ -33,12 +33,15 @@ export default async function ReceivingDocumentPage({ params }: PageProps) {
 
   return (
     <PlannedReceivingWorkspace
-      documentType={document.type}
+      documentId={document.id}
+      documentNumber={document.number}
+      isPlanned={document.isPlanned}
+      initialStatus={document.status}
+      completedAtLabel={formatDateUa(document.completedAt)}
       warehouses={warehouses}
       suppliers={suppliers}
       skuCatalog={skuCatalog}
       dev={DEV_BLOCK_LABELS.warehouse}
-      initialDocumentId={document.id}
       initialCustomFields={customFields}
       initialItems={items}
       initialValues={{

@@ -1,14 +1,38 @@
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
-import { withTenant } from "@/server/db/client";
-import { productSkus, products, receivingDocumentItems, receivingDocuments } from "@/server/db/schema";
+import { db, withTenant } from "@/server/db/client";
+import {
+  productSkus,
+  products,
+  receivingDocumentItemEvents,
+  receivingDocumentItems,
+  receivingDocuments,
+} from "@/server/db/schema";
 import { buildPhotoLookup } from "./product-skus";
 import { computeReceivingItemStatus, type ReceivingItem } from "@/lib/types/receiving";
 
-function pgErrorCode(error: unknown): string | undefined {
-  const cause = error instanceof Error ? (error as { cause?: unknown }).cause : undefined;
-  return typeof cause === "object" && cause !== null && "code" in cause
-    ? (cause as { code?: string }).code
-    : undefined;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+interface DocumentGuardInfo {
+  isPlanned: boolean;
+  status: typeof receivingDocuments.$inferSelect.status;
+  completedAt: Date | null;
+}
+
+async function loadDocumentGuardInfo(
+  tx: Tx,
+  tenantId: string,
+  documentId: string
+): Promise<DocumentGuardInfo | null> {
+  const [doc] = await tx
+    .select({
+      isPlanned: receivingDocuments.isPlanned,
+      status: receivingDocuments.status,
+      completedAt: receivingDocuments.completedAt,
+    })
+    .from(receivingDocuments)
+    .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, documentId)))
+    .limit(1);
+  return doc ?? null;
 }
 
 /** Позиції одного документа надходження — той самий join, що listProductSkusCatalog, плюс ordered/received. */
@@ -66,10 +90,13 @@ export interface ReceivingDocumentItemMutationResult {
 
 /**
  * Скан або вибір з AddSkuCombobox — insert, або ordered/received += delta при
- * конфлікті на (tenant_id, document_id, product_sku_id). qtyField покриває
- * обидва режими: "ordered" — планове (скан не чіпає залишок), "received" —
- * фактичне (скан одразу поповнює product_skus.stock тим самим delta —
- * пряме рішення людини, warehouse-receiving.md).
+ * конфлікті на (tenant_id, document_id, product_sku_id). qtyField вирішує
+ * виклик (workspace передає "ordered", поки isPlanned && awaiting_delivery,
+ * інакше завжди "received" — один документ, не два типи). Зміна received
+ * лишає лог-запис у receiving_document_item_events (дати часткових поставок)
+ * — але `product_skus.stock` тут **не** чіпаємо: реальне оприходування на
+ * склад відбувається одноразово в `completeReceivingDocument`, лише після
+ * «Завершити» (пряма вказівка людини, decisions.md).
  */
 export async function upsertReceivingDocumentItem(
   tenantId: string,
@@ -79,6 +106,9 @@ export async function upsertReceivingDocumentItem(
   delta = 1
 ): Promise<ReceivingDocumentItemMutationResult> {
   return withTenant(tenantId, async (tx) => {
+    const doc = await loadDocumentGuardInfo(tx, tenantId, documentId);
+    if (doc?.completedAt) throw new Error("Документ завершено — редагування недоступне");
+
     const [{ total }] = await tx
       .select({ total: count() })
       .from(receivingDocumentItems)
@@ -108,17 +138,14 @@ export async function upsertReceivingDocumentItem(
       .returning();
 
     if (qtyField === "received" && delta !== 0) {
-      await tx
-        .update(productSkus)
-        .set({ stock: sql`${productSkus.stock} + ${delta}`, updatedAt: new Date() })
-        .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, productSkuId)));
+      await tx.insert(receivingDocumentItemEvents).values({ tenantId, itemId: row.id, delta });
     }
 
     return { id: row.id, productSkuId: row.productSkuId, ordered: row.ordered, received: row.received };
   });
 }
 
-/** Ручне редагування «Замовлено» — лише для планових документів (гард на сервері, не тільки в UI). */
+/** Ручне редагування «Планова кількість» — лише для isPlanned, лишається відкритим до завершення документа. */
 export async function updateReceivingDocumentItemOrdered(
   tenantId: string,
   id: string,
@@ -132,12 +159,9 @@ export async function updateReceivingDocumentItemOrdered(
       .limit(1);
     if (!item) return;
 
-    const [doc] = await tx
-      .select({ type: receivingDocuments.type })
-      .from(receivingDocuments)
-      .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, item.documentId)))
-      .limit(1);
-    if (!doc || doc.type !== "planned") return;
+    const doc = await loadDocumentGuardInfo(tx, tenantId, item.documentId);
+    if (!doc || !doc.isPlanned) return;
+    if (doc.completedAt) throw new Error("Документ завершено — редагування недоступне");
 
     await tx
       .update(receivingDocumentItems)
@@ -147,77 +171,68 @@ export async function updateReceivingDocumentItemOrdered(
 }
 
 /**
- * Ручне редагування «Прийнято» — лише для фактичних документів (гард на
- * сервері), і одразу поповнює product_skus.stock різницею (перше місце в
- * проєкті, де stock узагалі змінюється — db.md).
+ * Ручне редагування «Прийнято» — для простого надходження завжди можна
+ * (від моменту створення), для планового — лише після «Прийняти на склад»
+ * (status = in_progress). Лишає лог-запис (delta) у
+ * receiving_document_item_events; `product_skus.stock` — лише при
+ * «Завершити» (`completeReceivingDocument`), не тут.
  */
 export async function updateReceivingDocumentItemReceived(
   tenantId: string,
   id: string,
   received: number
 ): Promise<void> {
-  try {
-    await withTenant(tenantId, async (tx) => {
-      const [item] = await tx
-        .select({
-          documentId: receivingDocumentItems.documentId,
-          productSkuId: receivingDocumentItems.productSkuId,
-          received: receivingDocumentItems.received,
-        })
-        .from(receivingDocumentItems)
-        .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)))
-        .limit(1);
-      if (!item) return;
-
-      const [doc] = await tx
-        .select({ type: receivingDocuments.type })
-        .from(receivingDocuments)
-        .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, item.documentId)))
-        .limit(1);
-      if (!doc || doc.type !== "actual") return;
-
-      const delta = received - item.received;
-
-      await tx
-        .update(receivingDocumentItems)
-        .set({ received, updatedAt: new Date() })
-        .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)));
-
-      if (delta !== 0) {
-        await tx
-          .update(productSkus)
-          .set({ stock: sql`${productSkus.stock} + ${delta}`, updatedAt: new Date() })
-          .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
-      }
-    });
-  } catch (error) {
-    if (pgErrorCode(error) === "23514") {
-      throw new Error("Неможливо зменшити прийняту кількість — залишок цього SKU вже використано деінде");
-    }
-    throw error;
-  }
-}
-
-export async function deleteReceivingDocumentItem(tenantId: string, id: string): Promise<void> {
   await withTenant(tenantId, async (tx) => {
     const [item] = await tx
-      .select({ productSkuId: receivingDocumentItems.productSkuId, received: receivingDocumentItems.received })
+      .select({
+        documentId: receivingDocumentItems.documentId,
+        received: receivingDocumentItems.received,
+      })
       .from(receivingDocumentItems)
       .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)))
       .limit(1);
     if (!item) return;
 
+    const doc = await loadDocumentGuardInfo(tx, tenantId, item.documentId);
+    if (!doc) return;
+    if (doc.completedAt) throw new Error("Документ завершено — редагування недоступне");
+    if (doc.isPlanned && doc.status === "awaiting_delivery") return;
+
+    const delta = received - item.received;
+
+    await tx
+      .update(receivingDocumentItems)
+      .set({ received, updatedAt: new Date() })
+      .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)));
+
+    if (delta !== 0) {
+      await tx.insert(receivingDocumentItemEvents).values({ tenantId, itemId: id, delta });
+    }
+  });
+}
+
+/**
+ * Видалення позиції — до «Завершити» документ завжди редагований
+ * (`assertDocumentEditable`-гард вище), а стільки й до того `received` цієї
+ * позиції ще ніколи не потрапляв у `product_skus.stock` (це відбувається
+ * одноразово в `completeReceivingDocument`) — тому відкату залишку тут
+ * більше немає, на відміну від попереднього проходу.
+ */
+export async function deleteReceivingDocumentItem(tenantId: string, id: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    const [item] = await tx
+      .select({ documentId: receivingDocumentItems.documentId })
+      .from(receivingDocumentItems)
+      .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)))
+      .limit(1);
+    if (!item) return;
+
+    const doc = await loadDocumentGuardInfo(tx, tenantId, item.documentId);
+    if (doc?.completedAt) throw new Error("Документ завершено — редагування недоступне");
+
     await tx
       .delete(receivingDocumentItems)
       .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.id, id)));
-
-    // Видалення прийнятого рядка відкочує те, що встигло поповнити залишок.
-    if (item.received !== 0) {
-      await tx
-        .update(productSkus)
-        .set({ stock: sql`${productSkus.stock} - ${item.received}`, updatedAt: new Date() })
-        .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
-    }
   });
 }
 
@@ -225,21 +240,16 @@ export async function deleteReceivingDocumentItems(tenantId: string, ids: string
   if (ids.length === 0) return;
   await withTenant(tenantId, async (tx) => {
     const items = await tx
-      .select({ productSkuId: receivingDocumentItems.productSkuId, received: receivingDocumentItems.received })
+      .select({ documentId: receivingDocumentItems.documentId })
       .from(receivingDocumentItems)
       .where(and(eq(receivingDocumentItems.tenantId, tenantId), inArray(receivingDocumentItems.id, ids)));
+    if (items.length === 0) return;
+
+    const doc = await loadDocumentGuardInfo(tx, tenantId, items[0].documentId);
+    if (doc?.completedAt) throw new Error("Документ завершено — редагування недоступне");
 
     await tx
       .delete(receivingDocumentItems)
       .where(and(eq(receivingDocumentItems.tenantId, tenantId), inArray(receivingDocumentItems.id, ids)));
-
-    for (const item of items) {
-      if (item.received !== 0) {
-        await tx
-          .update(productSkus)
-          .set({ stock: sql`${productSkus.stock} - ${item.received}`, updatedAt: new Date() })
-          .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
-      }
-    }
   });
 }

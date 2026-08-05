@@ -3,13 +3,11 @@
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import {
   createReceivingCustomField,
-  createReceivingDocument,
   deleteReceivingCustomField,
   updateReceivingCustomFieldValue,
   updateReceivingDocument,
   type ReceivingCustomFieldRow,
-  type ReceivingDocumentInput,
-  type ReceivingDocumentRow,
+  type UpdateReceivingDocumentInput,
 } from "@/server/data/receiving";
 import {
   deleteReceivingDocumentItem,
@@ -20,15 +18,9 @@ import {
   type ReceivingDocumentItemMutationResult,
 } from "@/server/data/receiving-items";
 
-export async function createReceivingDocumentAction(
-  input: ReceivingDocumentInput
-): Promise<ReceivingDocumentRow> {
-  return createReceivingDocument(getDevTenantId(), input);
-}
-
 export async function updateReceivingDocumentAction(
   id: string,
-  input: Partial<ReceivingDocumentInput>
+  input: UpdateReceivingDocumentInput
 ): Promise<void> {
   await updateReceivingDocument(getDevTenantId(), id, input);
 }

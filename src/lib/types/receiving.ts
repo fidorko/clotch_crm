@@ -30,87 +30,60 @@ export function computeReceivingItemStatus(ordered: number, received: number): R
   return "partial";
 }
 
-// Тип/статус документа надходження (список /warehouse/receiving) — ті самі
-// значення, що enum-и `receiving_document_type`/`receiving_document_status`
-// у БД (server/db/schema/receiving.ts), тому спільна мапа підписів годиться
-// і для реальних документів, і поки для мок-запасного варіанту.
-export type ReceivingDocType = "planned" | "actual";
-export type ReceivingDocStatus = "draft" | "expected" | "posted";
+// Один документ на надходження, не пара planned+actual (decisions.md,
+// 2026-08-05) — isPlanned лише вмикає проміжний awaiting_delivery, статус
+// завжди рухається по цьому самому рядку (той самий enum, що
+// receiving_document_status у БД, server/db/schema/receiving.ts).
+export type ReceivingDocStatus =
+  | "awaiting_delivery"
+  | "in_progress"
+  | "completed"
+  | "completed_with_discrepancy";
 
 export interface ReceivingDocumentListItem {
   id: string;
   number: string;
-  type: ReceivingDocType;
-  basedOnId: string | null;
+  isPlanned: boolean;
+  status: ReceivingDocStatus;
   supplier: string | null;
   warehouse: string | null;
   date: string | null; // DD.MM.YYYY
-  status: ReceivingDocStatus;
   supplierDocument: string | null;
-  // Агреговано з receiving_document_items — джерело для
-  // computeReceivingDocDisplayStatus нижче (список /warehouse/receiving,
-  // пряма вказівка людини: колір статусу за фактичним співвідношенням
-  // замовлено/прийнято, не за сирим enum-полем).
+  // Сума ordered/received по позиціях — колонка «Виконання» в списку
+  // (лише для isPlanned, warehouse-receiving.md).
   totalOrdered: number;
   totalReceived: number;
-  hasUnplannedItems: boolean;
+  // Злиті лишерком назва/SKU/ШК усіх позицій документа (нижній регістр) —
+  // джерело для пошуку в списку за товаром, не лише номером документа.
+  itemsSearchText: string;
 }
 
+// Кольори — ті самі позапалітрові винятки, що вже задокументовані в
+// design.md (blue для проміжного стану, той самий принцип, що раніше був
+// «Розбіжність в плюс»). Статус тепер пряме поле документа, не похідне від
+// співвідношення ordered/received — рахунок лишився лише всередині
+// completeReceivingDocument (server/data/receiving.ts) в момент фіналізації.
 export const RECEIVING_DOC_STATUS_META: Record<
   ReceivingDocStatus,
-  { label: string; badge: "secondary" | "warning" | "success" }
-> = {
-  draft: { label: "Чернетка", badge: "secondary" },
-  expected: { label: "Очікується", badge: "warning" },
-  posted: { label: "Проведено", badge: "success" },
-};
-
-export const RECEIVING_DOC_TYPE_LABEL: Record<ReceivingDocType, string> = {
-  planned: "Планове",
-  actual: "Фактичне",
-};
-
-// Тип — планове жовтим, фактичне зеленим (пряма вказівка людини).
-export const RECEIVING_DOC_TYPE_BADGE: Record<ReceivingDocType, "warning" | "success"> = {
-  planned: "warning",
-  actual: "success",
-};
-
-// Статус у списку — не сирий enum-статус документа, а похідний від
-// реального співвідношення замовлено/прийнято по позиціях (пряма вказівка
-// людини): жовтий/зелений/синій/червоний/фіолетовий. Синій і фіолетовий —
-// єдині кольори поза палітрою design.md, додані за прямим проханням.
-export type ReceivingDocDisplayStatus = "awaiting" | "completed" | "overage" | "shortage" | "unplanned";
-
-export const RECEIVING_DOC_DISPLAY_STATUS_META: Record<
-  ReceivingDocDisplayStatus,
   { label: string; className: string }
 > = {
-  awaiting: { label: "Очікується поставка", className: "bg-warning/15 text-warning" },
-  completed: { label: "Прийнято повністю", className: "bg-success/15 text-success" },
-  overage: {
-    label: "Розбіжність в плюс",
+  awaiting_delivery: { label: "Очікується поставка", className: "bg-warning/15 text-warning" },
+  in_progress: {
+    label: "В процесі",
     className: "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400",
   },
-  shortage: { label: "Розбіжність в мінус", className: "bg-destructive/10 text-destructive" },
-  unplanned: {
-    label: "Є непланові товари",
-    className: "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400",
+  completed: { label: "Завершено", className: "bg-success/15 text-success" },
+  completed_with_discrepancy: {
+    label: "Завершено з розбіжностями",
+    className: "bg-destructive/10 text-destructive",
   },
 };
 
-export function computeReceivingDocDisplayStatus(doc: {
-  type: ReceivingDocType;
-  totalOrdered: number;
-  totalReceived: number;
-  hasUnplannedItems: boolean;
-}): ReceivingDocDisplayStatus {
-  // Планове — завжди «Очікується поставка» (received на плановому документі
-  // завжди 0 за побудовою, приймання відбувається лише на фактичному).
-  if (doc.type === "planned") return "awaiting";
-  if (doc.hasUnplannedItems) return "unplanned";
-  if (doc.totalReceived === 0) return "awaiting";
-  if (doc.totalReceived === doc.totalOrdered) return "completed";
-  if (doc.totalReceived > doc.totalOrdered) return "overage";
-  return "shortage";
+export function receivingDocTypeLabel(isPlanned: boolean): string {
+  return isPlanned ? "Планове" : "Фактичне";
+}
+
+// Тип — планове жовтим, фактичне зеленим (той самий колір, що раніше type-badge).
+export function receivingDocTypeBadge(isPlanned: boolean): "warning" | "success" {
+  return isPlanned ? "warning" : "success";
 }

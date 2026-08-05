@@ -1,16 +1,21 @@
 import { sql } from "drizzle-orm";
-import { check, date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
 import { tenants } from "./tenants";
 import { suppliers } from "./suppliers";
 import { warehouses } from "./warehouses";
 import { productSkus } from "./product-skus";
 
-export const receivingDocumentTypeEnum = pgEnum("receiving_document_type", ["planned", "actual"]);
+// Один документ на надходження, не пара planned+actual (decisions.md,
+// 2026-08-05) — is_planned (нижче) лише вмикає проміжний awaiting_delivery,
+// статус завжди рухається по цьому самому рядку: awaiting_delivery (лише
+// коли isPlanned — до «Прийняти на склад») → in_progress → completed /
+// completed_with_discrepancy (розбіжність план/факт — лише для isPlanned).
 export const receivingDocumentStatusEnum = pgEnum("receiving_document_status", [
-  "draft",
-  "expected",
-  "posted",
+  "awaiting_delivery",
+  "in_progress",
+  "completed",
+  "completed_with_discrepancy",
 ]);
 export const receivingTtnCarrierEnum = pgEnum("receiving_ttn_carrier", ["nova_poshta", "ukrposhta"]);
 
@@ -29,12 +34,16 @@ export const receivingDocuments = pgTable(
     // RCV-2026-001... — генерується сервером, той самий патерн, що
     // generateWarehouseCode (server/data/warehouses.ts).
     number: text("number").notNull(),
-    type: receivingDocumentTypeEnum("type").notNull(),
-    status: receivingDocumentStatusEnum("status").notNull().default("draft"),
-    // Фактичне надходження, створене з планового — id планового документа.
-    // Без FK-обмеження (самопосилання в drizzle вимагає окремого workaround,
-    // а звʼязок поки ніде не проставляється автоматично — TODO).
-    basedOnId: uuid("based_on_id"),
+    // Статус завжди виставляється явно кодом (create/accept/complete в
+    // server/data/receiving.ts) — без default, щоб не було жодного шляху
+    // отримати рядок у невідповідному стані мовчки.
+    status: receivingDocumentStatusEnum("status").notNull(),
+    // Один документ на надходження, не пара planned+actual (decisions.md,
+    // 2026-08-05) — фіксується раз при створенні, ніколи не редагується.
+    isPlanned: boolean("is_planned").notNull().default(false),
+    // Момент «Зберегти документ надходження та завершити» — наявність
+    // значення = документ заблокований для будь-якого редагування.
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     supplierId: uuid("supplier_id").references(() => suppliers.id),
     warehouseId: uuid("warehouse_id").references(() => warehouses.id),
     plannedDate: date("planned_date"),
@@ -133,6 +142,36 @@ export const receivingDocumentItems = pgTable(
     ),
     check("receiving_document_items_ordered_nonneg", sql`${table.ordered} >= 0`),
     check("receiving_document_items_received_nonneg", sql`${table.received} >= 0`),
+    tenantIsolationPolicy(table.tenantId),
+  ]
+).enableRLS();
+
+// Лог кожної зміни received (не ordered — лише прийняте відбувається в
+// реальний фізичний момент, коли постачальник довідправляє частинами
+// різними днями, і саме ці дати треба зберегти). Append-only, без UI зараз
+// (пряма вказівка людини) — лише пишеться під час приймання.
+export const receivingDocumentItemEvents = pgTable(
+  "receiving_document_item_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => receivingDocumentItems.id, { onDelete: "cascade" }),
+    delta: integer("delta").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("receiving_document_item_events_tenant_item_idx").on(
+      table.tenantId,
+      table.itemId,
+      table.createdAt
+    ),
+    check("receiving_document_item_events_delta_nonzero", sql`${table.delta} <> 0`),
     tenantIsolationPolicy(table.tenantId),
   ]
 ).enableRLS();

@@ -330,6 +330,20 @@
       "when": 1785851400997,
       "tag": "0046_slow_invaders",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785926598557,
+      "tag": "0047_cultured_blacklash",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1785926713742,
+      "tag": "0048_mighty_cyclops",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Check, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { PlannedReceivingHeader } from "@/components/warehouse/receiving/PlannedReceivingHeader";
 import { PlannedReceivingItemsTable } from "@/components/warehouse/receiving/PlannedReceivingItemsTable";
@@ -14,17 +11,15 @@ import {
 import { ReceivingSummary } from "@/components/warehouse/receiving/ReceivingSummary";
 import { ReceivingQuickActions } from "@/components/warehouse/receiving/ReceivingQuickActions";
 import { parseDateInputToIso } from "@/components/ui/date-input";
-import type { ReceivingItem } from "@/lib/types/receiving";
+import { formatDateUa } from "@/lib/date-ua";
+import type { ReceivingDocStatus, ReceivingItem } from "@/lib/types/receiving";
 import type { WarehouseRow } from "@/server/data/warehouses";
 import type { SupplierRow } from "@/server/data/suppliers";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
-import type { ReceivingCustomFieldRow, ReceivingDocumentInput } from "@/server/data/receiving";
-import {
-  createActualReceivingFromPlannedAction,
-} from "@/app/warehouse/receiving/actions";
+import type { ReceivingCustomFieldRow, UpdateReceivingDocumentInput } from "@/server/data/receiving";
+import { acceptPlannedReceivingAction, completeReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
 import {
   createReceivingCustomFieldAction,
-  createReceivingDocumentAction,
   deleteReceivingCustomFieldAction,
   deleteReceivingDocumentItemAction,
   deleteReceivingDocumentItemsAction,
@@ -37,66 +32,61 @@ import {
 
 const AUTOSAVE_DELAY_MS = 500;
 
+// Документ уже створений (isPlanned обраний у випадному меню списку,
+// warehouse-receiving.md) і одразу повністю редагований — нема окремого
+// «розблокування»/гейту. Поля персистуються автозбереженням по ходу
+// (тому й лишаються на випадок «пішов зі сторінки — повернувся»), а реальне
+// оприходування на склад — одноразово при «Завершити» (decisions.md).
 export function PlannedReceivingWorkspace({
-  documentType,
+  documentId,
+  documentNumber,
+  isPlanned,
+  initialStatus,
+  completedAtLabel: initialCompletedAtLabel,
   warehouses,
   suppliers,
   skuCatalog,
-  defaultWarehouseId,
   dev,
-  initialDocumentId = null,
   initialValues,
-  initialCustomFields = [],
-  initialItems = [],
+  initialCustomFields,
+  initialItems,
 }: {
-  documentType: "planned" | "actual";
+  documentId: string;
+  documentNumber: string;
+  isPlanned: boolean;
+  initialStatus: ReceivingDocStatus;
+  completedAtLabel: string | null;
   warehouses: WarehouseRow[];
   suppliers: SupplierRow[];
   skuCatalog: ProductSkuCatalogItem[];
-  defaultWarehouseId?: string;
   dev: boolean;
-  // Відкриття існуючого документа (клік по «Номер документа» в списку) —
-  // передається вже готовим набором значень з server component (page.tsx),
-  // сама сторінка нічого не конвертує (ISO→UI — на межі, при читанні).
-  initialDocumentId?: string | null;
-  initialValues?: PlannedReceivingFormValues;
-  initialCustomFields?: ReceivingCustomFieldRow[];
-  initialItems?: ReceivingItem[];
+  initialValues: PlannedReceivingFormValues;
+  initialCustomFields: ReceivingCustomFieldRow[];
+  initialItems: ReceivingItem[];
 }) {
-  const router = useRouter();
-  const isPlanned = documentType === "planned";
   const hasRealSuppliers = suppliers.length > 0;
 
-  const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
-  const [values, setValues] = useState<PlannedReceivingFormValues>(
-    initialValues ?? {
-      supplierId: suppliers[0]?.id ?? null,
-      document: "",
-      date: "",
-      warehouseId: defaultWarehouseId ?? warehouses[0]?.id ?? "",
-      responsible: "",
-      comment: "",
-      ttnCarrier: null,
-      ttnNumber: "",
-    }
-  );
+  const [status, setStatus] = useState<ReceivingDocStatus>(initialStatus);
+  const [completedAtLabel, setCompletedAtLabel] = useState<string | null>(initialCompletedAtLabel);
+  const [values, setValues] = useState<PlannedReceivingFormValues>(initialValues);
   const [items, setItems] = useState<ReceivingItem[]>(initialItems);
   const [customFields, setCustomFields] = useState<ReceivingCustomFieldRow[]>(initialCustomFields);
+  const [accepting, setAccepting] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const [accepting, setAccepting] = useState(false);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Перший запуск ефекту пропускаємо — values і так дорівнюють щойно
+  // завантаженим із сервера даним, зайвий запит не потрібен.
   const skipNextAutosave = useRef(true);
   const customFieldTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const itemTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Замикається на `values` поточного рендеру — функцію завжди перестворює
-  // React при кожному рендері, тож застарілого значення тут не буває (ref
-  // для цього не потрібен, react-hooks/refs забороняє мутувати ref у рендері).
-  function buildPayload(): ReceivingDocumentInput {
+  const locked = status === "completed" || status === "completed_with_discrepancy";
+
+  function buildPayload(): UpdateReceivingDocumentInput {
     return {
-      type: documentType,
       supplierId: hasRealSuppliers ? values.supplierId : null,
       warehouseId: values.warehouseId || null,
       plannedDate: parseDateInputToIso(values.date),
@@ -108,13 +98,10 @@ export function PlannedReceivingWorkspace({
     };
   }
 
-  // Автозбереження полів форми ПІСЛЯ першого явного «Зберегти» — той самий
-  // принцип, що картка товару (conventions.md, "Форми редагування"):
-  // короткий debounce після останньої зміни, без кнопки. Перший запуск
-  // одразу після створення документа пропускаємо — дані щойно й так пішли
-  // разом зі створенням.
+  // Автозбереження полів шапки — короткий debounce після останньої зміни,
+  // без кнопки (conventions.md).
   useEffect(() => {
-    if (!documentId) return;
+    if (locked) return;
     if (skipNextAutosave.current) {
       skipNextAutosave.current = false;
       return;
@@ -127,21 +114,21 @@ export function PlannedReceivingWorkspace({
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- buildPayload читає values, не потребує в deps
-  }, [documentId, values]);
+  }, [values, locked]);
 
-  async function ensureDocumentId(): Promise<string> {
-    if (documentId) return documentId;
-    const created = await createReceivingDocumentAction(buildPayload());
-    skipNextAutosave.current = true;
-    setDocumentId(created.id);
-    return created.id;
+  function handleValuesChange(patch: Partial<PlannedReceivingFormValues>) {
+    setValues((prev) => ({ ...prev, ...patch }));
   }
 
+  // «Зберегти» — лише для планового (пряма вказівка людини): дані й так
+  // автозберігаються по ходу (debounce вище), кнопка форсує негайний запис
+  // поточних значень (скасовує таймер, щоб не було подвійного запиту) і дає
+  // видиме підтвердження «Збережено».
   async function handleSave() {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     setSaving(true);
     try {
-      const id = await ensureDocumentId();
-      await updateReceivingDocumentAction(id, buildPayload());
+      await updateReceivingDocumentAction(documentId, buildPayload());
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1500);
     } finally {
@@ -149,13 +136,8 @@ export function PlannedReceivingWorkspace({
     }
   }
 
-  function handleValuesChange(patch: Partial<PlannedReceivingFormValues>) {
-    setValues((prev) => ({ ...prev, ...patch }));
-  }
-
   async function handleAddCustomField(label: string) {
-    const id = await ensureDocumentId();
-    const row = await createReceivingCustomFieldAction(id, label);
+    const row = await createReceivingCustomFieldAction(documentId, label);
     setCustomFields((prev) => [...prev, row]);
   }
 
@@ -172,14 +154,13 @@ export function PlannedReceivingWorkspace({
     await deleteReceivingCustomFieldAction(id);
   }
 
-  // Сканування або вибір з AddSkuCombobox — миттєво, не debounce (свідома
-  // дискретна дія людини). Планове збільшує «Замовлено», фактичне —
-  // «Прийнято» (і одразу поповнює product_skus.stock тим самим приростом —
-  // сервер це вже робить сам, тут лише синхронізуємо локальний стан).
+  // Планове до «Прийняти на склад» — скан збільшує «Планову кількість»;
+  // після (in_progress), і завжди для простого — «Прийнято».
+  const scanTargetsOrdered = isPlanned && status === "awaiting_delivery";
+
   async function handleScanOrAdd(sku: ProductSkuCatalogItem) {
-    const id = await ensureDocumentId();
-    const qtyField = isPlanned ? "ordered" : "received";
-    const result = await upsertReceivingDocumentItemAction(id, sku.id, qtyField, 1);
+    const qtyField = scanTargetsOrdered ? "ordered" : "received";
+    const result = await upsertReceivingDocumentItemAction(documentId, sku.id, qtyField, 1);
     setItems((prev) => {
       const existingIndex = prev.findIndex((item) => item.productSkuId === sku.id);
       if (existingIndex === -1) {
@@ -233,14 +214,31 @@ export function PlannedReceivingWorkspace({
     void deleteReceivingDocumentItemsAction(itemIds);
   }
 
+  // Незворотно (нема шляху назад, пряма вказівка людини) — не відкочуємо
+  // локальний стан у catch, лише не даємо кнопці зависнути на помилці.
   async function handleAccept() {
     setAccepting(true);
     try {
-      const id = await ensureDocumentId();
-      const actual = await createActualReceivingFromPlannedAction(id);
-      router.push(`/warehouse/receiving/${actual.id}`);
+      await acceptPlannedReceivingAction(documentId);
+      setStatus("in_progress");
     } finally {
       setAccepting(false);
+    }
+  }
+
+  // Так само незворотно й тут реально «оприходується» на склад (одноразово,
+  // server-side, completeReceivingDocument). Статус/дата — напряму з
+  // відповіді дії, не через router.refresh() (useState(initialStatus) не
+  // перечитує пропси при ре-рендері серверного дерева — інакше акт
+  // відкривався лише після F5).
+  async function handleComplete() {
+    setCompleting(true);
+    try {
+      const result = await completeReceivingDocumentAction(documentId);
+      setStatus(result.status);
+      setCompletedAtLabel(formatDateUa(result.completedAt));
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -249,19 +247,32 @@ export function PlannedReceivingWorkspace({
   const received = items.reduce((sum, item) => sum + item.received, 0);
   const discrepancies = items.filter((item) => item.received !== item.ordered).length;
 
+  // «Завершити» заблоковане, поки не заповнені постачальник і відповідальна
+  // особа (тип — уже завжди обраний, фіксується при створенні) — пряма
+  // вказівка людини.
+  const missingForComplete: string[] = [];
+  if (!values.supplierId) missingForComplete.push("постачальника");
+  if (!values.responsible.trim()) missingForComplete.push("відповідальну особу");
+  const completeBlockedReason =
+    missingForComplete.length > 0 ? `Оберіть ${missingForComplete.join(" і ")}, щоб завершити документ` : null;
+
   return (
     <div className="flex flex-1 flex-col">
       <DevBlockLabel name="PlannedReceivingHeader" enabled={dev}>
         <PlannedReceivingHeader
-          documentType={documentType}
-          onAccept={isPlanned ? handleAccept : undefined}
+          documentNumber={documentNumber}
+          isPlanned={isPlanned}
+          status={status}
+          locked={locked}
+          completedAtLabel={completedAtLabel}
+          onSave={isPlanned && !locked ? handleSave : undefined}
+          saving={saving}
+          justSaved={justSaved}
+          onAccept={isPlanned && status === "awaiting_delivery" ? handleAccept : undefined}
           accepting={accepting}
-          saveSlot={
-            <Button variant="outline" onClick={handleSave} disabled={saving}>
-              {justSaved ? <Check className="size-4" /> : <Save className="size-4" />}
-              {justSaved ? "Збережено" : "Зберегти"}
-            </Button>
-          }
+          onComplete={status === "in_progress" ? handleComplete : undefined}
+          completeBlockedReason={status === "in_progress" ? completeBlockedReason : null}
+          completing={completing}
         />
       </DevBlockLabel>
 
@@ -269,7 +280,10 @@ export function PlannedReceivingWorkspace({
         <div className="flex flex-1 flex-col gap-4 p-6">
           <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_360px]">
             <PlannedReceivingItemsTable
-              mode={documentType}
+              showOrderedColumn={isPlanned}
+              orderedEditable={isPlanned && !locked}
+              receivedEditable={(!isPlanned || status === "in_progress") && !locked}
+              locked={locked}
               items={items}
               skuCatalog={skuCatalog}
               onScanOrAdd={handleScanOrAdd}
@@ -289,23 +303,25 @@ export function PlannedReceivingWorkspace({
                 onAddCustomField={handleAddCustomField}
                 onChangeCustomFieldValue={handleChangeCustomFieldValue}
                 onRemoveCustomField={handleRemoveCustomField}
+                isPlanned={isPlanned}
+                locked={locked}
               />
               <ReceivingSummary
                 stats={
                   isPlanned
                     ? [
                         { label: "Позицій", value: positions },
-                        { label: "Очікується", value: expected },
-                      ]
-                    : [
-                        { label: "Позицій", value: positions },
-                        { label: "Очікується", value: expected },
+                        { label: "Планова кількість", value: expected },
                         { label: "Прийнято", value: received },
                         { label: "Розбіжностей", value: discrepancies, tone: "destructive" },
                       ]
+                    : [
+                        { label: "Позицій", value: positions },
+                        { label: "Прийнято", value: received },
+                      ]
                 }
               />
-              <ReceivingQuickActions type={documentType} />
+              <ReceivingQuickActions documentId={documentId} completed={locked} />
             </div>
           </div>
         </div>

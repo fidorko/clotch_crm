@@ -26,7 +26,12 @@ import { productMaterialComposition } from "./product-material-composition";
 import { productActivityLog } from "./product-activity-log";
 import { warehouses } from "./warehouses";
 import { warehouseBinStreets, warehouseBinRacks, warehouseBinCells } from "./warehouse-bin-locations";
-import { receivingDocuments, receivingDocumentCustomFields, receivingDocumentItems } from "./receiving";
+import {
+  receivingDocuments,
+  receivingDocumentCustomFields,
+  receivingDocumentItemEvents,
+  receivingDocumentItems,
+} from "./receiving";
 
 export * from "./tenants";
 export * from "./warehouses";
@@ -139,7 +144,7 @@ export const receivingDocumentCustomFieldsRelations = relations(receivingDocumen
   }),
 }));
 
-export const receivingDocumentItemsRelations = relations(receivingDocumentItems, ({ one }) => ({
+export const receivingDocumentItemsRelations = relations(receivingDocumentItems, ({ one, many }) => ({
   document: one(receivingDocuments, {
     fields: [receivingDocumentItems.documentId],
     references: [receivingDocuments.id],
@@ -147,6 +152,14 @@ export const receivingDocumentItemsRelations = relations(receivingDocumentItems,
   productSku: one(productSkus, {
     fields: [receivingDocumentItems.productSkuId],
     references: [productSkus.id],
+  }),
+  events: many(receivingDocumentItemEvents),
+}));
+
+export const receivingDocumentItemEventsRelations = relations(receivingDocumentItemEvents, ({ one }) => ({
+  item: one(receivingDocumentItems, {
+    fields: [receivingDocumentItemEvents.itemId],
+    references: [receivingDocumentItems.id],
   }),
 }));
 

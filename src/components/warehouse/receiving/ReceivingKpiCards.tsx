@@ -1,8 +1,7 @@
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, CheckCircle2, FileEdit, FileText } from "lucide-react";
+import { CalendarClock, CheckCircle2, FileText, Loader } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { formatTodayUa } from "@/lib/date-ua";
 import type { ReceivingDocumentListItem } from "@/lib/types/receiving";
 
 interface Kpi {
@@ -12,8 +11,10 @@ interface Kpi {
   tint: string;
 }
 
+// Лічильники за реальним статусом документа (раніше — за сирим
+// `status`-полем, яке фактично завжди дорівнювало "draft"; тепер статус —
+// повноцінна машина станів, warehouse-receiving.md, 2026-08-05).
 export function ReceivingKpiCards({ documents }: { documents: ReceivingDocumentListItem[] }) {
-  const today = formatTodayUa();
   const kpis: Kpi[] = [
     {
       label: "Всього документів",
@@ -22,22 +23,22 @@ export function ReceivingKpiCards({ documents }: { documents: ReceivingDocumentL
       tint: "bg-accent text-accent-foreground",
     },
     {
-      label: "Чернеток",
-      value: documents.filter((d) => d.status === "draft").length,
-      icon: FileEdit,
-      tint: "bg-muted text-muted-foreground",
+      label: "Очікується поставка",
+      value: documents.filter((d) => d.status === "awaiting_delivery").length,
+      icon: CalendarClock,
+      tint: "bg-warning/15 text-warning",
     },
     {
-      label: "Проведених",
-      value: documents.filter((d) => d.status === "posted").length,
+      label: "В процесі",
+      value: documents.filter((d) => d.status === "in_progress").length,
+      icon: Loader,
+      tint: "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400",
+    },
+    {
+      label: "Завершено",
+      value: documents.filter((d) => d.status === "completed" || d.status === "completed_with_discrepancy").length,
       icon: CheckCircle2,
       tint: "bg-success/15 text-success",
-    },
-    {
-      label: "Сьогодні",
-      value: documents.filter((d) => d.date === today).length,
-      icon: CalendarDays,
-      tint: "bg-warning/15 text-warning",
     },
   ];
 

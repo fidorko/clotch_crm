@@ -1,10 +1,33 @@
-import Link from "next/link";
-import { CalendarClock, Zap } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { HeaderActions } from "@/components/layout/HeaderActions";
+"use client";
 
+import { useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, CalendarClock, ChevronDown, Warehouse } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { HeaderActions } from "@/components/layout/HeaderActions";
+import { createReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
+
+// Одна кнопка «Додати надходження» — тип (планове/фактичне) обирається у
+// випадному меню тут же, документ створюється одразу (isPlanned фіксується
+// назавжди на цьому кроці), редірект на готову сторінку документа без
+// проміжного гейту (пряма вказівка людини, warehouse-receiving.md).
 export function ReceivingHeader({ warehouseId }: { warehouseId?: string }) {
-  const query = warehouseId ? `&warehouseId=${warehouseId}` : "";
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleCreate(isPlanned: boolean) {
+    startTransition(async () => {
+      const created = await createReceivingDocumentAction({ isPlanned, warehouseId });
+      router.push(`/warehouse/receiving/${created.id}`);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
@@ -20,17 +43,33 @@ export function ReceivingHeader({ warehouseId }: { warehouseId?: string }) {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Надходження</h1>
-        <div className="flex items-center gap-2">
-          <Link href={`/warehouse/receiving/new?type=planned${query}`} className={buttonVariants({ variant: "outline" })}>
-            <CalendarClock className="size-4" />
-            Планове надходження
+        <div className="flex items-center gap-3">
+          <Link
+            href="/warehouse"
+            className={buttonVariants({ variant: "outline", size: "icon-sm" })}
+            aria-label="Назад до складу"
+          >
+            <ArrowLeft className="size-4" />
           </Link>
-          <Link href={`/warehouse/receiving/new?type=actual${query}`} className={buttonVariants({})}>
-            <Zap className="size-4" />
-            Швидке надходження
-          </Link>
+          <h1 className="text-2xl font-semibold text-foreground">Надходження</h1>
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button disabled={isPending} />}>
+            Додати надходження
+            <ChevronDown className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleCreate(true)}>
+              <CalendarClock className="size-4" />
+              Планове надходження
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCreate(false)}>
+              <Warehouse className="size-4" />
+              Фактичне надходження
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

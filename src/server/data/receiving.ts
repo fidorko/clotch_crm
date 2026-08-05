@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, like, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
 import {
   productSkus,
+  products,
   receivingDocumentCustomFields,
   receivingDocumentItems,
   receivingDocuments,
@@ -30,16 +31,28 @@ function isCheckViolation(error: unknown): boolean {
   );
 }
 
-export interface ReceivingDocumentInput {
-  type: "planned" | "actual";
-  supplierId: string | null;
-  warehouseId: string | null;
-  plannedDate: string | null; // ISO yyyy-mm-dd, конвертоване з DD.MM.YYYY на межі UI
-  supplierDocument: string;
-  ttnCarrier: "nova_poshta" | "ukrposhta" | null;
-  ttnNumber: string;
-  responsiblePerson: string;
-  comment: string;
+// Тип фіксується одразу при виборі з випадного меню «Додати надходження»
+// (список, ReceivingHeader) — решта шапки (постачальник/відповідальна
+// особа/дата/ЕН/коментар) заповнюється вже на сторінці документа,
+// автозбереженням, як і решта полів (пряма вказівка людини — «редагувати
+// все можна одразу», decisions.md). warehouseId — необов'язковий виняток:
+// якщо перейшли з картки конкретного складу (`?warehouseId=`), він
+// проставляється вже при створенні й далі показується нередагованим
+// текстом (PlannedReceivingInfoForm) — склад приймання не міняють по ходу.
+export interface CreateReceivingDocumentInput {
+  isPlanned: boolean;
+  warehouseId?: string | null;
+}
+
+export interface UpdateReceivingDocumentInput {
+  supplierId?: string | null;
+  warehouseId?: string | null;
+  plannedDate?: string | null; // ISO yyyy-mm-dd, конвертоване з DD.MM.YYYY на межі UI
+  supplierDocument?: string;
+  ttnCarrier?: "nova_poshta" | "ukrposhta" | null;
+  ttnNumber?: string;
+  responsiblePerson?: string;
+  comment?: string;
 }
 
 /**
@@ -59,36 +72,6 @@ async function generateReceivingNumber(tx: Tx, tenantId: string): Promise<string
   return `${prefix}${String(nextSuffix).padStart(3, "0")}`;
 }
 
-/**
- * Кожна спроба — ОКРЕМА транзакція (withTenant), не одна спільна: Postgres
- * абортує всю транзакцію після будь-якої помилки (конфлікт унікальності
- * теж), тож "зловити 23505 і продовжити в тій самій tx" не спрацював би —
- * наступний запит одразу впав би з "current transaction is aborted" (саме
- * так і сталось при перевірці цієї функції). Спільна для
- * createReceivingDocument і createActualReceivingFromPlanned.
- */
-async function createReceivingDocumentRow(
-  tenantId: string,
-  values: Omit<typeof receivingDocuments.$inferInsert, "id" | "tenantId" | "number" | "createdAt" | "updatedAt">
-): Promise<ReceivingDocumentRow> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      return await withTenant(tenantId, async (tx) => {
-        const number = await generateReceivingNumber(tx, tenantId);
-        const [row] = await tx
-          .insert(receivingDocuments)
-          .values({ tenantId, number, ...values })
-          .returning();
-        return row;
-      });
-    } catch (error) {
-      if (isUniqueViolation(error) && attempt < 4) continue;
-      throw error;
-    }
-  }
-  throw new Error("Не вдалося згенерувати номер документа надходження");
-}
-
 /** WHERE tenant_id + id разом (правило 7 розділу 6 CLAUDE.md) — чужий документ просто не знайдеться. */
 export async function getReceivingDocument(
   tenantId: string,
@@ -104,31 +87,70 @@ export async function getReceivingDocument(
   });
 }
 
+/**
+ * Явне створення документа — тип обирається одразу у випадному меню
+ * «Додати надходження» (список), документ створюється й одразу відкривається
+ * повністю редагованим (нема окремого «розблокування» — пряма вказівка
+ * людини). isPlanned фіксується тут раз і назавжди — ніде більше не
+ * редагується. Статус одразу відповідний: awaiting_delivery для планового
+ * (чекає «Прийняти на склад»), in_progress для простого.
+ */
 export async function createReceivingDocument(
   tenantId: string,
-  input: ReceivingDocumentInput
+  input: CreateReceivingDocumentInput
 ): Promise<ReceivingDocumentRow> {
-  return createReceivingDocumentRow(tenantId, {
-    type: input.type,
-    status: "draft",
-    supplierId: input.supplierId,
-    warehouseId: input.warehouseId,
-    plannedDate: input.plannedDate,
-    supplierDocument: input.supplierDocument || null,
-    ttnCarrier: input.ttnCarrier,
-    ttnNumber: input.ttnNumber || null,
-    responsiblePerson: input.responsiblePerson || null,
-    comment: input.comment || null,
-  });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await withTenant(tenantId, async (tx) => {
+        const number = await generateReceivingNumber(tx, tenantId);
+        const [row] = await tx
+          .insert(receivingDocuments)
+          .values({
+            tenantId,
+            number,
+            status: input.isPlanned ? "awaiting_delivery" : "in_progress",
+            isPlanned: input.isPlanned,
+            supplierId: null,
+            responsiblePerson: null,
+            warehouseId: input.warehouseId ?? null,
+            plannedDate: null,
+            supplierDocument: null,
+            ttnCarrier: null,
+            ttnNumber: null,
+            comment: null,
+          })
+          .returning();
+        return row;
+      });
+    } catch (error) {
+      if (isUniqueViolation(error) && attempt < 4) continue;
+      throw error;
+    }
+  }
+  throw new Error("Не вдалося згенерувати номер документа надходження");
 }
 
-/** Автозбереження полів форми (conventions.md — без кнопки «Зберегти» після першого разу). */
+/**
+ * Автозбереження решти полів шапки (conventions.md — без кнопки «Зберегти»
+ * після першого разу; сам факт створення документа — окрема явна дія вище).
+ * Гард на completedAt — після «Зберегти документ надходження та завершити»
+ * жодне поле більше не редагується, ні мовчки, ні з помилкою в консоль:
+ * кидаємо explicit error, щоб UI показав причину.
+ */
 export async function updateReceivingDocument(
   tenantId: string,
   id: string,
-  input: Partial<ReceivingDocumentInput>
+  input: UpdateReceivingDocumentInput
 ): Promise<void> {
   await withTenant(tenantId, async (tx) => {
+    const [doc] = await tx
+      .select({ completedAt: receivingDocuments.completedAt })
+      .from(receivingDocuments)
+      .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, id)))
+      .limit(1);
+    if (!doc) return;
+    if (doc.completedAt) throw new Error("Документ завершено — редагування недоступне");
+
     await tx
       .update(receivingDocuments)
       .set({
@@ -145,6 +167,93 @@ export async function updateReceivingDocument(
         updatedAt: new Date(),
       })
       .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, id)));
+  });
+}
+
+/**
+ * «Прийняти на склад» — лише для планового, лише зі стану «Очікується
+ * поставка», незворотно (нема шляху назад, пряма вказівка людини). Guard
+ * прямо в WHERE — чужий/непідходящий документ просто не зміниться.
+ */
+export async function acceptPlannedReceiving(tenantId: string, id: string): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    const updated = await tx
+      .update(receivingDocuments)
+      .set({ status: "in_progress", updatedAt: new Date() })
+      .where(
+        and(
+          eq(receivingDocuments.tenantId, tenantId),
+          eq(receivingDocuments.id, id),
+          eq(receivingDocuments.isPlanned, true),
+          eq(receivingDocuments.status, "awaiting_delivery")
+        )
+      )
+      .returning({ id: receivingDocuments.id });
+    if (updated.length === 0) {
+      throw new Error("Неможливо прийняти на склад — документ не в стані «Очікується поставка»");
+    }
+  });
+}
+
+/**
+ * «Завершити» — незворотна фіналізація, і водночас єдиний момент, коли
+ * прийняте реально потрапляє на склад (`product_skus.stock`) — пряма
+ * вказівка людини: до цього поля вводяться й зберігаються (persist кожної
+ * зміни, як і раніше), але «оприходування» саме тут, одним разом, а не по
+ * ходу редагування (decisions.md). Для простого надходження нема бази для
+ * порівняння — завжди «Завершено». Для планового — «Завершено з
+ * розбіжностями», якщо хоч одна позиція має ordered !== received.
+ * completedAt — і момент блокування редагування, і умова доступності акту.
+ */
+export async function completeReceivingDocument(
+  tenantId: string,
+  id: string
+): Promise<ReceivingDocumentRow> {
+  return withTenant(tenantId, async (tx) => {
+    const [doc] = await tx
+      .select()
+      .from(receivingDocuments)
+      .where(
+        and(
+          eq(receivingDocuments.tenantId, tenantId),
+          eq(receivingDocuments.id, id),
+          eq(receivingDocuments.status, "in_progress")
+        )
+      )
+      .limit(1);
+    if (!doc) throw new Error("Документ не в стані «В процесі» — завершити не можна");
+
+    const items = await tx
+      .select({
+        productSkuId: receivingDocumentItems.productSkuId,
+        ordered: receivingDocumentItems.ordered,
+        received: receivingDocumentItems.received,
+      })
+      .from(receivingDocumentItems)
+      .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, id)));
+
+    let finalStatus: "completed" | "completed_with_discrepancy" = "completed";
+    if (doc.isPlanned && items.some((item) => item.ordered !== item.received)) {
+      finalStatus = "completed_with_discrepancy";
+    }
+
+    // Реальне оприходування — сума received кожної позиції додається до
+    // залишку одноразово тут (не по ходу редагування, дивись receiving-items.ts).
+    for (const item of items) {
+      if (item.received !== 0) {
+        await tx
+          .update(productSkus)
+          .set({ stock: sql`${productSkus.stock} + ${item.received}`, updatedAt: new Date() })
+          .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
+      }
+    }
+
+    const [updated] = await tx
+      .update(receivingDocuments)
+      .set({ status: finalStatus, completedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, id)))
+      .returning();
+    return updated;
   });
 }
 
@@ -204,29 +313,39 @@ export async function updateReceivingCustomFieldValue(
 }
 
 /**
- * Планове й фактичне можна видалити (за прямою вказівкою людини — раніше
- * фактичне було заборонено, warehouse-receiving.md). Для фактичного —
- * спершу відкочуємо `product_skus.stock` за кожною прийнятою позицією (той
- * самий принцип, що `deleteReceivingDocumentItems`), потім видаляємо сам
- * документ — `receiving_document_items` видаляються каскадно (FK
- * `onDelete: cascade`). Якщо частину прийнятого залишку вже витрачено
- * деінде, відкат впаде на тому самому `CHECK (stock >= 0)`, що й ручне
- * зменшення «Прийнято» — та сама помилка користувачу.
+ * Видалення дозволене для будь-якого документа незалежно від статусу
+ * (2026-08-05, decisions.md). Відкат `product_skus.stock` — лише якщо
+ * документ уже завершено (`completedAt`): саме тоді `completeReceivingDocument`
+ * реально додав `received` кожної позиції на залишок. До завершення
+ * позиції редаговані й видаляються без жодного впливу на stock (не
+ * потрапляли туди ще) — інакше відкат віднімав би те, чого не було додано.
+ * Після видалення `receiving_document_items` йдуть каскадно (FK
+ * `onDelete: cascade`), а за ними — `receiving_document_item_events`. Якщо
+ * частину поповненого залишку вже витрачено деінде, відкат впаде на
+ * `CHECK (stock >= 0)` — та сама помилка користувачу.
  */
 export async function deleteReceivingDocument(tenantId: string, id: string): Promise<void> {
   try {
     await withTenant(tenantId, async (tx) => {
-      const items = await tx
-        .select({ productSkuId: receivingDocumentItems.productSkuId, received: receivingDocumentItems.received })
-        .from(receivingDocumentItems)
-        .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, id)));
+      const [doc] = await tx
+        .select({ completedAt: receivingDocuments.completedAt })
+        .from(receivingDocuments)
+        .where(and(eq(receivingDocuments.tenantId, tenantId), eq(receivingDocuments.id, id)))
+        .limit(1);
 
-      for (const item of items) {
-        if (item.received !== 0) {
-          await tx
-            .update(productSkus)
-            .set({ stock: sql`${productSkus.stock} - ${item.received}`, updatedAt: new Date() })
-            .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
+      if (doc?.completedAt) {
+        const items = await tx
+          .select({ productSkuId: receivingDocumentItems.productSkuId, received: receivingDocumentItems.received })
+          .from(receivingDocumentItems)
+          .where(and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, id)));
+
+        for (const item of items) {
+          if (item.received !== 0) {
+            await tx
+              .update(productSkus)
+              .set({ stock: sql`${productSkus.stock} - ${item.received}`, updatedAt: new Date() })
+              .where(and(eq(productSkus.tenantId, tenantId), eq(productSkus.id, item.productSkuId)));
+          }
         }
       }
 
@@ -259,9 +378,8 @@ export async function listReceivingDocuments(tenantId: string): Promise<Receivin
       .select({
         id: receivingDocuments.id,
         number: receivingDocuments.number,
-        type: receivingDocuments.type,
+        isPlanned: receivingDocuments.isPlanned,
         status: receivingDocuments.status,
-        basedOnId: receivingDocuments.basedOnId,
         supplierName: suppliers.name,
         warehouseName: warehouses.name,
         plannedDate: receivingDocuments.plannedDate,
@@ -281,16 +399,22 @@ export async function listReceivingDocuments(tenantId: string): Promise<Receivin
       .orderBy(desc(receivingDocuments.createdAt))
       .limit(DOCUMENTS_LIMIT);
 
-    // Агрегати замовлено/прийнято на документ — джерело кольору статусу в
-    // списку (computeReceivingDocDisplayStatus, lib/types/receiving.ts).
+    // Агрегати ordered/received (колонка «Виконання») + злитий пошуковий
+    // текст по товарах (назва/SKU/ШК) — джерело для пошуку в списку за
+    // вмістом документа, не лише номером (warehouse-receiving.md).
     const aggregateRows = await tx
       .select({
         documentId: receivingDocumentItems.documentId,
         totalOrdered: sql<number>`coalesce(sum(${receivingDocumentItems.ordered}), 0)`,
         totalReceived: sql<number>`coalesce(sum(${receivingDocumentItems.received}), 0)`,
-        hasUnplannedItems: sql<boolean>`bool_or(${receivingDocumentItems.ordered} = 0)`,
+        searchText: sql<string>`lower(string_agg(
+          coalesce(${products.name}, '') || ' ' || coalesce(${productSkus.code}, '') || ' ' || coalesce(${productSkus.barcode}, ''),
+          ' '
+        ))`,
       })
       .from(receivingDocumentItems)
+      .innerJoin(productSkus, eq(productSkus.id, receivingDocumentItems.productSkuId))
+      .innerJoin(products, eq(products.id, productSkus.productId))
       .where(eq(receivingDocumentItems.tenantId, tenantId))
       .groupBy(receivingDocumentItems.documentId);
 
@@ -301,85 +425,16 @@ export async function listReceivingDocuments(tenantId: string): Promise<Receivin
       return {
         id: row.id,
         number: row.number,
-        type: row.type,
+        isPlanned: row.isPlanned,
         status: row.status,
-        basedOnId: row.basedOnId,
         supplier: row.supplierName,
         warehouse: row.warehouseName,
         date: formatDateUa(row.plannedDate ?? row.createdAt),
         supplierDocument: row.supplierDocument,
         totalOrdered: Number(aggregate?.totalOrdered ?? 0),
         totalReceived: Number(aggregate?.totalReceived ?? 0),
-        hasUnplannedItems: aggregate?.hasUnplannedItems ?? false,
+        itemsSearchText: aggregate?.searchText ?? "",
       };
     });
   });
-}
-
-/**
- * «Прийняти на склад» — реальне фактичне приймання на основі планового
- * (пряма вказівка людини, warehouse-receiving.md). Копіює шапку
- * (постачальник/склад/документ постачальника/ЕН) і всі позиції (ordered як
- * у плані, received=0). plannedDate/responsiblePerson/comment навмисно НЕ
- * копіюються — дата фактичного приймання й відповідальний за приймання
- * вводяться заново, не успадковуються з плану.
- */
-export async function createActualReceivingFromPlanned(
-  tenantId: string,
-  plannedDocumentId: string
-): Promise<ReceivingDocumentRow> {
-  const planned = await withTenant(tenantId, async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(receivingDocuments)
-      .where(
-        and(
-          eq(receivingDocuments.tenantId, tenantId),
-          eq(receivingDocuments.id, plannedDocumentId),
-          eq(receivingDocuments.type, "planned")
-        )
-      )
-      .limit(1);
-    return row ?? null;
-  });
-  if (!planned) throw new Error("Плановий документ не знайдено");
-
-  const actual = await createReceivingDocumentRow(tenantId, {
-    type: "actual",
-    status: "draft",
-    basedOnId: planned.id,
-    supplierId: planned.supplierId,
-    warehouseId: planned.warehouseId,
-    plannedDate: null,
-    supplierDocument: planned.supplierDocument,
-    ttnCarrier: planned.ttnCarrier,
-    ttnNumber: planned.ttnNumber,
-    responsiblePerson: null,
-    comment: null,
-  });
-
-  await withTenant(tenantId, async (tx) => {
-    const plannedItems = await tx
-      .select()
-      .from(receivingDocumentItems)
-      .where(
-        and(eq(receivingDocumentItems.tenantId, tenantId), eq(receivingDocumentItems.documentId, planned.id))
-      )
-      .orderBy(asc(receivingDocumentItems.position));
-
-    if (plannedItems.length > 0) {
-      await tx.insert(receivingDocumentItems).values(
-        plannedItems.map((item) => ({
-          tenantId,
-          documentId: actual.id,
-          productSkuId: item.productSkuId,
-          ordered: item.ordered,
-          received: 0,
-          position: item.position,
-        }))
-      );
-    }
-  });
-
-  return actual;
 }

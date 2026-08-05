@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Copy, CornerDownRight, Download, PackageCheck, Printer, Trash2 } from "lucide-react";
+import { Copy, Download, PackageCheck, Printer, Search, Trash2, Truck, Warehouse } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,18 +24,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { parseUaDate } from "@/lib/date-ua";
 import {
-  RECEIVING_DOC_DISPLAY_STATUS_META,
-  RECEIVING_DOC_TYPE_BADGE,
-  RECEIVING_DOC_TYPE_LABEL,
-  computeReceivingDocDisplayStatus,
-  type ReceivingDocDisplayStatus,
+  RECEIVING_DOC_STATUS_META,
+  receivingDocTypeLabel,
+  type ReceivingDocStatus,
   type ReceivingDocumentListItem,
 } from "@/lib/types/receiving";
-import { createActualReceivingFromPlannedAction, deleteReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
+import { acceptPlannedReceivingAction, deleteReceivingDocumentAction } from "@/app/warehouse/receiving/actions";
 
-const STATUS_FILTER_OPTIONS: { value: ReceivingDocDisplayStatus | "all"; label: string }[] = [
+const STATUS_FILTER_OPTIONS: { value: ReceivingDocStatus | "all"; label: string }[] = [
   { value: "all", label: "Усі статуси" },
-  ...(Object.entries(RECEIVING_DOC_DISPLAY_STATUS_META) as [ReceivingDocDisplayStatus, { label: string }][]).map(
+  ...(Object.entries(RECEIVING_DOC_STATUS_META) as [ReceivingDocStatus, { label: string }][]).map(
     ([value, meta]) => ({ value, label: meta.label })
   ),
 ];
@@ -44,42 +42,11 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-xs font-medium text-muted-foreground">{children}</span>;
 }
 
-type Row =
-  | { kind: "single"; doc: ReceivingDocumentListItem }
-  | { kind: "pair"; planned: ReceivingDocumentListItem; actual: ReceivingDocumentListItem };
-
-// Список сортований за createdAt DESC — фактичне завжди створюється ПІЗНІШЕ
-// планового (через «Прийняти на склад»), тож завжди йде ПЕРЕД ним у списку.
-// Тому пару шукаємо саме від фактичного до його планового (пряме посилання
-// за id), а не навпаки: попередня версія шукала "хто вказує на мене" від
-// планового — на момент, коли цикл доходив до планового, фактичне вже було
-// відвідане й помилково позначене consumed як одиночний рядок, і пара
-// губилась (ловила людина на реальних даних).
-function groupDocuments(docs: ReceivingDocumentListItem[]): Row[] {
-  const consumed = new Set<string>();
-  const rows: Row[] = [];
-  for (const doc of docs) {
-    if (consumed.has(doc.id)) continue;
-    if (doc.type === "actual" && doc.basedOnId) {
-      const planned = docs.find((d) => d.id === doc.basedOnId && !consumed.has(d.id));
-      if (planned) {
-        rows.push({ kind: "pair", planned, actual: doc });
-        consumed.add(doc.id);
-        consumed.add(planned.id);
-        continue;
-      }
-    }
-    rows.push({ kind: "single", doc });
-    consumed.add(doc.id);
-  }
-  return rows;
-}
-
 // Копіювати/Друк/Експорт — заглушки (нема бекенду під них). Видалення —
-// реальне для обох типів (за прямою вказівкою людини); для фактичного
-// сервер попутно відкочує product_skus.stock за прийнятими позиціями
-// (server/data/receiving.ts). «Прийняти на склад» — лише для планового:
-// створює реальний фактичний документ на його основі (warehouse-receiving.md).
+// реальне для будь-якого статусу (пряма вказівка людини); сервер попутно
+// відкочує product_skus.stock за прийнятими позиціями (server/data/receiving.ts).
+// «Прийняти на склад» — знову в списку (повернено за прямою вказівкою
+// людини), лише для планового в стані «Очікується поставка».
 function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -97,8 +64,8 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
 
   function handleAccept() {
     startTransition(async () => {
-      const actual = await createActualReceivingFromPlannedAction(doc.id);
-      router.push(`/warehouse/receiving/${actual.id}`);
+      await acceptPlannedReceivingAction(doc.id);
+      router.refresh();
     });
   }
 
@@ -113,7 +80,7 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
       <Button variant="ghost" size="icon-sm" aria-label={`Експорт документа ${doc.number}`}>
         <Download className="size-4" />
       </Button>
-      {doc.type === "planned" && (
+      {doc.isPlanned && doc.status === "awaiting_delivery" && (
         <Button
           variant="ghost"
           size="icon-sm"
@@ -142,9 +109,7 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
           <DialogHeader>
             <DialogTitle>Видалити документ?</DialogTitle>
             <DialogDescription>
-              {doc.type === "planned"
-                ? `Планове надходження «${doc.number}» буде видалено остаточно.`
-                : `Фактичне надходження «${doc.number}» буде видалено остаточно. Прийнята кількість буде списана зі складського залишку.`}
+              {`Надходження «${doc.number}» буде видалено остаточно. Прийнята кількість (якщо була) буде списана зі складського залишку.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -159,41 +124,68 @@ function RowActions({ doc }: { doc: ReceivingDocumentListItem }) {
   );
 }
 
-function DocumentRow({
-  doc,
-  linkedNote,
-  groupTint,
-  noBottomBorder,
-}: {
-  doc: ReceivingDocumentListItem;
-  linkedNote?: string;
-  groupTint?: boolean;
-  noBottomBorder?: boolean;
-}) {
-  const displayStatus = RECEIVING_DOC_DISPLAY_STATUS_META[computeReceivingDocDisplayStatus(doc)];
+// «Виконання» — лише для планового (є з чим порівнювати «Прийнято»):
+// прогрес-смуга + дріб received/ordered, зелена коли зібрано повністю,
+// жовта коли частково, сіра поки нічого не прийнято. Для фактичного —
+// просто кількість прийнятого, без смуги (нема плану для порівняння).
+function ExecutionCell({ doc }: { doc: ReceivingDocumentListItem }) {
+  if (!doc.isPlanned) {
+    return <span className="text-muted-foreground">{doc.totalReceived ? `${doc.totalReceived} прийнято` : "—"}</span>;
+  }
+
+  const ratio = doc.totalOrdered > 0 ? Math.min(1, doc.totalReceived / doc.totalOrdered) : 0;
+  const tone =
+    doc.totalReceived > 0 && doc.totalReceived >= doc.totalOrdered
+      ? "bg-success"
+      : doc.totalReceived > 0
+        ? "bg-warning"
+        : "bg-muted-foreground/30";
 
   return (
-    <TableRow className={cn(groupTint && "bg-accent/[0.04] hover:bg-accent/[0.07]", noBottomBorder && "border-b-0")}>
-      <TableCell
-        className={cn("font-medium text-foreground", groupTint && "border-l-2 border-l-accent-foreground/50")}
-      >
-        <div className="flex items-center gap-1.5">
-          {linkedNote && <CornerDownRight className="size-3.5 shrink-0 text-accent-foreground" />}
-          <Link href={`/warehouse/receiving/${doc.id}`} className="hover:underline">
+    <div className="flex w-28 flex-col gap-1">
+      <span className="text-xs text-muted-foreground">
+        {doc.totalReceived}/{doc.totalOrdered}
+      </span>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={cn("h-full rounded-full", tone)} style={{ width: `${ratio * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DocumentRow({ doc }: { doc: ReceivingDocumentListItem }) {
+  const statusMeta = RECEIVING_DOC_STATUS_META[doc.status];
+  const TypeIcon = doc.isPlanned ? Truck : Warehouse;
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium text-foreground">
+        <Link href={`/warehouse/receiving/${doc.id}`} className="flex items-center gap-2.5 hover:underline">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              doc.isPlanned ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+            )}
+          >
+            <TypeIcon className="size-4.5" />
+          </span>
+          <span className="flex flex-col">
             {doc.number}
-          </Link>
-        </div>
-        {linkedNote && <span className="pl-5 text-xs font-normal text-muted-foreground">{linkedNote}</span>}
-      </TableCell>
-      <TableCell>
-        <Badge variant={RECEIVING_DOC_TYPE_BADGE[doc.type]}>{RECEIVING_DOC_TYPE_LABEL[doc.type]}</Badge>
+            <span className="text-xs font-normal text-muted-foreground">
+              {receivingDocTypeLabel(doc.isPlanned)} надходження
+            </span>
+          </span>
+        </Link>
       </TableCell>
       <TableCell>{doc.supplier ?? "—"}</TableCell>
       <TableCell className="text-muted-foreground">{doc.date ?? "—"}</TableCell>
       <TableCell>
-        <Badge variant="outline" className={cn("border-transparent", displayStatus.className)}>
-          {displayStatus.label}
+        <Badge variant="outline" className={cn("border-transparent", statusMeta.className)}>
+          {statusMeta.label}
         </Badge>
+      </TableCell>
+      <TableCell>
+        <ExecutionCell doc={doc} />
       </TableCell>
       <TableCell className="text-muted-foreground">{doc.supplierDocument || "—"}</TableCell>
       <TableCell>
@@ -207,9 +199,9 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [supplier, setSupplier] = useState("all");
-  const [number, setNumber] = useState("");
+  const [search, setSearch] = useState("");
   const [supplierDocument, setSupplierDocument] = useState("");
-  const [status, setStatus] = useState<ReceivingDocDisplayStatus | "all">("all");
+  const [status, setStatus] = useState<ReceivingDocStatus | "all">("all");
 
   const supplierOptions = Array.from(
     new Set(documents.map((d) => d.supplier).filter((s): s is string => Boolean(s)))
@@ -217,8 +209,9 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
 
   const filtered = documents.filter((doc) => {
     if (supplier !== "all" && doc.supplier !== supplier) return false;
-    if (status !== "all" && computeReceivingDocDisplayStatus(doc) !== status) return false;
-    if (number && !doc.number.toLowerCase().includes(number.toLowerCase())) return false;
+    if (status !== "all" && doc.status !== status) return false;
+    const q = search.trim().toLowerCase();
+    if (q && !doc.number.toLowerCase().includes(q) && !doc.itemsSearchText.includes(q)) return false;
     if (
       supplierDocument &&
       !(doc.supplierDocument ?? "").toLowerCase().includes(supplierDocument.toLowerCase())
@@ -234,12 +227,22 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
     return true;
   });
 
-  const rows = groupDocuments(filtered);
-
   return (
     <Card className="gap-0 py-0">
       <CardContent className="flex flex-col divide-y divide-border px-0">
         <div className="flex flex-wrap items-end gap-3 p-4">
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>Пошук</FieldLabel>
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Номер, товар, SKU або ШК"
+                className="w-[28rem] pl-8"
+              />
+            </div>
+          </div>
           <div className="flex flex-col gap-1.5">
             <FieldLabel>Дата від</FieldLabel>
             <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Будь-яка" className="w-36" />
@@ -265,15 +268,6 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>Номер</FieldLabel>
-            <Input
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              placeholder="RCV-2026-…"
-              className="w-36"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
             <FieldLabel>№ видаткової постачальника</FieldLabel>
             <Input
               value={supplierDocument}
@@ -284,7 +278,7 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
           </div>
           <div className="flex flex-col gap-1.5">
             <FieldLabel>Статус</FieldLabel>
-            <Select value={status} onValueChange={(v) => setStatus((v as ReceivingDocDisplayStatus | "all") ?? "all")}>
+            <Select value={status} onValueChange={(v) => setStatus((v as ReceivingDocStatus | "all") ?? "all")}>
               <SelectTrigger className="w-40">
                 <SelectValue>
                   {(v: string) => STATUS_FILTER_OPTIONS.find((o) => o.value === v)?.label}
@@ -305,30 +299,19 @@ export function ReceivingDocumentsTable({ documents }: { documents: ReceivingDoc
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Номер документа</TableHead>
-              <TableHead>Тип</TableHead>
               <TableHead>Постачальник</TableHead>
               <TableHead>Дата</TableHead>
               <TableHead>Статус</TableHead>
+              <TableHead>Виконання</TableHead>
               <TableHead>Документ постачальника</TableHead>
               <TableHead>Дії</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) =>
-              row.kind === "single" ? (
-                <DocumentRow key={row.doc.id} doc={row.doc} />
-              ) : (
-                <Fragment key={row.planned.id}>
-                  <DocumentRow doc={row.planned} groupTint noBottomBorder />
-                  <DocumentRow
-                    doc={row.actual}
-                    groupTint
-                    linkedNote={`на основі ${row.planned.number}`}
-                  />
-                </Fragment>
-              )
-            )}
-            {rows.length === 0 && (
+            {filtered.map((doc) => (
+              <DocumentRow key={doc.id} doc={doc} />
+            ))}
+            {filtered.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   {documents.length === 0 ? "Ще немає жодного документа надходження" : "Нічого не знайдено"}
