@@ -12,6 +12,7 @@ import {
   searchDeliveryWarehousesAction,
 } from "@/app/settings/delivery/np-lookup-actions";
 import type { DeliveryMethodRow } from "@/server/data/delivery-methods";
+import type { DeliveryMethodEntitySettingsRow } from "@/server/data/delivery-method-entity-settings";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-xs font-medium text-muted-foreground">{children}</span>;
@@ -46,17 +47,22 @@ export function OrderDeliveryCard({
   values,
   onChange,
   deliveryMethods,
+  entitySettingsByMethodId,
   orderTotal,
 }: {
   values: OrderDeliveryValues;
   onChange: (patch: Partial<OrderDeliveryValues>) => void;
   deliveryMethods: DeliveryMethodRow[];
+  entitySettingsByMethodId: Record<string, DeliveryMethodEntitySettingsRow>;
   orderTotal: number;
 }) {
   const selected = deliveryMethods.find((m) => m.id === values.deliveryMethodId) ?? null;
+  const selectedEntitySettings = selected ? entitySettingsByMethodId[selected.id] : undefined;
   const isNovaPoshta = selected?.carrierKey === "nova_poshta";
   const senderReady = Boolean(
-    selected?.senderCounterpartyRef && selected?.senderContactPersonRef && selected?.senderWarehouseRef
+    selectedEntitySettings?.senderCounterpartyRef &&
+      selectedEntitySettings?.senderContactPersonRef &&
+      selectedEntitySettings?.senderWarehouseRef
   );
 
   function handleCityChange(item: { ref: string; name: string }) {
@@ -137,7 +143,7 @@ export function OrderDeliveryCard({
                 <NpSearchCombobox
                   selectedLabel={values.recipientCity}
                   placeholder="Пошук міста..."
-                  onSearch={(query) => searchDeliveryCitiesAction(selected.apiKey ?? "", query)}
+                  onSearch={(query) => searchDeliveryCitiesAction(selectedEntitySettings?.apiKey ?? "", query)}
                   onSelect={handleCityChange}
                 />
               </div>
@@ -148,7 +154,7 @@ export function OrderDeliveryCard({
                   placeholder={values.recipientCityRef ? "Пошук відділення..." : "Спершу оберіть місто"}
                   disabled={!values.recipientCityRef}
                   onSearch={(query) =>
-                    searchDeliveryWarehousesAction(selected.apiKey ?? "", values.recipientCityRef, query)
+                    searchDeliveryWarehousesAction(selectedEntitySettings?.apiKey ?? "", values.recipientCityRef, query)
                   }
                   onSelect={(item) => onChange({ recipientWarehouseRef: item.ref, recipientWarehouse: item.name })}
                 />

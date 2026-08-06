@@ -4,25 +4,86 @@ import { revalidatePath } from "next/cache";
 import {
   createDeliveryMethod as createDeliveryMethodInDb,
   deleteDeliveryMethod as deleteDeliveryMethodInDb,
-  listAllDeliveryMethodStatusRules,
   updateDeliveryMethod as updateDeliveryMethodInDb,
+  type DeliveryMethodRow,
+} from "@/server/data/delivery-methods";
+import {
+  upsertDeliveryMethodEntitySettings,
   type DeliveryMethodDeclaredValueMode,
   type DeliveryMethodDescriptionContent,
-  type DeliveryMethodInput,
+  type DeliveryMethodEntitySettingsInput,
+  type DeliveryMethodEntitySettingsRow,
   type DeliveryMethodMarkingPrinterType,
   type DeliveryMethodPayer,
-  type DeliveryMethodRow,
   type DeliveryMethodSenderAddressType,
   type DeliveryMethodStatusRuleInput,
-} from "@/server/data/delivery-methods";
+} from "@/server/data/delivery-method-entity-settings";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { NovaPoshtaProvider } from "@/server/carriers/novaposhta/provider";
+
+// --- Список способів доставки (спільний на тенанта, settings-delivery.md) ---
 
 export interface DeliveryMethodFormInput {
   name: string;
   requiresApiKey: boolean;
-  apiKey: string;
   isEnabled: boolean;
+}
+
+export async function createDeliveryMethodAction(
+  input: DeliveryMethodFormInput
+): Promise<DeliveryMethodRow> {
+  const tenantId = getDevTenantId();
+  const name = input.name.trim();
+  if (!name) throw new Error("Назва обов'язкова");
+  const row = await createDeliveryMethodInDb(tenantId, {
+    name,
+    requiresApiKey: input.requiresApiKey,
+    isEnabled: input.isEnabled,
+  });
+  revalidatePath("/settings");
+  return row;
+}
+
+export async function updateDeliveryMethodAction(
+  id: string,
+  input: DeliveryMethodFormInput
+): Promise<void> {
+  const tenantId = getDevTenantId();
+  const name = input.name.trim();
+  if (!name) throw new Error("Назва обов'язкова");
+  await updateDeliveryMethodInDb(tenantId, id, {
+    name,
+    requiresApiKey: input.requiresApiKey,
+    isEnabled: input.isEnabled,
+  });
+  revalidatePath("/settings");
+}
+
+/** Швидкий тогл вмикача зі списку — isEnabled тепер живе прямо на delivery_methods, не чіпає конфігурації жодної юридичної особи. */
+export async function toggleDeliveryMethodAction(
+  id: string,
+  current: DeliveryMethodRow,
+  isEnabled: boolean
+): Promise<void> {
+  const tenantId = getDevTenantId();
+  await updateDeliveryMethodInDb(tenantId, id, {
+    name: current.name,
+    requiresApiKey: current.requiresApiKey,
+    isEnabled,
+  });
+  revalidatePath("/settings");
+}
+
+export async function deleteDeliveryMethodAction(id: string): Promise<void> {
+  const tenantId = getDevTenantId();
+  await deleteDeliveryMethodInDb(tenantId, id);
+  revalidatePath("/settings");
+}
+
+// --- Конфігурація способу доставки для конкретної юридичної особи ---
+
+export interface DeliveryMethodEntitySettingsFormInput {
+  apiKey: string;
   senderCounterpartyRef: string;
   senderCounterparty: string;
   senderContactPersonRef: string;
@@ -48,9 +109,31 @@ export interface DeliveryMethodFormInput {
   statusRules: DeliveryMethodStatusRuleInput[];
 }
 
-function parseDeliveryMethodInput(raw: DeliveryMethodFormInput): DeliveryMethodInput {
-  const name = raw.name.trim();
-  if (!name) throw new Error("Назва обов'язкова");
+/**
+ * Усі поля обов'язкові, окрім прямої вказівки людини (2026-08-06): правила
+ * статусів (0..N, лишається опційним списком) і частота синхронізації
+ * (опційна, за замовчуванням "1" — форма сама підставляє, тут лише
+ * дозволяємо порожнє). Радіо/перемикачі (payer/useCarrierPackaging/
+ * descriptionContent/markingPrinterType/senderAddressType) завжди мають
+ * значення — валідувати «порожнє» для них нема сенсу.
+ */
+function parseEntitySettingsInput(
+  raw: DeliveryMethodEntitySettingsFormInput
+): DeliveryMethodEntitySettingsInput {
+  if (!raw.apiKey.trim()) throw new Error("API-ключ обов'язковий");
+  if (!raw.senderCounterparty.trim()) throw new Error("Контрагент обов'язковий");
+  if (!raw.senderContactPerson.trim()) throw new Error("Контактна особа обов'язкова");
+  if (!raw.senderPhone.trim()) throw new Error("Телефон відправника обов'язковий");
+  if (!raw.senderCity.trim()) throw new Error("Місто відправника обов'язкове");
+  if (raw.senderAddressType === "warehouse") {
+    if (!raw.senderAddressOrWarehouse.trim()) throw new Error("Відділення відправника обов'язкове");
+  } else {
+    if (!raw.senderStreet.trim()) throw new Error("Вулиця відправника обов'язкова");
+    if (!raw.senderHouseNumber.trim()) throw new Error("Номер будинку відправника обов'язковий");
+  }
+  if (raw.declaredValueMode === "minimum_amount" && !raw.declaredValueMinimum.trim()) {
+    throw new Error("Мінімальна оголошена вартість обов'язкова");
+  }
 
   const syncFrequencyMinutes = raw.syncFrequencyMinutes.trim()
     ? Number(raw.syncFrequencyMinutes)
@@ -60,10 +143,7 @@ function parseDeliveryMethodInput(raw: DeliveryMethodFormInput): DeliveryMethodI
   }
 
   return {
-    name,
-    requiresApiKey: raw.requiresApiKey,
     apiKey: raw.apiKey.trim() || null,
-    isEnabled: raw.isEnabled,
     senderCounterpartyRef: raw.senderCounterpartyRef.trim() || null,
     senderCounterparty: raw.senderCounterparty.trim() || null,
     senderContactPersonRef: raw.senderContactPersonRef.trim() || null,
@@ -90,82 +170,16 @@ function parseDeliveryMethodInput(raw: DeliveryMethodFormInput): DeliveryMethodI
   };
 }
 
-export async function createDeliveryMethodAction(
-  input: DeliveryMethodFormInput
-): Promise<DeliveryMethodRow> {
+export async function saveDeliveryMethodEntitySettingsAction(
+  deliveryMethodId: string,
+  legalEntityId: string,
+  input: DeliveryMethodEntitySettingsFormInput
+): Promise<DeliveryMethodEntitySettingsRow> {
   const tenantId = getDevTenantId();
-  const parsed = parseDeliveryMethodInput(input);
-  const row = await createDeliveryMethodInDb(tenantId, parsed);
+  const parsed = parseEntitySettingsInput(input);
+  const row = await upsertDeliveryMethodEntitySettings(tenantId, deliveryMethodId, legalEntityId, parsed);
   revalidatePath("/settings");
   return row;
-}
-
-export async function updateDeliveryMethodAction(
-  id: string,
-  input: DeliveryMethodFormInput
-): Promise<void> {
-  const tenantId = getDevTenantId();
-  const parsed = parseDeliveryMethodInput(input);
-  await updateDeliveryMethodInDb(tenantId, id, parsed);
-  revalidatePath("/settings");
-}
-
-/** Швидкий тогл вмикача — не відкриваючи попап редагування. Не чіпає жодне інше поле рядка. */
-export async function toggleDeliveryMethodAction(
-  id: string,
-  current: DeliveryMethodRow,
-  isEnabled: boolean
-): Promise<void> {
-  const tenantId = getDevTenantId();
-  await updateDeliveryMethodInDb(tenantId, id, {
-    name: current.name,
-    requiresApiKey: current.requiresApiKey,
-    apiKey: current.apiKey,
-    isEnabled,
-    senderCounterpartyRef: current.senderCounterpartyRef,
-    senderCounterparty: current.senderCounterparty,
-    senderContactPersonRef: current.senderContactPersonRef,
-    senderContactPerson: current.senderContactPerson,
-    senderPhone: current.senderPhone,
-    senderAddressType: current.senderAddressType,
-    senderCityRef: current.senderCityRef,
-    senderCity: current.senderCity,
-    senderWarehouseRef: current.senderWarehouseRef,
-    senderAddressOrWarehouse: current.senderAddressOrWarehouse,
-    senderStreetRef: current.senderStreetRef,
-    senderStreet: current.senderStreet,
-    senderHouseNumber: current.senderHouseNumber,
-    payer: current.payer,
-    declaredValueMode: current.declaredValueMode,
-    declaredValueMinimum: current.declaredValueMinimum,
-    syncFrequencyMinutes: current.syncFrequencyMinutes,
-    orderReturnOnRefusal: current.orderReturnOnRefusal,
-    useCarrierPackaging: current.useCarrierPackaging,
-    markingPrinterType: current.markingPrinterType,
-    descriptionContent: current.descriptionContent,
-    descriptionIncludeQuantity: current.descriptionIncludeQuantity,
-    // Тогл не редагує правила статусів — читаємо й пишемо назад той самий
-    // набір, щоб не втратити його (updateDeliveryMethod завжди перезаписує
-    // весь список, delete-then-insert). Швидкий тогл викликається лише з
-    // рядка списку (DeliveryTab), де правил під рукою нема — тому тут пусто
-    // означало б стерти їх; замість цього тогл у Server Action нижче читає
-    // поточні правила сам.
-    statusRules: await currentStatusRules(tenantId, id),
-  });
-  revalidatePath("/settings");
-}
-
-async function currentStatusRules(tenantId: string, deliveryMethodId: string) {
-  const all = await listAllDeliveryMethodStatusRules(tenantId);
-  return all
-    .filter((r) => r.deliveryMethodId === deliveryMethodId)
-    .map((r) => ({ carrierStatus: r.carrierStatus, orderStatusId: r.orderStatusId }));
-}
-
-export async function deleteDeliveryMethodAction(id: string): Promise<void> {
-  const tenantId = getDevTenantId();
-  await deleteDeliveryMethodInDb(tenantId, id);
-  revalidatePath("/settings");
 }
 
 /**

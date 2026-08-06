@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/table";
 import { ConfirmDeleteIconButton } from "@/components/ui/confirm-delete-button";
 import { DeliveryMethodFormDialog } from "@/components/settings/DeliveryMethodFormDialog";
-import type { DeliveryMethodRow, DeliveryMethodStatusRuleRow } from "@/server/data/delivery-methods";
+import type { DeliveryMethodRow } from "@/server/data/delivery-methods";
+import type {
+  DeliveryMethodEntitySettingsRow,
+  DeliveryMethodStatusRuleRow,
+} from "@/server/data/delivery-method-entity-settings";
+import type { CompanyLegalEntityRow } from "@/server/data/company-legal-entities";
 import type { OrderStatusRow } from "@/server/data/order-statuses";
 import {
   deleteDeliveryMethodAction,
@@ -26,19 +31,21 @@ import {
 } from "@/app/settings/delivery/actions";
 import { CARRIER_LOGOS } from "@/lib/constants/carrier-logos";
 
-function statusOf(method: DeliveryMethodRow): { label: string; variant: "success" | "secondary" | "warning" } {
-  if (!method.isEnabled) return { label: "Не активний", variant: "secondary" };
-  if (method.requiresApiKey && !method.apiKey) return { label: "Потрібен ключ", variant: "warning" };
-  return { label: "Активний", variant: "success" };
+function statusOf(method: DeliveryMethodRow): { label: string; variant: "success" | "secondary" } {
+  return method.isEnabled ? { label: "Активний", variant: "success" } : { label: "Не активний", variant: "secondary" };
 }
 
 export function DeliveryTab({
   deliveryMethods,
+  entitySettings,
   statusRules,
+  legalEntities,
   orderStatuses,
 }: {
   deliveryMethods: DeliveryMethodRow[];
+  entitySettings: DeliveryMethodEntitySettingsRow[];
   statusRules: DeliveryMethodStatusRuleRow[];
+  legalEntities: CompanyLegalEntityRow[];
   orderStatuses: OrderStatusRow[];
 }) {
   const router = useRouter();
@@ -87,6 +94,7 @@ export function DeliveryTab({
           Способи доставки, доступні під час оформлення замовлення.
         </p>
         <DeliveryMethodFormDialog
+          legalEntities={legalEntities}
           orderStatuses={orderStatuses}
           onSaved={refresh}
           trigger={
@@ -108,6 +116,7 @@ export function DeliveryTab({
                 <TableHead>Увімкнено</TableHead>
                 <TableHead>Назва</TableHead>
                 <TableHead>Статус</TableHead>
+                <TableHead>Юридичні особи</TableHead>
                 <TableHead className="text-right">Дії</TableHead>
               </TableRow>
             </TableHeader>
@@ -115,6 +124,10 @@ export function DeliveryTab({
               {deliveryMethods.map((method) => {
                 const isRowPending = pendingId === method.id;
                 const status = statusOf(method);
+                const methodSettings = entitySettings.filter((s) => s.deliveryMethodId === method.id);
+                const methodStatusRules = statusRules.filter((r) =>
+                  methodSettings.some((s) => s.id === r.entitySettingsId)
+                );
                 return (
                   <TableRow key={method.id}>
                     <TableCell>
@@ -144,10 +157,35 @@ export function DeliveryTab({
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
                     <TableCell>
+                      {!method.requiresApiKey ? (
+                        <span className="text-xs text-muted-foreground">Не потребує</span>
+                      ) : legalEntities.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">Немає жодного ФОП/ТОВ</span>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {legalEntities.map((entity) => {
+                            const configured = Boolean(
+                              methodSettings.find((s) => s.legalEntityId === entity.id)?.apiKey
+                            );
+                            return (
+                              <div key={entity.id} className="flex items-center gap-1.5">
+                                <span className="text-xs text-muted-foreground">{entity.name}</span>
+                                <Badge variant={configured ? "success" : "warning"} className="text-[10px]">
+                                  {configured ? "Налаштовано" : "Потребує налаштування"}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         <DeliveryMethodFormDialog
                           method={method}
-                          statusRules={statusRules.filter((r) => r.deliveryMethodId === method.id)}
+                          entitySettings={methodSettings}
+                          statusRules={methodStatusRules}
+                          legalEntities={legalEntities}
                           orderStatuses={orderStatuses}
                           onSaved={refresh}
                           trigger={
@@ -174,7 +212,7 @@ export function DeliveryTab({
               })}
               {deliveryMethods.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     Способів доставки ще немає — натисніть «Додати спосіб доставки»
                   </TableCell>
                 </TableRow>

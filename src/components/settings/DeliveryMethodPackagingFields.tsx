@@ -3,7 +3,7 @@
 import { Package, Printer } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
+import type { DeliveryMethodEntitySettingsFormInput } from "@/app/settings/delivery/actions";
 
 /**
  * «Пакування» + «Маркування» — DeliveryMethodFormDialog.tsx переріс ліміт,
@@ -23,8 +23,8 @@ export function DeliveryMethodPackagingFields({
   form,
   setField,
 }: {
-  form: DeliveryMethodFormInput;
-  setField: <K extends keyof DeliveryMethodFormInput>(field: K, value: DeliveryMethodFormInput[K]) => void;
+  form: DeliveryMethodEntitySettingsFormInput;
+  setField: <K extends keyof DeliveryMethodEntitySettingsFormInput>(field: K, value: DeliveryMethodEntitySettingsFormInput[K]) => void;
 }) {
   return (
     <>
@@ -53,7 +53,7 @@ export function DeliveryMethodPackagingFields({
         <span className="text-xs text-muted-foreground">Яке маркування використовувати для друку</span>
         <RadioGroup
           value={form.markingPrinterType}
-          onValueChange={(v) => setField("markingPrinterType", v as DeliveryMethodFormInput["markingPrinterType"])}
+          onValueChange={(v) => setField("markingPrinterType", v as DeliveryMethodEntitySettingsFormInput["markingPrinterType"])}
         >
           <label className="flex items-start gap-2 text-sm text-foreground">
             <RadioGroupItem value="thermal" className="mt-0.5" />

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
+import type { DeliveryMethodEntitySettingsFormInput } from "@/app/settings/delivery/actions";
 import type { OrderStatusRow } from "@/server/data/order-statuses";
 import { NOVA_POSHTA_TRACKING_STATUSES } from "@/lib/constants/nova-poshta";
 
@@ -23,8 +23,8 @@ export function DeliveryMethodAutomationFields({
   onStatusRulesChange,
   orderStatuses,
 }: {
-  form: DeliveryMethodFormInput;
-  setField: <K extends keyof DeliveryMethodFormInput>(field: K, value: DeliveryMethodFormInput[K]) => void;
+  form: DeliveryMethodEntitySettingsFormInput;
+  setField: <K extends keyof DeliveryMethodEntitySettingsFormInput>(field: K, value: DeliveryMethodEntitySettingsFormInput[K]) => void;
   statusRules: StatusRuleDraft[];
   onStatusRulesChange: (rules: StatusRuleDraft[]) => void;
   orderStatuses: OrderStatusRow[];

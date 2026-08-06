@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { withTenant } from "@/server/db/client";
 import { companyLegalEntities } from "@/server/db/schema";
+import { seedDeliveryMethodEntitySettingsForLegalEntity } from "@/server/data/delivery-method-entity-settings";
 
 export type CompanyLegalEntityRow = typeof companyLegalEntities.$inferSelect;
 export type CompanyLegalEntityType = CompanyLegalEntityRow["type"];
@@ -36,6 +37,7 @@ export async function listCompanyLegalEntities(tenantId: string): Promise<Compan
   );
 }
 
+/** Одразу засіває порожні delivery_method_entity_settings на кожен наявний спосіб доставки тенанта (пряма вказівка людини, 2026-08-06 — settings-delivery.md). */
 export async function createCompanyLegalEntity(
   tenantId: string,
   input: CompanyLegalEntityInput
@@ -46,6 +48,7 @@ export async function createCompanyLegalEntity(
         .insert(companyLegalEntities)
         .values({ tenantId, ...input })
         .returning();
+      await seedDeliveryMethodEntitySettingsForLegalEntity(tx, tenantId, row.id);
       return row;
     } catch (error) {
       friendlyDuplicateError(error);

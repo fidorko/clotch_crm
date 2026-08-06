@@ -14,6 +14,11 @@ import {
   type OrderSourceValue,
 } from "@/server/data/orders";
 import { listDeliveryMethods, type DeliveryMethodRow } from "@/server/data/delivery-methods";
+import {
+  listAllDeliveryMethodEntitySettings,
+  type DeliveryMethodEntitySettingsRow,
+} from "@/server/data/delivery-method-entity-settings";
+import { listCompanyLegalEntities } from "@/server/data/company-legal-entities";
 import { getDevTenantId } from "@/server/tenant/get-tenant-id";
 import { DEV_USER } from "@/lib/constants/dev-user";
 
@@ -69,17 +74,23 @@ async function tryCreateShipment(
   tenantId: string,
   order: OrderRow,
   deliveryMethod: DeliveryMethodRow,
+  entitySettings: DeliveryMethodEntitySettingsRow | undefined,
   input: OrderFormInput
 ): Promise<string | null> {
   if (deliveryMethod.carrierKey !== "nova_poshta") {
     return "Реальне створення ЕН підключено поки лише для Нової пошти";
   }
-  if (!deliveryMethod.apiKey) return "У способу доставки не задано API-ключ";
+  // Конфігурація (ключ, відправник) тепер належить юридичній особі, не
+  // способу доставки взагалі (settings-delivery.md, сьомий прохід). Форма
+  // замовлення поки бере налаштування ПЕРШОЇ юридичної особи тенанта — вибір
+  // ЮО на самому замовленні ще не реалізований, окрема майбутня задача.
+  if (!entitySettings) return "Немає жодного ФОП/ТОВ із налаштованою доставкою (Налаштування → Загальні)";
+  if (!entitySettings.apiKey) return "У способу доставки не задано API-ключ (Налаштування → Доставка)";
   if (
-    !deliveryMethod.senderCounterpartyRef ||
-    !deliveryMethod.senderContactPersonRef ||
-    !deliveryMethod.senderCityRef ||
-    !deliveryMethod.senderWarehouseRef
+    !entitySettings.senderCounterpartyRef ||
+    !entitySettings.senderContactPersonRef ||
+    !entitySettings.senderCityRef ||
+    !entitySettings.senderWarehouseRef
   ) {
     return "У способу доставки не заповнено відправника (settings → Доставка)";
   }
@@ -89,7 +100,7 @@ async function tryCreateShipment(
 
   const shipmentInput: CreateShipmentInput = {
     serviceType: "WarehouseWarehouse",
-    payerType: payerToNpRef(deliveryMethod.payer),
+    payerType: payerToNpRef(entitySettings.payer),
     paymentMethod: "Cash",
     cargoType: "Parcel",
     weightKg: Number(input.weightKg) || 0.5,
@@ -98,11 +109,11 @@ async function tryCreateShipment(
     declaredValue: Number(input.declaredValue) || Number(order.totalSum),
     sender: {
       kind: "counterparty",
-      cityRef: deliveryMethod.senderCityRef,
-      warehouseRef: deliveryMethod.senderWarehouseRef,
-      counterpartyRef: deliveryMethod.senderCounterpartyRef,
-      contactPersonRef: deliveryMethod.senderContactPersonRef,
-      phone: deliveryMethod.senderPhone ?? "",
+      cityRef: entitySettings.senderCityRef,
+      warehouseRef: entitySettings.senderWarehouseRef,
+      counterpartyRef: entitySettings.senderCounterpartyRef,
+      contactPersonRef: entitySettings.senderContactPersonRef,
+      phone: entitySettings.senderPhone ?? "",
     },
     recipient: {
       kind: "new_recipient",
@@ -115,7 +126,7 @@ async function tryCreateShipment(
   };
 
   try {
-    const provider = getCarrierProvider(deliveryMethod.carrierKey, deliveryMethod.apiKey);
+    const provider = getCarrierProvider(deliveryMethod.carrierKey, entitySettings.apiKey);
     const result = await provider.createShipment(shipmentInput);
     await saveOrderShipment(tenantId, order.id, {
       ttn: result.documentNumber,
@@ -162,10 +173,20 @@ export async function createOrderAction(input: OrderFormInput): Promise<CreateOr
 
   let shipmentError: string | null = null;
   if (input.createShipmentNow && input.deliveryMethodId) {
-    const methods = await listDeliveryMethods(tenantId);
+    const [methods, legalEntities, allEntitySettings] = await Promise.all([
+      listDeliveryMethods(tenantId),
+      listCompanyLegalEntities(tenantId),
+      listAllDeliveryMethodEntitySettings(tenantId),
+    ]);
     const deliveryMethod = methods.find((m) => m.id === input.deliveryMethodId);
+    // TODO(legal-entity-routing): бере налаштування першої юридичної особи —
+    // вибір ЮО на замовленні ще не реалізований (settings-delivery.md).
+    const firstLegalEntityId = legalEntities[0]?.id;
+    const entitySettings = allEntitySettings.find(
+      (s) => s.deliveryMethodId === input.deliveryMethodId && s.legalEntityId === firstLegalEntityId
+    );
     shipmentError = deliveryMethod
-      ? await tryCreateShipment(tenantId, order, deliveryMethod, input)
+      ? await tryCreateShipment(tenantId, order, deliveryMethod, entitySettings, input)
       : "Спосіб доставки не знайдено";
     if (!shipmentError) {
       order = (await getOrderById(tenantId, order.id)) ?? order;

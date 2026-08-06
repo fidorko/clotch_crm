@@ -1,58 +1,52 @@
 "use client";
 
-import { useState } from "react";
 import { Warehouse } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NpSearchCombobox } from "@/components/carriers/NpSearchCombobox";
-import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
+import type { DeliveryMethodEntitySettingsFormInput } from "@/app/settings/delivery/actions";
 import {
   searchDeliveryCitiesAction,
   searchDeliveryStreetsAction,
   searchDeliveryWarehousesAction,
-  listContactPersonsAction,
 } from "@/app/settings/delivery/np-lookup-actions";
 import type { CarrierCounterparty } from "@/server/carriers/carrier.interface";
 import type { NovaPoshtaContactPerson } from "@/server/carriers/novaposhta/mapper";
 
-/** «Відправник за замовчуванням» — DeliveryMethodFormDialog.tsx переріс ліміт, винесено окремим компонентом (CLAUDE.md, розділ 0/9.6). 2026-08-05, третій прохід: для Нової пошти (isNovaPoshta) — реальні дані з Counterparty/Address API тенантського ключа, не вільний текст (пряма вказівка людини); для решти перевізників (без реальної інтеграції) лишається вільний ввід. 2026-08-06, шостий прохід — обирається РАЗ, звідки відправляємо (відділення чи адреса), не набір типів доставки (прибрано, DeliveryMethodShippingRulesFields.tsx). */
+/**
+ * «Відправник за замовчуванням» — DeliveryMethodFormDialog.tsx переріс ліміт,
+ * винесено окремим компонентом (CLAUDE.md, розділ 0/9.6). 2026-08-05, третій
+ * прохід: для Нової пошти (isNovaPoshta) — реальні дані з Counterparty/Address
+ * API тенантського ключа, не вільний текст; для решти перевізників — вільний
+ * ввід. 2026-08-06, шостий прохід — «звідки відправляємо» обирається РАЗ.
+ * **Сьомий прохід** — контрагент/контактна особа й підвантаження контактних
+ * осіб піднято в DeliveryMethodFormDialog.tsx (щоб автообирати єдиний варіант
+ * і при повторному відкритті одразу підвантажувати контактних осіб під уже
+ * збережений контрагент — раніше список лишався порожнім, поки людина не
+ * перевибирала контрагента вручну, тому збережене значення не можна було
+ * підтвердити).
+ */
 export function DeliveryMethodSenderFields({
   form,
   setField,
   isNovaPoshta,
   senderCounterparties,
+  contactPersons,
+  isLoadingContactPersons,
+  onCounterpartyChange,
+  onContactPersonChange,
 }: {
-  form: DeliveryMethodFormInput;
-  setField: <K extends keyof DeliveryMethodFormInput>(field: K, value: DeliveryMethodFormInput[K]) => void;
+  form: DeliveryMethodEntitySettingsFormInput;
+  setField: <K extends keyof DeliveryMethodEntitySettingsFormInput>(field: K, value: DeliveryMethodEntitySettingsFormInput[K]) => void;
   isNovaPoshta: boolean;
   senderCounterparties: CarrierCounterparty[];
+  contactPersons: NovaPoshtaContactPerson[];
+  isLoadingContactPersons: boolean;
+  onCounterpartyChange: (ref: string | null) => void;
+  onContactPersonChange: (ref: string | null) => void;
 }) {
-  const [contactPersons, setContactPersons] = useState<NovaPoshtaContactPerson[]>([]);
-
-  function handleCounterpartyChange(ref: string | null) {
-    const item = senderCounterparties.find((c) => c.ref === ref);
-    setField("senderCounterpartyRef", ref ?? "");
-    setField("senderCounterparty", item?.name ?? "");
-    setField("senderContactPersonRef", "");
-    setField("senderContactPerson", "");
-    setField("senderPhone", "");
-    setContactPersons([]);
-    if (ref && form.apiKey) {
-      listContactPersonsAction(form.apiKey, ref).then((result) => {
-        if (result.ok) setContactPersons(result.items);
-      });
-    }
-  }
-
-  function handleContactPersonChange(ref: string | null) {
-    const item = contactPersons.find((c) => c.ref === ref);
-    setField("senderContactPersonRef", ref ?? "");
-    setField("senderContactPerson", item?.name ?? "");
-    setField("senderPhone", item?.phone ?? "");
-  }
-
   function handleCityChange(item: { ref: string; name: string }) {
     setField("senderCityRef", item.ref);
     setField("senderCity", item.name);
@@ -75,7 +69,7 @@ export function DeliveryMethodSenderFields({
         {sectionTitle}
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Контрагент</label>
+            <label className="text-xs text-muted-foreground">Контрагент *</label>
             <Input
               value={form.senderCounterparty}
               onChange={(e) => setField("senderCounterparty", e.target.value)}
@@ -83,7 +77,7 @@ export function DeliveryMethodSenderFields({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Контактна особа</label>
+            <label className="text-xs text-muted-foreground">Контактна особа *</label>
             <Input
               value={form.senderContactPerson}
               onChange={(e) => setField("senderContactPerson", e.target.value)}
@@ -93,11 +87,11 @@ export function DeliveryMethodSenderFields({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Телефон</label>
+            <label className="text-xs text-muted-foreground">Телефон *</label>
             <PhoneInput value={form.senderPhone} onChange={(v) => setField("senderPhone", v)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Місто</label>
+            <label className="text-xs text-muted-foreground">Місто *</label>
             <Input
               value={form.senderCity}
               onChange={(e) => setField("senderCity", e.target.value)}
@@ -106,7 +100,7 @@ export function DeliveryMethodSenderFields({
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Адреса / Відділення</label>
+          <label className="text-xs text-muted-foreground">Адреса / Відділення *</label>
           <Input
             value={form.senderAddressOrWarehouse}
             onChange={(e) => setField("senderAddressOrWarehouse", e.target.value)}
@@ -123,8 +117,8 @@ export function DeliveryMethodSenderFields({
       <span className="text-xs text-muted-foreground">Реальні дані з вашого облікового запису Нової пошти</span>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Контрагент</label>
-          <Select value={form.senderCounterpartyRef} onValueChange={handleCounterpartyChange}>
+          <label className="text-xs text-muted-foreground">Контрагент *</label>
+          <Select value={form.senderCounterpartyRef} onValueChange={onCounterpartyChange}>
             <SelectTrigger className="w-full">
               <SelectValue>
                 {(v: string) => senderCounterparties.find((c) => c.ref === v)?.name ?? "Оберіть контрагента"}
@@ -140,15 +134,19 @@ export function DeliveryMethodSenderFields({
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted-foreground">Контактна особа</label>
+          <label className="text-xs text-muted-foreground">Контактна особа *</label>
           <Select
             value={form.senderContactPersonRef}
-            onValueChange={handleContactPersonChange}
-            disabled={!form.senderCounterpartyRef}
+            onValueChange={onContactPersonChange}
+            disabled={!form.senderCounterpartyRef || isLoadingContactPersons}
           >
             <SelectTrigger className="w-full">
               <SelectValue>
-                {(v: string) => contactPersons.find((c) => c.ref === v)?.name ?? "Оберіть контактну особу"}
+                {(v: string) =>
+                  isLoadingContactPersons
+                    ? "Завантаження…"
+                    : (contactPersons.find((c) => c.ref === v)?.name ?? "Оберіть контактну особу")
+                }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -162,7 +160,7 @@ export function DeliveryMethodSenderFields({
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-muted-foreground">Телефон</label>
+        <label className="text-xs text-muted-foreground">Телефон *</label>
         <Input value={form.senderPhone} disabled placeholder="З контактної особи" className="w-1/2" />
       </div>
 
@@ -170,7 +168,7 @@ export function DeliveryMethodSenderFields({
         <span className="text-xs text-muted-foreground">Звідки відправляємо — обирається один раз</span>
         <RadioGroup
           value={form.senderAddressType}
-          onValueChange={(v) => setField("senderAddressType", v as DeliveryMethodFormInput["senderAddressType"])}
+          onValueChange={(v) => setField("senderAddressType", v as DeliveryMethodEntitySettingsFormInput["senderAddressType"])}
           className="grid grid-cols-2"
         >
           <label className="flex items-center gap-2 text-sm text-foreground">
@@ -185,7 +183,7 @@ export function DeliveryMethodSenderFields({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Місто</label>
+            <label className="text-xs text-muted-foreground">Місто *</label>
             <NpSearchCombobox
               selectedLabel={form.senderCity}
               placeholder="Пошук міста..."
@@ -196,7 +194,7 @@ export function DeliveryMethodSenderFields({
 
           {form.senderAddressType === "warehouse" ? (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-muted-foreground">Відділення</label>
+              <label className="text-xs text-muted-foreground">Відділення *</label>
               <NpSearchCombobox
                 selectedLabel={form.senderAddressOrWarehouse}
                 placeholder={form.senderCityRef ? "Пошук відділення..." : "Спершу оберіть місто"}
@@ -210,7 +208,7 @@ export function DeliveryMethodSenderFields({
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-muted-foreground">Вулиця</label>
+              <label className="text-xs text-muted-foreground">Вулиця *</label>
               <NpSearchCombobox
                 selectedLabel={form.senderStreet}
                 placeholder={form.senderCityRef ? "Пошук вулиці..." : "Спершу оберіть місто"}
@@ -227,7 +225,7 @@ export function DeliveryMethodSenderFields({
 
         {form.senderAddressType === "address" && (
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">Будинок</label>
+            <label className="text-xs text-muted-foreground">Будинок *</label>
             <Input
               value={form.senderHouseNumber}
               onChange={(e) => setField("senderHouseNumber", e.target.value)}

@@ -1,48 +1,17 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
-import { deliveryMethods, deliveryMethodStatusRules } from "@/server/db/schema";
+import { deliveryMethods } from "@/server/db/schema";
 
 export type DeliveryMethodRow = typeof deliveryMethods.$inferSelect;
-export type DeliveryMethodStatusRuleRow = typeof deliveryMethodStatusRules.$inferSelect;
-export type DeliveryMethodPayer = "sender" | "recipient" | "third_party";
-export type DeliveryMethodDeclaredValueMode = "order_amount" | "minimum_amount";
-export type DeliveryMethodDescriptionContent = "order_id" | "product_sku" | "product_names";
-export type DeliveryMethodSenderAddressType = "warehouse" | "address";
-export type DeliveryMethodMarkingPrinterType = "thermal" | "regular";
 
-export interface DeliveryMethodStatusRuleInput {
-  carrierStatus: string;
-  orderStatusId: string | null;
-}
-
+// Список способів доставки — спільний на тенанта (2026-08-06, сьомий прохід,
+// пряма вказівка людини: "способи доставки то одні на тенанта"). Уся
+// конфігурація, специфічна для юридичної особи (ключ, відправник тощо) —
+// server/data/delivery-method-entity-settings.ts.
 export interface DeliveryMethodInput {
   name: string;
   requiresApiKey: boolean;
-  apiKey: string | null;
   isEnabled: boolean;
-  senderCounterpartyRef: string | null;
-  senderCounterparty: string | null;
-  senderContactPersonRef: string | null;
-  senderContactPerson: string | null;
-  senderPhone: string | null;
-  senderAddressType: DeliveryMethodSenderAddressType;
-  senderCityRef: string | null;
-  senderCity: string | null;
-  senderWarehouseRef: string | null;
-  senderAddressOrWarehouse: string | null;
-  senderStreetRef: string | null;
-  senderStreet: string | null;
-  senderHouseNumber: string | null;
-  payer: DeliveryMethodPayer;
-  declaredValueMode: DeliveryMethodDeclaredValueMode;
-  declaredValueMinimum: string | null;
-  syncFrequencyMinutes: number | null;
-  orderReturnOnRefusal: boolean;
-  useCarrierPackaging: boolean;
-  markingPrinterType: DeliveryMethodMarkingPrinterType;
-  descriptionContent: DeliveryMethodDescriptionContent;
-  descriptionIncludeQuantity: boolean;
-  statusRules: DeliveryMethodStatusRuleInput[];
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -98,34 +67,6 @@ async function generateUniqueCarrierKey(tx: Tx, tenantId: string, name: string):
   }
 }
 
-/** Замінює весь набір правил "статус перевізника → статус замовлення" для методу — delete-then-insert, той самий прийом, що category-characteristics.ts. */
-async function replaceStatusRules(
-  tx: Tx,
-  tenantId: string,
-  deliveryMethodId: string,
-  rules: DeliveryMethodStatusRuleInput[]
-): Promise<void> {
-  await tx
-    .delete(deliveryMethodStatusRules)
-    .where(
-      and(
-        eq(deliveryMethodStatusRules.tenantId, tenantId),
-        eq(deliveryMethodStatusRules.deliveryMethodId, deliveryMethodId)
-      )
-    );
-  const cleanRules = rules.filter((r) => r.carrierStatus.trim().length > 0);
-  if (cleanRules.length === 0) return;
-  await tx.insert(deliveryMethodStatusRules).values(
-    cleanRules.map((rule, index) => ({
-      tenantId,
-      deliveryMethodId,
-      carrierStatus: rule.carrierStatus.trim(),
-      orderStatusId: rule.orderStatusId,
-      position: index,
-    }))
-  );
-}
-
 export async function listDeliveryMethods(tenantId: string): Promise<DeliveryMethodRow[]> {
   return withTenant(tenantId, async (tx) =>
     tx
@@ -133,19 +74,6 @@ export async function listDeliveryMethods(tenantId: string): Promise<DeliveryMet
       .from(deliveryMethods)
       .where(eq(deliveryMethods.tenantId, tenantId))
       .orderBy(asc(deliveryMethods.position), asc(deliveryMethods.createdAt))
-  );
-}
-
-/** Усі правила статусів усіх методів тенанта одним запитом (не по одному) — групується на клієнті за deliveryMethodId. */
-export async function listAllDeliveryMethodStatusRules(
-  tenantId: string
-): Promise<DeliveryMethodStatusRuleRow[]> {
-  return withTenant(tenantId, async (tx) =>
-    tx
-      .select()
-      .from(deliveryMethodStatusRules)
-      .where(eq(deliveryMethodStatusRules.tenantId, tenantId))
-      .orderBy(asc(deliveryMethodStatusRules.position), asc(deliveryMethodStatusRules.createdAt))
   );
 }
 
@@ -158,9 +86,14 @@ export async function createDeliveryMethod(
       const carrierKey = await generateUniqueCarrierKey(tx, tenantId, input.name);
       const [row] = await tx
         .insert(deliveryMethods)
-        .values({ tenantId, carrierKey, ...valuesFromInput(input) })
+        .values({
+          tenantId,
+          carrierKey,
+          name: input.name,
+          requiresApiKey: input.requiresApiKey,
+          isEnabled: input.isEnabled,
+        })
         .returning();
-      await replaceStatusRules(tx, tenantId, row.id, input.statusRules);
       return row;
     } catch (error) {
       friendlyDuplicateError(error);
@@ -177,46 +110,20 @@ export async function updateDeliveryMethod(
     try {
       await tx
         .update(deliveryMethods)
-        .set({ ...valuesFromInput(input), updatedAt: new Date() })
+        .set({
+          name: input.name,
+          requiresApiKey: input.requiresApiKey,
+          isEnabled: input.isEnabled,
+          updatedAt: new Date(),
+        })
         .where(and(eq(deliveryMethods.tenantId, tenantId), eq(deliveryMethods.id, id)));
-      await replaceStatusRules(tx, tenantId, id, input.statusRules);
     } catch (error) {
       friendlyDuplicateError(error);
     }
   });
 }
 
-function valuesFromInput(input: DeliveryMethodInput) {
-  return {
-    name: input.name,
-    requiresApiKey: input.requiresApiKey,
-    apiKey: input.apiKey,
-    isEnabled: input.isEnabled,
-    senderCounterpartyRef: input.senderCounterpartyRef,
-    senderCounterparty: input.senderCounterparty,
-    senderContactPersonRef: input.senderContactPersonRef,
-    senderContactPerson: input.senderContactPerson,
-    senderPhone: input.senderPhone,
-    senderAddressType: input.senderAddressType,
-    senderCityRef: input.senderCityRef,
-    senderCity: input.senderCity,
-    senderWarehouseRef: input.senderWarehouseRef,
-    senderAddressOrWarehouse: input.senderAddressOrWarehouse,
-    senderStreetRef: input.senderStreetRef,
-    senderStreet: input.senderStreet,
-    senderHouseNumber: input.senderHouseNumber,
-    payer: input.payer,
-    declaredValueMode: input.declaredValueMode,
-    declaredValueMinimum: input.declaredValueMinimum,
-    syncFrequencyMinutes: input.syncFrequencyMinutes,
-    orderReturnOnRefusal: input.orderReturnOnRefusal,
-    useCarrierPackaging: input.useCarrierPackaging,
-    markingPrinterType: input.markingPrinterType,
-    descriptionContent: input.descriptionContent,
-    descriptionIncludeQuantity: input.descriptionIncludeQuantity,
-  };
-}
-
+/** Каскадно видаляє й усі delivery_method_entity_settings (ON DELETE CASCADE), разом з їхніми status_rules. */
 export async function deleteDeliveryMethod(tenantId: string, id: string): Promise<void> {
   await withTenant(tenantId, async (tx) => {
     await tx

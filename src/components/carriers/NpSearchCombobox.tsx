@@ -88,7 +88,12 @@ export function NpSearchCombobox({
           }}
         </ComboboxContent>
       </Combobox>
-      {selectedLabel && <p className="text-xs text-muted-foreground">Обрано: {selectedLabel}</p>}
+      {selectedLabel && (
+        <p className="text-xs">
+          <span className="text-muted-foreground">Обрано: </span>
+          <span className="font-bold text-foreground">{selectedLabel}</span>
+        </p>
+      )}
     </div>
   );
 }

@@ -11,7 +11,11 @@ import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listWarehouses } from "@/server/data/warehouses";
 import { listColors } from "@/server/data/colors";
-import { listAllDeliveryMethodStatusRules, listDeliveryMethods } from "@/server/data/delivery-methods";
+import { listDeliveryMethods } from "@/server/data/delivery-methods";
+import {
+  listAllDeliveryMethodEntitySettings,
+  listAllDeliveryMethodStatusRules,
+} from "@/server/data/delivery-method-entity-settings";
 import { listAllPaymentMethodPartialAmounts, listPaymentMethods } from "@/server/data/payment-methods";
 import { getGeneralSettings } from "@/server/data/general-settings";
 import { listCompanyLegalEntities } from "@/server/data/company-legal-entities";
@@ -65,14 +69,22 @@ async function WarehousesSection({ tenantId, dev }: { tenantId: string; dev: boo
 }
 
 async function DeliverySection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
-  const [deliveryMethods, statusRules, orderStatuses] = await Promise.all([
+  const [deliveryMethods, entitySettings, statusRules, legalEntities, orderStatuses] = await Promise.all([
     listDeliveryMethods(tenantId),
+    listAllDeliveryMethodEntitySettings(tenantId),
     listAllDeliveryMethodStatusRules(tenantId),
+    listCompanyLegalEntities(tenantId),
     listOrderStatuses(tenantId),
   ]);
   return (
     <DevBlockLabel name="DeliveryTab" enabled={dev}>
-      <DeliveryTab deliveryMethods={deliveryMethods} statusRules={statusRules} orderStatuses={orderStatuses} />
+      <DeliveryTab
+        deliveryMethods={deliveryMethods}
+        entitySettings={entitySettings}
+        statusRules={statusRules}
+        legalEntities={legalEntities}
+        orderStatuses={orderStatuses}
+      />
     </DevBlockLabel>
   );
 }

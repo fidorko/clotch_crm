@@ -21,6 +21,7 @@ import {
 } from "@/lib/types/orders";
 import { createOrderAction, type CreateOrderResult } from "@/app/orders/new/actions";
 import type { DeliveryMethodRow } from "@/server/data/delivery-methods";
+import type { DeliveryMethodEntitySettingsRow } from "@/server/data/delivery-method-entity-settings";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
 
 interface FormState {
@@ -99,9 +100,11 @@ function SuccessPanel({ result, onCreateAnother }: { result: Extract<CreateOrder
 
 export function OrderForm({
   deliveryMethods,
+  entitySettingsByMethodId,
   skuCatalog,
 }: {
   deliveryMethods: DeliveryMethodRow[];
+  entitySettingsByMethodId: Record<string, DeliveryMethodEntitySettingsRow>;
   skuCatalog: ProductSkuCatalogItem[];
 }) {
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
@@ -257,6 +260,7 @@ export function OrderForm({
             values={form}
             onChange={patch}
             deliveryMethods={deliveryMethods}
+            entitySettingsByMethodId={entitySettingsByMethodId}
             orderTotal={total}
           />
 

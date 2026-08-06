@@ -8,6 +8,7 @@ import { tenants } from "./tenants";
 import { categories } from "./categories";
 import { colors } from "./colors";
 import { deliveryMethods } from "./delivery-methods";
+import { deliveryMethodEntitySettings } from "./delivery-method-entity-settings";
 import { deliveryMethodStatusRules } from "./delivery-method-status-rules";
 import { paymentMethods, paymentMethodPartialAmounts } from "./payment-methods";
 import { generalSettings } from "./general-settings";
@@ -54,6 +55,7 @@ export * from "./product-tags";
 export * from "./categories";
 export * from "./colors";
 export * from "./delivery-methods";
+export * from "./delivery-method-entity-settings";
 export * from "./delivery-method-status-rules";
 export * from "./payment-methods";
 export * from "./general-settings";
@@ -135,6 +137,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   categories: many(categories),
   colors: many(colors),
   deliveryMethods: many(deliveryMethods),
+  deliveryMethodEntitySettings: many(deliveryMethodEntitySettings),
   paymentMethods: many(paymentMethods),
   orderStatuses: many(orderStatuses),
   deliveryMethodStatusRules: many(deliveryMethodStatusRules),
@@ -269,13 +272,28 @@ export const categoryCharacteristicsRelations = relations(categoryCharacteristic
 }));
 
 export const deliveryMethodsRelations = relations(deliveryMethods, ({ many }) => ({
-  statusRules: many(deliveryMethodStatusRules),
+  entitySettings: many(deliveryMethodEntitySettings),
 }));
 
+export const deliveryMethodEntitySettingsRelations = relations(
+  deliveryMethodEntitySettings,
+  ({ one, many }) => ({
+    deliveryMethod: one(deliveryMethods, {
+      fields: [deliveryMethodEntitySettings.deliveryMethodId],
+      references: [deliveryMethods.id],
+    }),
+    legalEntity: one(companyLegalEntities, {
+      fields: [deliveryMethodEntitySettings.legalEntityId],
+      references: [companyLegalEntities.id],
+    }),
+    statusRules: many(deliveryMethodStatusRules),
+  })
+);
+
 export const deliveryMethodStatusRulesRelations = relations(deliveryMethodStatusRules, ({ one }) => ({
-  deliveryMethod: one(deliveryMethods, {
-    fields: [deliveryMethodStatusRules.deliveryMethodId],
-    references: [deliveryMethods.id],
+  entitySettings: one(deliveryMethodEntitySettings, {
+    fields: [deliveryMethodStatusRules.entitySettingsId],
+    references: [deliveryMethodEntitySettings.id],
   }),
   orderStatus: one(orderStatuses, {
     fields: [deliveryMethodStatusRules.orderStatusId],

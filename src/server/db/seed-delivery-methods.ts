@@ -1,4 +1,3 @@
-import { and, eq, isNull } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { mockDeliveryMethods } from "@/lib/mocks/delivery-methods";
 import * as schema from "./schema";
@@ -7,11 +6,13 @@ import * as schema from "./schema";
  * Винесено з seed.ts (файл переріс ~400 рядків, CLAUDE.md розділ 0/9.6) —
  * окрема функція, викликана з main() однією стрічкою.
  *
- * Стартові 4 способи доставки — ідемпотентно. Ключ Нової пошти НЕ живе в
- * mockDeliveryMethods (секрети в моки не пишуться, conventions.md) — якщо
- * в оточенні є NP_API_KEY, підставляємо його в уже вставлений рядок
- * "nova_poshta", лише коли apiKey там ще NULL (щоб повторний сід не
- * перезаписував ключ, уведений вручну через UI).
+ * Стартові 4 способи доставки — ідемпотентно, лише список (назва/carrier_key/
+ * увімкнено). 2026-08-06, сьомий прохід (пряма вказівка людини — "способи
+ * доставки то одні на тенанта, а от налаштування різні"): конфігурація,
+ * специфічна для юридичної особи (ключ, відправник тощо), переїхала в
+ * delivery_method_entity_settings — сід її більше не чіпає, бо не знає, якій
+ * юридичній особі належить (company_legal_entities не сідується моками,
+ * створюється вручну через UI, settings-general.md).
  */
 export async function seedDeliveryMethods(
   db: PostgresJsDatabase<typeof schema>,
@@ -30,18 +31,4 @@ export async function seedDeliveryMethods(
       }))
     )
     .onConflictDoNothing();
-
-  const npApiKey = process.env.NP_API_KEY;
-  if (npApiKey) {
-    await db
-      .update(schema.deliveryMethods)
-      .set({ apiKey: npApiKey, isEnabled: true, updatedAt: new Date() })
-      .where(
-        and(
-          eq(schema.deliveryMethods.tenantId, tenantId),
-          eq(schema.deliveryMethods.carrierKey, "nova_poshta"),
-          isNull(schema.deliveryMethods.apiKey)
-        )
-      );
-  }
 }
