@@ -414,6 +414,20 @@
       "when": 1785971362394,
       "tag": "0058_luxuriant_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785999605729,
+      "tag": "0059_romantic_vector",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1786000843967,
+      "tag": "0060_ambitious_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

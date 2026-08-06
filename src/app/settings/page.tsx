@@ -4,12 +4,14 @@ import { ReferencesList } from "@/components/settings/ReferencesList";
 import { CategoriesTab } from "@/components/settings/CategoriesTab";
 import { WarehousesTab } from "@/components/settings/WarehousesTab";
 import { DeliveryTab } from "@/components/settings/DeliveryTab";
+import { PaymentMethodsTab } from "@/components/settings/PaymentMethodsTab";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
 import { listWarehouses } from "@/server/data/warehouses";
 import { listColors } from "@/server/data/colors";
 import { listAllDeliveryMethodStatusRules, listDeliveryMethods } from "@/server/data/delivery-methods";
+import { listAllPaymentMethodPartialAmounts, listPaymentMethods } from "@/server/data/payment-methods";
 import { listOrderStatuses } from "@/server/data/order-statuses";
 import { listCurrencies } from "@/server/data/currencies";
 import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
@@ -34,7 +36,6 @@ const EMPTY_SECTION_TITLES: Record<string, string> = {
   storefront: "Вітрина магазину",
   general: "Загальні",
   orders: "Замовлення",
-  payment: "Оплата",
   plan: "Тарифний план",
 };
 
@@ -70,6 +71,18 @@ async function DeliverySection({ tenantId, dev }: { tenantId: string; dev: boole
   return (
     <DevBlockLabel name="DeliveryTab" enabled={dev}>
       <DeliveryTab deliveryMethods={deliveryMethods} statusRules={statusRules} orderStatuses={orderStatuses} />
+    </DevBlockLabel>
+  );
+}
+
+async function PaymentSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
+  const [paymentMethods, partialAmounts] = await Promise.all([
+    listPaymentMethods(tenantId),
+    listAllPaymentMethodPartialAmounts(tenantId),
+  ]);
+  return (
+    <DevBlockLabel name="PaymentMethodsTab" enabled={dev}>
+      <PaymentMethodsTab paymentMethods={paymentMethods} partialAmounts={partialAmounts} />
     </DevBlockLabel>
   );
 }
@@ -145,6 +158,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     rawTab === "references" ||
     rawTab === "warehouses" ||
     rawTab === "delivery" ||
+    rawTab === "payment" ||
     (rawTab && rawTab in EMPTY_SECTION_TITLES)
       ? rawTab
       : "categories";
@@ -162,6 +176,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         {tab === "references" && <ReferencesSection tenantId={tenantId} dev={dev} />}
         {tab === "warehouses" && <WarehousesSection tenantId={tenantId} dev={dev} />}
         {tab === "delivery" && <DeliverySection tenantId={tenantId} dev={dev} />}
+        {tab === "payment" && <PaymentSection tenantId={tenantId} dev={dev} />}
         {tab in EMPTY_SECTION_TITLES && (
           <p className="text-sm text-muted-foreground">
             Розділ «{EMPTY_SECTION_TITLES[tab]}» ще в розробці.

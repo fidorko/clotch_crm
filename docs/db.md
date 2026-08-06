@@ -150,6 +150,20 @@ UNIQUE `(tenant_id, carrier_key)` і UNIQUE `(tenant_id, name)` (друге до
 
 0..N рядків на метод доставки (repeatable-список у попапі), зберігаються delete-then-insert одним запитом при збереженні форми (`replaceStatusRules`, `server/data/delivery-methods.ts`) — той самий прийом, що `category_characteristics`. Лише конфігурація — сама перевірка статусу перевізника й застосування правила не реалізовані.
 
+### payment_methods
+Тенант-конфігурований список способів оплати (`settings` → «Оплата», `?tab=payment`, `docs/modules/settings-payment.md`) — той самий патерн, що `delivery_methods`, але без зовнішньої API-інтеграції. `tenant_id`, `kind` (pg-enum `payment_method_kind`: `bank_transfer`/`card_online`/`partial_payment`/`cash_on_delivery`/`custom` — перші 4 засіяні один раз `db:seed`, `custom` ставить лише `createPaymentMethodAction` для власних варіантів тенанта), `name`, `is_enabled` (boolean, за замовчуванням `true`), `position`.
+
+UNIQUE `(tenant_id, name)` (той самий підхід, що `colors`/`currencies`/`order_statuses`/`delivery_methods`). Індекс `(tenant_id, position)`.
+
+Статус («Активний»/«Не активний»/«Потрібні суми») **не зберігається** — обчислюється в UI (`PaymentMethodsTab.tsx`) з `is_enabled`/`kind` + кількість пов'язаних `payment_method_partial_amounts`, той самий принцип, що `delivery_methods`. Дев-сід заповнює 4 системні способи (`lib/mocks/payment-methods.ts`) без варіантів суми (людина задає їх сама через попап).
+
+### payment_method_partial_amounts
+Кілька варіантів фіксованої суми для способу оплати «Часткова оплата» (`kind="partial_payment"`) — repeatable-список, той самий патерн, що `delivery_method_status_rules` (delete-then-insert одним запитом при збереженні форми, `replacePartialAmounts` у `server/data/payment-methods.ts`). За прямою вказівкою людини (2026-08-06, другий прохід — «зроби щоб можна було ввести декілька варіантів сум, а потім відповідно можна було вибрати»): раніше було одне поле `partial_amount` на `payment_methods` (видалено міграцією `0060`), замінено окремою таблицею. `tenant_id`, `payment_method_id` (FK `payment_methods.id`, `ON DELETE CASCADE`), `amount` (`numeric(12,2)`), `position`.
+
+UNIQUE `(tenant_id, payment_method_id, amount)` — однакова сума двічі як окремий варіант вибору позбавлена сенсу; дублікати, введені людиною у формі, відсікаються ще на рівні `parsePaymentMethodInput` (Server Action, дружньо — без звернення до БД), сам UNIQUE лишається другим рубежем. Індекс `(tenant_id, payment_method_id, position)`.
+
+Клієнт вносить одну з цих сум одразу; **сама сума планується для розрахунку решти при грошовому переказі при отриманні, а вибір потрібного варіанта при оформленні замовлення — ще не реалізовані**, лише зберігається конфігурація (форма замовлення, `orders.md`, ще на моках і не читає цю таблицю).
+
 ### reference_items
 Один спільний довідник для 3 «просто назва» пунктів «Довідники» (settings, група «Системні»): `manufacturers`/`countries`/`units` — замість окремої таблиці на кожен тип. `tenant_id`, `kind` (enum `reference_item_kind`, той самий список значень, що `REFERENCE_ITEM_KINDS` у `lib/constants/reference-item-kinds.ts` — тримати синхронно вручну, schema-файли навмисно не імпортують з `lib/`), `name`, `position`. UNIQUE `(tenant_id, kind, name)` — дублікат назви в межах одного kind заборонено, той самий кортеж не заважає різним kind мати однакову назву. Індекс `(tenant_id, kind, position)`.
 

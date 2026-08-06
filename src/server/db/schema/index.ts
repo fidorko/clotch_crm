@@ -9,6 +9,7 @@ import { categories } from "./categories";
 import { colors } from "./colors";
 import { deliveryMethods } from "./delivery-methods";
 import { deliveryMethodStatusRules } from "./delivery-method-status-rules";
+import { paymentMethods, paymentMethodPartialAmounts } from "./payment-methods";
 import { orderStatuses } from "./order-statuses";
 import { customers } from "./customers";
 import { orders, orderItems } from "./orders";
@@ -52,6 +53,7 @@ export * from "./categories";
 export * from "./colors";
 export * from "./delivery-methods";
 export * from "./delivery-method-status-rules";
+export * from "./payment-methods";
 export * from "./order-statuses";
 export * from "./customers";
 export * from "./orders";
@@ -129,8 +131,10 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   categories: many(categories),
   colors: many(colors),
   deliveryMethods: many(deliveryMethods),
+  paymentMethods: many(paymentMethods),
   orderStatuses: many(orderStatuses),
   deliveryMethodStatusRules: many(deliveryMethodStatusRules),
+  paymentMethodPartialAmounts: many(paymentMethodPartialAmounts),
   currencies: many(currencies),
   suppliers: many(suppliers),
   referenceItems: many(referenceItems),
@@ -270,6 +274,17 @@ export const deliveryMethodStatusRulesRelations = relations(deliveryMethodStatus
   orderStatus: one(orderStatuses, {
     fields: [deliveryMethodStatusRules.orderStatusId],
     references: [orderStatuses.id],
+  }),
+}));
+
+export const paymentMethodsRelations = relations(paymentMethods, ({ many }) => ({
+  partialAmounts: many(paymentMethodPartialAmounts),
+}));
+
+export const paymentMethodPartialAmountsRelations = relations(paymentMethodPartialAmounts, ({ one }) => ({
+  paymentMethod: one(paymentMethods, {
+    fields: [paymentMethodPartialAmounts.paymentMethodId],
+    references: [paymentMethods.id],
   }),
 }));
 

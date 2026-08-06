@@ -12,6 +12,7 @@ import { mockSizeTypes } from "@/lib/mocks/size-types";
 import { mockMeasurementTypes } from "@/lib/mocks/measurement-types";
 import { mockFabricTypes } from "@/lib/mocks/fabric-types";
 import { seedDeliveryMethods } from "./seed-delivery-methods";
+import { seedPaymentMethods } from "./seed-payment-methods";
 import * as schema from "./schema";
 
 /**
@@ -390,6 +391,7 @@ async function main() {
   }
 
   await seedDeliveryMethods(db, devTenantId);
+  await seedPaymentMethods(db, devTenantId);
 
   console.log("Seed завершено. /products/" + (product?.id ?? "(вже існував)"), "тенант:", devTenantId);
   await client.end();
