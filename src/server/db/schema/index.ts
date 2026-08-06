@@ -14,6 +14,7 @@ import { paymentMethods, paymentMethodPartialAmounts } from "./payment-methods";
 import { generalSettings } from "./general-settings";
 import { companyLegalEntities } from "./company-legal-entities";
 import { orderStatuses } from "./order-statuses";
+import { paymentStatuses } from "./payment-statuses";
 import { customers } from "./customers";
 import { orders, orderItems } from "./orders";
 import { currencies } from "./currencies";
@@ -61,6 +62,7 @@ export * from "./payment-methods";
 export * from "./general-settings";
 export * from "./company-legal-entities";
 export * from "./order-statuses";
+export * from "./payment-statuses";
 export * from "./customers";
 export * from "./orders";
 export * from "./currencies";
@@ -140,6 +142,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   deliveryMethodEntitySettings: many(deliveryMethodEntitySettings),
   paymentMethods: many(paymentMethods),
   orderStatuses: many(orderStatuses),
+  paymentStatuses: many(paymentStatuses),
   deliveryMethodStatusRules: many(deliveryMethodStatusRules),
   paymentMethodPartialAmounts: many(paymentMethodPartialAmounts),
   generalSettings: one(generalSettings),
@@ -166,8 +169,16 @@ export const customersRelations = relations(customers, ({ many }) => ({
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   customer: one(customers, { fields: [orders.customerId], references: [customers.id] }),
+  legalEntity: one(companyLegalEntities, { fields: [orders.legalEntityId], references: [companyLegalEntities.id] }),
+  paymentStatus: one(paymentStatuses, { fields: [orders.paymentStatusId], references: [paymentStatuses.id] }),
+  paymentMethodRef: one(paymentMethods, { fields: [orders.paymentMethodId], references: [paymentMethods.id] }),
+  warehouse: one(warehouses, { fields: [orders.warehouseId], references: [warehouses.id] }),
   deliveryMethod: one(deliveryMethods, { fields: [orders.deliveryMethodId], references: [deliveryMethods.id] }),
   items: many(orderItems),
+}));
+
+export const paymentStatusesRelations = relations(paymentStatuses, ({ many }) => ({
+  orders: many(orders),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

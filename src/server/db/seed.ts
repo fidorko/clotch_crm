@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { mockProduct } from "@/lib/mocks/products";
 import { mockColors } from "@/lib/mocks/colors";
 import { mockOrderStatuses } from "@/lib/mocks/order-statuses";
+import { mockPaymentStatuses } from "@/lib/mocks/payment-statuses";
 import { mockBrands } from "@/lib/mocks/brands";
 import { mockCurrencies } from "@/lib/mocks/currencies";
 import { mockMaterials } from "@/lib/mocks/materials";
@@ -155,6 +156,20 @@ async function main() {
       .insert(schema.orderStatuses)
       .values(
         mockOrderStatuses.map((status, index) => ({
+          tenantId: devTenantId,
+          name: status.name,
+          color: status.color,
+          position: index,
+        }))
+      )
+      .onConflictDoNothing();
+  }
+
+  if (mockPaymentStatuses.length > 0) {
+    await db
+      .insert(schema.paymentStatuses)
+      .values(
+        mockPaymentStatuses.map((status, index) => ({
           tenantId: devTenantId,
           name: status.name,
           color: status.color,

@@ -35,10 +35,11 @@ export async function searchDeliveryCitiesAction(apiKey: string, query: string):
 export async function searchDeliveryWarehousesAction(
   apiKey: string,
   cityRef: string,
-  query: string
+  query: string,
+  kind?: "warehouse" | "postomat"
 ): Promise<Result<CarrierWarehouse>> {
   if (!apiKey.trim() || !cityRef) return { ok: true, items: [] };
-  return toResult(new NovaPoshtaProvider(apiKey).getWarehouses(cityRef, query));
+  return toResult(new NovaPoshtaProvider(apiKey).getWarehouses(cityRef, query, kind));
 }
 
 export async function searchDeliveryStreetsAction(

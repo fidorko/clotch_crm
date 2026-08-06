@@ -26,10 +26,12 @@ export function OrdersTable({
   orders,
   selectedIds,
   onSelectedIdsChange,
+  paymentStatusOptions,
 }: {
   orders: OrderListItem[];
   selectedIds: string[];
   onSelectedIdsChange: (ids: string[]) => void;
+  paymentStatusOptions: string[];
 }) {
   const [filters, setFilters] = useState<OrdersFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
@@ -47,7 +49,7 @@ export function OrdersTable({
 
     return orders.filter((order) => {
       if (filters.status !== "all" && order.status !== filters.status) return false;
-      if (filters.paymentStatus !== "all" && order.paymentStatus !== filters.paymentStatus) return false;
+      if (filters.paymentStatus !== "all" && order.paymentStatus?.name !== filters.paymentStatus) return false;
       if (filters.source !== "all" && order.source !== filters.source) return false;
 
       if (search) {
@@ -92,7 +94,7 @@ export function OrdersTable({
   return (
     <Card className="gap-0 py-0">
       <CardContent className="flex flex-col divide-y divide-border px-0">
-        <OrdersFiltersBar filters={filters} onChange={handleFiltersChange} />
+        <OrdersFiltersBar filters={filters} onChange={handleFiltersChange} paymentStatusOptions={paymentStatusOptions} />
 
         <div className="flex items-center justify-between gap-3 px-4 py-2.5">
           <span className="text-sm text-muted-foreground">

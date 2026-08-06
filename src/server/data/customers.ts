@@ -46,7 +46,7 @@ export async function findCustomerByPhone(tenantId: string, phone: string): Prom
 export async function createOrGetCustomer(
   tx: Tx,
   tenantId: string,
-  input: { name: string; phone: string; email: string | null }
+  input: { name: string; phone: string; email: string | null; comment: string | null }
 ): Promise<CustomerRow> {
   const [existing] = await tx
     .select()
@@ -57,7 +57,7 @@ export async function createOrGetCustomer(
 
   const [row] = await tx
     .insert(customers)
-    .values({ tenantId, name: input.name, phone: input.phone, email: input.email })
+    .values({ tenantId, name: input.name, phone: input.phone, email: input.email, comment: input.comment })
     .returning();
   return row;
 }

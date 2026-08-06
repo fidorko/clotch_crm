@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db, withTenant } from "@/server/db/client";
-import { productColorPhotos, productSkus, products } from "@/server/db/schema";
+import { categories, productColorPhotos, productSkus, products } from "@/server/db/schema";
+import { resolveInheritedField } from "@/lib/categories/inheritance";
 import type { ProductSku } from "@/lib/types/product";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -148,6 +149,14 @@ export interface ProductSkuCatalogItem {
   size: string;
   photoUrl: string | null;
   retailPrice: number;
+  stock: number;
+  // Пакування посилки (products.packageWeightKg/...) — авто-сума ваги й
+  // габаритів рядків замовлення (orders-new-order-form.md, редизайн): вага
+  // сумується по кількості, габарити беруться як максимум серед позицій.
+  packageWeightKg: number | null;
+  packageLengthCm: number | null;
+  packageWidthCm: number | null;
+  packageHeightCm: number | null;
 }
 
 function toAmount(value: string | null): number {
@@ -201,16 +210,22 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
       .select({
         id: productSkus.id,
         productId: productSkus.productId,
+        categoryId: products.categoryId,
         sku: productSkus.code,
         barcode: productSkus.barcode,
         productName: products.name,
         color: productSkus.color,
         colorHex: productSkus.colorHex,
         size: productSkus.size,
+        stock: productSkus.stock,
         purchasePrice: products.purchasePrice,
         retailMode: products.retailMode,
         retailAmount: products.retailAmount,
         retailPercent: products.retailPercent,
+        packageWeightKg: products.packageWeightKg,
+        packageLengthCm: products.packageLengthCm,
+        packageWidthCm: products.packageWidthCm,
+        packageHeightCm: products.packageHeightCm,
       })
       .from(productSkus)
       .innerJoin(products, and(eq(products.id, productSkus.productId), eq(products.tenantId, tenantId)))
@@ -221,6 +236,16 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
     const productIds = [...new Set(rows.map((r) => r.productId))];
     const photoByProductColor = await buildPhotoLookup(tx, tenantId, productIds);
 
+    // Пакування товару успадковує дефолт категорії (ProductTechnicalTab.tsx,
+    // /products/[id]/page.tsx — "packageDefaults", той самий
+    // resolveInheritedField), коли на самому товарі поле не заповнено. Живий
+    // баг-репорт людини (третій прохід orders-new-order-form.md): у
+    // Технічні дані товар "показує" дефолт категорії, виглядає заповненим,
+    // але products.packageWidthCm/etc лишається NULL, поки не збережено явно
+    // — каталог мусить рахувати так само, інакше вага/габарити в замовленні
+    // "не підтягуються", хоча користувач бачить цифри в картці товару.
+    const categoryRows = await tx.select().from(categories).where(eq(categories.tenantId, tenantId));
+
     return rows.map((row) => {
       // Той самий розрахунок, що listProducts (server/data/products.ts) —
       // ціна SKU для форми замовлення (orders.md), поки без урахування
@@ -230,6 +255,12 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
         row.retailMode === "percent"
           ? purchasePrice * (1 + toAmount(row.retailPercent) / 100)
           : toAmount(row.retailAmount);
+
+      const inheritedWeight = resolveInheritedField(categoryRows, row.categoryId, "defaultWeightKg");
+      const inheritedLength = resolveInheritedField(categoryRows, row.categoryId, "defaultLengthCm");
+      const inheritedWidth = resolveInheritedField(categoryRows, row.categoryId, "defaultWidthCm");
+      const inheritedHeight = resolveInheritedField(categoryRows, row.categoryId, "defaultHeightCm");
+
       return {
         id: row.id,
         sku: row.sku,
@@ -240,6 +271,11 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
         size: row.size,
         photoUrl: photoByProductColor.get(`${row.productId}|${row.color}`) ?? null,
         retailPrice,
+        stock: row.stock,
+        packageWeightKg: row.packageWeightKg ? Number(row.packageWeightKg) : (inheritedWeight ? Number(inheritedWeight) : null),
+        packageLengthCm: row.packageLengthCm ?? inheritedLength,
+        packageWidthCm: row.packageWidthCm ?? inheritedWidth,
+        packageHeightCm: row.packageHeightCm ?? inheritedHeight,
       };
     });
   });

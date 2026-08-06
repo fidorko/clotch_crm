@@ -54,6 +54,18 @@ async function replacePartialAmounts(
   );
 }
 
+/** Потрібен для codAmount/BackwardDeliveryData ДО створення замовлення (createShipmentNowAction, четвертий прохід — order ще не існує, kind нізвідки більше взяти). */
+export async function getPaymentMethodById(tenantId: string, id: string): Promise<PaymentMethodRow | null> {
+  return withTenant(tenantId, async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(paymentMethods)
+      .where(and(eq(paymentMethods.tenantId, tenantId), eq(paymentMethods.id, id)))
+      .limit(1);
+    return row ?? null;
+  });
+}
+
 export async function listPaymentMethods(tenantId: string): Promise<PaymentMethodRow[]> {
   return withTenant(tenantId, async (tx) =>
     tx

@@ -39,6 +39,9 @@ export interface CalculateShipmentInput {
   declaredValue: number;
   cargoType: string;
   seatsAmount: number;
+  // Обраний вид пакування (getPackList) — коли заданий, НП сама додає
+  // вартість пакування у відповідь Cost (OptionsSeat, shipments.md).
+  packRef?: string;
 }
 
 export interface CalculateShipmentResult {
@@ -65,7 +68,13 @@ export interface ShipmentNewRecipient {
   kind: "new_recipient";
   cityRef: string;
   cityName: string;
-  warehouseRef: string;
+  // Точка видачі — заповнюється рівно ОДНА з двох пар, залежно від типу
+  // доставки отримувача (третій прохід, Поштомат/Адреса): warehouseRef —
+  // відділення/поштомат (обидва — "точка видачі" для НП), streetRef+
+  // houseNumber — доставка до дверей ("Doors" половина ServiceType).
+  warehouseRef?: string;
+  streetRef?: string;
+  houseNumber?: string;
   fullName: string;
   phone: string;
 }
@@ -79,8 +88,17 @@ export interface CreateShipmentInput {
   cargoType: string;
   weightKg: number;
   seatsAmount: number;
+  // Габарити місця (см) — потрібні для OptionsSeat: обов'язкове поле НП для
+  // поштоматів ("OptionsSeat is empty", підтверджено живою помилкою, реальний
+  // forum-задокументований баг, shipments.md), а не лише для розрахунку.
+  packageLengthCm?: number;
+  packageWidthCm?: number;
+  packageHeightCm?: number;
   description: string;
   declaredValue: number;
+  // Сума накладеного платежу (0/null — без нього) — четвертий прохід,
+  // реально надсилається як BackwardDeliveryData (shipments.md).
+  codAmount?: number;
   sender: ShipmentAddress;
   recipient: ShipmentAddress;
 }
@@ -112,6 +130,9 @@ export interface RedirectShipmentInput {
 export interface PrintDocumentsInput {
   documentRefs: string[];
   format?: string;
+  // "document" — сама ЕН (накладна), "marking" — наліпка-маркування на
+  // коробку (два різні друковані документи, printing.md). Дефолт — "document".
+  kind?: "document" | "marking";
 }
 
 export interface PrintDocumentsResult {
@@ -132,7 +153,11 @@ export interface CarrierProvider {
   createReturn(input: CreateReturnInput): Promise<{ ref: string }>;
   redirectShipment(input: RedirectShipmentInput): Promise<{ ref: string }>;
   getCities(query: string): Promise<CarrierCity[]>;
-  getWarehouses(cityRef: string, query: string): Promise<CarrierWarehouse[]>;
+  // kind — фільтр типу точки видачі (третій прохід — Поштомат як реальний
+  // тип доставки): "postomat" звужує пошук лише до поштоматів
+  // (Address.getWarehouseTypes, novaposhta/provider.ts), "warehouse"/не
+  // вказано — без фільтра (як і раніше).
+  getWarehouses(cityRef: string, query: string, kind?: "warehouse" | "postomat"): Promise<CarrierWarehouse[]>;
   getStreets(cityRef: string, query: string): Promise<CarrierStreet[]>;
   getSettlement(query: string): Promise<CarrierSettlement[]>;
   getCounterparties(): Promise<CarrierCounterparty[]>;

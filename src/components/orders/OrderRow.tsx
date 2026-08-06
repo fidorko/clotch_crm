@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { Camera, Copy, Download, Globe, Phone, Printer, ShoppingBag, Send, Truck as TruckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,10 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
-  DELIVERY_METHOD_LABEL,
   ORDER_SOURCE_LABEL,
   ORDER_STATUS_META,
-  PAYMENT_STATUS_META,
   formatOrderSum,
   type OrderListItem,
   type OrderSource,
@@ -36,11 +35,11 @@ function formatTtn(ttn: string): string {
   return ttn.replace(/(\d{2})(\d{4})(\d{4})(\d{4})/, "$1 $2 $3 $4");
 }
 
-// Дії (Копіювати/Друк/Експорт рядка) — заглушки, як RowActions у
-// ReceivingDocumentsTable: картка замовлення (/orders/[id]) ще не збудована,
-// тому й «Переглянути» немає — чесна заглушка, не фейкове посилання на
-// неіснуючу сторінку (orders.md). Масовий «Експорт» (обраних) — реальний,
-// живе в OrdersHeader/OrdersPageClient.
+// Дії (Копіювати/Друк/Експорт рядка) — усе ще заглушки, як RowActions у
+// ReceivingDocumentsTable (масовий «Експорт» обраних — реальний, живе в
+// OrdersHeader/OrdersPageClient). Перегляд самого замовлення — тепер реальне
+// посилання на номер (четвертий прохід, orders-new-order-form.md — раніше
+// клікнути не було куди, пряма вказівка людини).
 function OrderRowActions({ number }: { number: string }) {
   return (
     <div className="flex items-center gap-1">
@@ -67,7 +66,6 @@ export function OrderRow({
   onToggleSelect: (id: string) => void;
 }) {
   const statusMeta = ORDER_STATUS_META[order.status];
-  const paymentMeta = PAYMENT_STATUS_META[order.paymentStatus];
   const sourceMeta = ORDER_SOURCE_ICON[order.source];
 
   // Виділення чекбоксом або ctrl/cmd+клік по рядку (файл-менеджерний
@@ -99,7 +97,13 @@ export function OrderRow({
             <sourceMeta.icon className="size-4.5" />
           </span>
           <div className="flex flex-col gap-0.5">
-            <span className="font-medium text-foreground">{order.number}</span>
+            <Link
+              href={`/orders/${order.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium text-foreground hover:underline"
+            >
+              {order.number}
+            </Link>
             <span className="text-xs text-muted-foreground" title={order.createdAt}>
               {order.createdAtRelative} · {ORDER_SOURCE_LABEL[order.source]}
             </span>
@@ -135,14 +139,24 @@ export function OrderRow({
       </TableCell>
 
       <TableCell>
-        <Badge variant={paymentMeta.badge}>{paymentMeta.label}</Badge>
+        {order.paymentStatus ? (
+          <Badge
+            variant="outline"
+            className="border-transparent"
+            style={{ backgroundColor: `${order.paymentStatus.color}26`, color: order.paymentStatus.color }}
+          >
+            {order.paymentStatus.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </TableCell>
 
       <TableCell>
         <div className="flex flex-col gap-0.5">
           <span className="flex items-center gap-1.5 text-foreground">
             <TruckIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            {DELIVERY_METHOD_LABEL[order.deliveryMethod]}
+            {order.deliveryMethod?.name ?? "—"}
           </span>
           <span className="text-xs text-muted-foreground">
             {order.ttn ? formatTtn(order.ttn) : order.city}

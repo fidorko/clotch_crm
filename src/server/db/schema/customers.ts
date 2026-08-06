@@ -18,6 +18,7 @@ export const customers = pgTable(
     name: text("name").notNull(),
     phone: text("phone").notNull(),
     email: text("email"),
+    comment: text("comment"), // «Коментар клієнта» (orders-new-order-form.md, редизайн)
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

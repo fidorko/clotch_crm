@@ -1,10 +1,4 @@
-import {
-  DELIVERY_METHOD_LABEL,
-  ORDER_SOURCE_LABEL,
-  ORDER_STATUS_META,
-  PAYMENT_STATUS_META,
-  type OrderListItem,
-} from "@/lib/types/orders";
+import { ORDER_SOURCE_LABEL, ORDER_STATUS_META, type OrderListItem } from "@/lib/types/orders";
 
 // Реальний client-only CSV-експорт (не заглушка, як інші дії в рядку) —
 // не потребує беку, працює цілком у браузері (Blob+download).
@@ -26,9 +20,9 @@ function toRow(order: OrderListItem): string[] {
     order.itemsSummary,
     String(order.totalQuantity),
     String(order.totalSum),
-    PAYMENT_STATUS_META[order.paymentStatus].label,
+    order.paymentStatus?.name ?? "",
     order.paymentMethod,
-    DELIVERY_METHOD_LABEL[order.deliveryMethod],
+    order.deliveryMethod?.name ?? "",
     order.ttn ?? "",
     order.city,
     ORDER_STATUS_META[order.status].label,

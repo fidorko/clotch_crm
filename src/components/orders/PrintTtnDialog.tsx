@@ -87,13 +87,13 @@ export function PrintTtnDialog({
   const counts = Object.fromEntries(
     TTN_PRINTABLE_CARRIERS.map((carrier) => [
       carrier,
-      selectedOrders.filter((o) => o.deliveryMethod === carrier).length,
+      selectedOrders.filter((o) => o.carrierKey === carrier).length,
     ])
   ) as Record<DeliveryMethod, number>;
   const unsupportedCount = selectedOrders.length - Object.values(counts).reduce((a, b) => a + b, 0);
 
   function handlePrint(carrier: DeliveryMethod) {
-    const ids = selectedOrders.filter((o) => o.deliveryMethod === carrier).map((o) => o.id);
+    const ids = selectedOrders.filter((o) => o.carrierKey === carrier).map((o) => o.id);
     if (ids.length === 0) return;
     onPrint(ids);
     // Попап навмисно НЕ закривається — можна одразу надрукувати й іншого

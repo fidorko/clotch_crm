@@ -20,6 +20,7 @@ import { listAllPaymentMethodPartialAmounts, listPaymentMethods } from "@/server
 import { getGeneralSettings } from "@/server/data/general-settings";
 import { listCompanyLegalEntities } from "@/server/data/company-legal-entities";
 import { listOrderStatuses } from "@/server/data/order-statuses";
+import { listPaymentStatuses } from "@/server/data/payment-statuses";
 import { listCurrencies } from "@/server/data/currencies";
 import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
 import { listSuppliers } from "@/server/data/suppliers";
@@ -117,6 +118,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
   const [
     colors,
     orderStatuses,
+    paymentStatuses,
     currencies,
     suppliers,
     referenceItemsByKind,
@@ -130,6 +132,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
   ] = await Promise.all([
     listColors(tenantId),
     listOrderStatuses(tenantId),
+    listPaymentStatuses(tenantId),
     listCurrencies(tenantId),
     listSuppliers(tenantId),
     listReferenceItemsForKinds(tenantId, REFERENCE_ITEM_KINDS),
@@ -161,6 +164,7 @@ async function ReferencesSection({ tenantId, dev }: { tenantId: string; dev: boo
       <ReferencesList
         colors={colors}
         orderStatuses={orderStatuses}
+        paymentStatuses={paymentStatuses}
         currencies={currencyItems}
         suppliers={supplierItems}
         referenceItemsByKind={itemsByKind}

@@ -16,6 +16,7 @@ export const NP_MODEL = {
 export const NP_METHOD = {
   getCities: "getCities",
   getWarehouses: "getWarehouses",
+  getWarehouseTypes: "getWarehouseTypes",
   // Однина! "getStreets" не існує (Method AddressGeneral_getStreets not found,
   // перевірено живим викликом 2026-08-06) — та сама гочка, що Reference/CommonGeneral.
   getStreet: "getStreet",
@@ -24,5 +25,8 @@ export const NP_METHOD = {
   getPackList: "getPackList",
   getServiceTypes: "getServiceTypes",
   getTypesOfPayers: "getTypesOfPayers",
+  getDocumentPrice: "getDocumentPrice",
   save: "save",
+  delete: "delete",
+  getStatusDocuments: "getStatusDocuments",
 } as const;

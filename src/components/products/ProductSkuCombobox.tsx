@@ -49,12 +49,12 @@ export function ProductSkuCombobox({
       onInputValueChange={setInputValue}
       itemToStringLabel={(id: string) => {
         const item = byId.get(id);
-        return item ? `${item.sku} ${item.productName} ${item.color} ${item.size}` : id;
+        return item ? `${item.sku} ${item.productName} ${item.color} ${item.size} ${item.barcode ?? ""}` : id;
       }}
     >
       <ComboboxInputGroup className="w-80">
         <Plus className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
-        <ComboboxInput placeholder="Пошук за SKU або назвою товару..." className="pl-7" />
+        <ComboboxInput placeholder="Назва, артикул, SKU або штрихкод..." className="pl-7" />
         <ComboboxTrigger />
       </ComboboxInputGroup>
       <ComboboxContent>

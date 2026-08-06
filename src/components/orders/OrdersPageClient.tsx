@@ -24,7 +24,13 @@ const DEFAULT_POST_PRINT_ACTION: PostPrintAction = {
 // реально мутують мок-масив у пам'яті (не персистуються, скидаються при
 // перезавантаженні — чесно, це демонстрація, не реальний бек), «Експорт» —
 // справжній CSV-файл у браузер.
-export function OrdersPageClient({ orders: initialOrders }: { orders: OrderListItem[] }) {
+export function OrdersPageClient({
+  orders: initialOrders,
+  paymentStatusOptions,
+}: {
+  orders: OrderListItem[];
+  paymentStatusOptions: string[];
+}) {
   const [orders, setOrders] = useState(initialOrders);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [postPrintAction, setPostPrintAction] = useState<PostPrintAction>(DEFAULT_POST_PRINT_ACTION);
@@ -73,7 +79,12 @@ export function OrdersPageClient({ orders: initialOrders }: { orders: OrderListI
       <DevBlockLabel name="OrdersPage" enabled={dev}>
         <div className="flex flex-1 flex-col gap-4 p-6">
           <OrdersKpiCards orders={orders} />
-          <OrdersTable orders={orders} selectedIds={selectedIds} onSelectedIdsChange={setSelectedIds} />
+          <OrdersTable
+            orders={orders}
+            selectedIds={selectedIds}
+            onSelectedIdsChange={setSelectedIds}
+            paymentStatusOptions={paymentStatusOptions}
+          />
         </div>
       </DevBlockLabel>
     </div>

@@ -42,18 +42,25 @@ export const ORDER_STATUS_ORDER: OrderStatus[] = [
   "returned",
 ];
 
-export type PaymentStatus = "unpaid" | "partial" | "paid" | "refunded";
+// Раніше — жорсткий 4-значний enum (мок-прохід). Четвертий прохід — реальний
+// список /orders читає тенант-керований довідник payment_statuses (назва+колір,
+// settings → Довідники → Системні), не фіксований набір — тому просто {name,color}.
+export interface RealPaymentStatus {
+  name: string;
+  color: string; // HEX, payment_statuses.color
+}
 
-export const PAYMENT_STATUS_META: Record<
-  PaymentStatus,
-  { label: string; badge: "warning" | "success" | "destructive" | "secondary" }
-> = {
-  unpaid: { label: "Не оплачено", badge: "warning" },
-  partial: { label: "Частково", badge: "secondary" },
-  paid: { label: "Оплачено", badge: "success" },
-  refunded: { label: "Повернуто кошти", badge: "destructive" },
-};
+// Реальна назва способу доставки (delivery_methods.name, тенант-керований,
+// довільний текст) — для відображення в рядку таблиці. null — замовлення без
+// обраного способу (orders.deliveryMethodId nullable).
+export interface RealDeliveryMethod {
+  name: string;
+}
 
+// carrierKey — окремо від людської назви вище: лишається фіксованим набором
+// (delivery_methods.carrierKey у server/carriers/), потрібен PrintTtnDialog
+// нижче для групування «яку кнопку-перевізника показати» (лого/лічильник) —
+// не змінюємо, це не про мок, а про реальний carrier.factory.ts.
 export type DeliveryMethod = "nova_poshta" | "ukrposhta" | "courier" | "pickup";
 
 export const DELIVERY_METHOD_LABEL: Record<DeliveryMethod, string> = {
@@ -108,9 +115,12 @@ export interface OrderListItem {
   totalQuantity: number; // сумарна кількість одиниць
   totalSum: number;
   status: OrderStatus;
-  paymentStatus: PaymentStatus;
+  paymentStatus: RealPaymentStatus | null;
   paymentMethod: string;
-  deliveryMethod: DeliveryMethod;
+  deliveryMethod: RealDeliveryMethod | null;
+  // Окремо від deliveryMethod.name (людська назва) — для групування
+  // «Друк ТТН» (PrintTtnDialog) за лого перевізника, нижче.
+  carrierKey: DeliveryMethod | null;
   ttn: string | null;
   city: string;
   warehouse: string | null; // звідки відвантажується — реальна назва складу тенанта, якщо є
@@ -122,9 +132,7 @@ export function formatOrderSum(value: number): string {
   return `${value.toLocaleString("uk-UA")} грн`;
 }
 
-// Форма нового замовлення (orders.md, /orders/new) — перший реальний бек:
-// значення PaymentStatus/OrderSource вище навмисно збігаються 1:1 з pg-enum
-// orders.status/source (server/db/schema/orders.ts), тому перевикористані тут
-// напряму. Спосіб оплати — поки фіксований список, не окремий довідник
-// (не просили, аналог "Форма оплати" Нової пошти теж не налаштовується — settings-delivery.md).
-export const ORDER_PAYMENT_METHOD_OPTIONS = ["Готівка", "Картка", "Накладений платіж"];
+// OrderStatus/OrderSource вище навмисно збігаються 1:1 з pg-enum
+// orders.status/source (server/db/schema/orders.ts) — той самий пайплайн,
+// продуманий для мок-списку /orders, перевикористаний у реальній формі
+// /orders/new (orders-new-order-form.md).

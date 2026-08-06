@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -7,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { tenantIsolationPolicy } from "./rls";
@@ -47,6 +49,12 @@ export const warehouses = pgTable(
     code: text("code").notNull(),
     type: warehouseTypeEnum("type").notNull().default("main"),
     isActive: boolean("is_active").notNull().default(true),
+    // Склад відвантаження за замовчуванням у формі нового замовлення
+    // (orders-new-order-form.md) — той самий прийом, що currencies.isDefault:
+    // частковий UNIQUE нижче гарантує не більше одного на тенанта. Повноцінна
+    // модель залишків по складах — окрема майбутня задача, це поле лише
+    // визначає дефолтний вибір у Select.
+    isPrimary: boolean("is_primary").notNull().default(false),
     responsiblePerson: text("responsible_person"),
     // Нормалізований формат +380XXXXXXXXX, без пробілів (conventions.md, "Формати вводу").
     responsiblePhone: text("responsible_phone"),
@@ -83,6 +91,9 @@ export const warehouses = pgTable(
   (table) => [
     index("warehouses_tenant_created_idx").on(table.tenantId, table.createdAt),
     unique("warehouses_tenant_code_key").on(table.tenantId, table.code),
+    uniqueIndex("warehouses_tenant_primary_key")
+      .on(table.tenantId)
+      .where(sql`${table.isPrimary} = true`),
     tenantIsolationPolicy(table.tenantId),
   ]
 ).enableRLS();

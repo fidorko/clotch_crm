@@ -16,6 +16,14 @@ export interface NpWarehouseRaw {
   TypeOfWarehouse: string;
 }
 
+// Address.getWarehouseTypes — довідник типів точок видачі (третій прохід,
+// потрібен, щоб знайти реальний Ref "Поштомат" для фільтра getWarehouses,
+// не хардкодити здогаданий GUID).
+export interface NpWarehouseTypeRaw {
+  Ref: string;
+  Description: string;
+}
+
 export interface NpStreetRaw {
   Ref: string;
   Description: string;
@@ -59,4 +67,26 @@ export interface NpSaveDocumentRaw {
   EstimatedDeliveryDate: string;
   IntDocNumber: string;
   TypeDocument: string;
+}
+
+// InternetDocument.getDocumentPrice — відповідь, docs/carriers/novaposhta/shipments.md
+// («безпечний для живого тестування — чисте обчислення без побічного ефекту»).
+export interface NpDocumentPriceRaw {
+  Cost: string;
+  CostRedelivery?: string;
+  AssessedCost?: string;
+}
+
+// InternetDocument.delete — відповідь (четвертий прохід), docs/carriers/novaposhta/shipments.md.
+export interface NpDeleteDocumentRaw {
+  Ref: string;
+}
+
+// TrackingDocument.getStatusDocuments — відповідь (четвертий прохід),
+// docs/carriers/novaposhta/tracking-returns-redirects.md.
+export interface NpTrackingStatusRaw {
+  Number: string;
+  StatusCode: string;
+  Status: string;
+  ScheduledDeliveryDate?: string;
 }

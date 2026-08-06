@@ -6,6 +6,7 @@ import { CustomCharacteristicFormDialog } from "@/components/settings/CustomChar
 import { CustomCharacteristicTile } from "@/components/settings/CustomCharacteristicTile";
 import { ColorsTile } from "@/components/settings/ColorsTile";
 import { OrderStatusesTile } from "@/components/settings/OrderStatusesTile";
+import { PaymentStatusesTile } from "@/components/settings/PaymentStatusesTile";
 import { FabricTypesTile } from "@/components/settings/FabricTypesTile";
 import { MaterialsTile } from "@/components/settings/MaterialsTile";
 import { CareInstructionsTile } from "@/components/settings/CareInstructionsTile";
@@ -16,6 +17,7 @@ import type { ReferenceItemKind } from "@/lib/constants/reference-item-kinds";
 import type { CustomCharacteristicWithValues } from "@/server/data/custom-characteristics";
 import type { ColorRow } from "@/server/data/colors";
 import type { OrderStatusRow } from "@/server/data/order-statuses";
+import type { PaymentStatusRow } from "@/server/data/payment-statuses";
 import type { FabricTypeDetail } from "@/server/data/fabric-types";
 import type { MaterialRow } from "@/server/data/materials";
 import type { CareInstructionRow } from "@/server/data/care-instructions";
@@ -198,6 +200,7 @@ function ReferenceTile({ item, flags }: { item: ReferenceItem; flags?: Dictionar
 export function ReferencesList({
   colors = [],
   orderStatuses = [],
+  paymentStatuses = [],
   currencies = [],
   suppliers = [],
   referenceItemsByKind = {},
@@ -211,6 +214,7 @@ export function ReferencesList({
 }: {
   colors?: ColorRow[];
   orderStatuses?: OrderStatusRow[];
+  paymentStatuses?: PaymentStatusRow[];
   currencies?: { code: string; symbol: string }[];
   suppliers?: { id: string; name: string }[];
   referenceItemsByKind?: Record<string, { id: string; name: string }[]>;
@@ -301,6 +305,7 @@ export function ReferencesList({
         <h2 className="text-sm font-semibold text-foreground">{GROUP_TITLES.system}</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <OrderStatusesTile statuses={orderStatuses} />
+          <PaymentStatusesTile statuses={paymentStatuses} />
           {systemItems.map((item) => (
             <ReferenceTile key={item.id} item={item} />
           ))}
