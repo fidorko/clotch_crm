@@ -10,6 +10,8 @@ import { colors } from "./colors";
 import { deliveryMethods } from "./delivery-methods";
 import { deliveryMethodStatusRules } from "./delivery-method-status-rules";
 import { orderStatuses } from "./order-statuses";
+import { customers } from "./customers";
+import { orders, orderItems } from "./orders";
 import { currencies } from "./currencies";
 import { customCharacteristics, customCharacteristicValues } from "./custom-characteristics";
 import { suppliers } from "./suppliers";
@@ -51,6 +53,8 @@ export * from "./colors";
 export * from "./delivery-methods";
 export * from "./delivery-method-status-rules";
 export * from "./order-statuses";
+export * from "./customers";
+export * from "./orders";
 export * from "./currencies";
 export * from "./custom-characteristics";
 export * from "./suppliers";
@@ -139,6 +143,23 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   measurementTypes: many(measurementTypes),
   warehouses: many(warehouses),
   receivingDocuments: many(receivingDocuments),
+  customers: many(customers),
+  orders: many(orders),
+}));
+
+export const customersRelations = relations(customers, ({ many }) => ({
+  orders: many(orders),
+}));
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  customer: one(customers, { fields: [orders.customerId], references: [customers.id] }),
+  deliveryMethod: one(deliveryMethods, { fields: [orders.deliveryMethodId], references: [deliveryMethods.id] }),
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+  productSku: one(productSkus, { fields: [orderItems.productSkuId], references: [productSkus.id] }),
 }));
 
 export const receivingDocumentsRelations = relations(receivingDocuments, ({ many }) => ({

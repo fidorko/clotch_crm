@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Download, Plus, Printer, RefreshCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,7 +98,7 @@ export function OrdersHeader({
             </Button>
           </div>
         ) : (
-          <Button disabled title="Форма створення замовлення — наступний крок (список поки на моках)">
+          <Button render={<Link href="/orders/new" />} nativeButton={false}>
             <Plus className="size-4" />
             Створити замовлення
           </Button>

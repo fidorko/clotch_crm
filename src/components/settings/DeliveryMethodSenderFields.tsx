@@ -1,19 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Warehouse } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxInput,
-  ComboboxInputGroup,
-  ComboboxItem,
-  ComboboxTrigger,
-} from "@/components/ui/combobox";
+import { NpSearchCombobox } from "@/components/carriers/NpSearchCombobox";
 import type { DeliveryMethodFormInput } from "@/app/settings/delivery/actions";
 import {
   searchDeliveryCitiesAction,
@@ -23,86 +16,6 @@ import {
 } from "@/app/settings/delivery/np-lookup-actions";
 import type { CarrierCounterparty } from "@/server/carriers/carrier.interface";
 import type { NovaPoshtaContactPerson } from "@/server/carriers/novaposhta/mapper";
-
-/**
- * Пошуковий комбобокс проти живого API НП (місто/відділення/вулиця) — той
- * самий контрольований Combobox, що AddSkuCombobox (`value={null}` завжди —
- * транзитний пошук, не персистентний вибір), лише items оновлюється з
- * сервера через debounce, не з готового каталогу. Base UI сам скидає текст
- * інпуту після вибору, коли value лишається null (мітка "Нічого не знайдено"
- * — сумісний патерн), тому обраний варіант показуємо окремим рядком під
- * полем, а не намагаємось повернути його назад у текст пошуку.
- */
-function NpSearchCombobox({
-  selectedLabel,
-  placeholder,
-  disabled,
-  onSearch,
-  onSelect,
-}: {
-  selectedLabel: string;
-  placeholder: string;
-  disabled?: boolean;
-  onSearch: (
-    query: string
-  ) => Promise<{ ok: true; items: { ref: string; name: string }[] } | { ok: false; message: string }>;
-  onSelect: (item: { ref: string; name: string }) => void;
-}) {
-  const [inputValue, setInputValue] = useState("");
-  const [items, setItems] = useState<{ ref: string; name: string }[]>([]);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function handleInputValueChange(next: string) {
-    setInputValue(next);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onSearch(next).then((result) => setItems(result.ok ? result.items : []));
-    }, 300);
-  }
-
-  const byRef = new Map(items.map((i) => [i.ref, i]));
-  const refs = items.map((i) => i.ref);
-
-  function handleValueChange(ref: string | null) {
-    if (!ref) return;
-    const item = byRef.get(ref);
-    if (!item) return;
-    onSelect(item);
-    setInputValue("");
-    setItems([]);
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <Combobox
-        items={refs}
-        value={null}
-        onValueChange={handleValueChange}
-        inputValue={inputValue}
-        onInputValueChange={handleInputValueChange}
-        itemToStringLabel={(ref: string) => byRef.get(ref)?.name ?? ref}
-        disabled={disabled}
-      >
-        <ComboboxInputGroup>
-          <ComboboxInput placeholder={placeholder} />
-          <ComboboxTrigger />
-        </ComboboxInputGroup>
-        <ComboboxContent>
-          {(ref: string) => {
-            const item = byRef.get(ref);
-            if (!item) return null;
-            return (
-              <ComboboxItem key={ref} value={ref}>
-                {item.name}
-              </ComboboxItem>
-            );
-          }}
-        </ComboboxContent>
-      </Combobox>
-      {selectedLabel && <p className="text-xs text-muted-foreground">Обрано: {selectedLabel}</p>}
-    </div>
-  );
-}
 
 /** «Відправник за замовчуванням» — DeliveryMethodFormDialog.tsx переріс ліміт, винесено окремим компонентом (CLAUDE.md, розділ 0/9.6). 2026-08-05, третій прохід: для Нової пошти (isNovaPoshta) — реальні дані з Counterparty/Address API тенантського ключа, не вільний текст (пряма вказівка людини); для решти перевізників (без реальної інтеграції) лишається вільний ввід. 2026-08-06, шостий прохід — обирається РАЗ, звідки відправляємо (відділення чи адреса), не набір типів доставки (прибрано, DeliveryMethodShippingRulesFields.tsx). */
 export function DeliveryMethodSenderFields({

@@ -7,6 +7,7 @@ import {
   type CarrierSettlement,
   type CarrierStreet,
   type CarrierWarehouse,
+  type CreateShipmentInput,
   type PrintDocumentsResult,
   type ShipmentResult,
   type TrackShipmentResult,
@@ -14,12 +15,15 @@ import {
 import { callNovaPoshta } from "./client";
 import { NP_METHOD, NP_MODEL } from "./endpoints";
 import {
+  formatNpDate,
   mapCity,
   mapContactPerson,
   mapCounterparty,
   mapPackItem,
+  mapShipmentResult,
   mapStreet,
   mapWarehouse,
+  toNpPhone,
   type NovaPoshtaContactPerson,
   type NovaPoshtaPackItem,
 } from "./mapper";
@@ -28,6 +32,7 @@ import type {
   NpContactPersonRaw,
   NpCounterpartyRaw,
   NpPackItemRaw,
+  NpSaveDocumentRaw,
   NpStreetRaw,
   NpWarehouseRaw,
 } from "./types";
@@ -105,9 +110,70 @@ export class NovaPoshtaProvider implements CarrierProvider {
     throw new CarrierNotImplementedError(CARRIER_KEY, "calculate");
   }
 
-  // ⚠️ docs/carriers/novaposhta/shipments.md
-  async createShipment(): Promise<ShipmentResult> {
-    throw new CarrierNotImplementedError(CARRIER_KEY, "createShipment");
+  // ✅ docs/carriers/novaposhta/shipments.md — реалізовано за прямою вказівкою
+  // людини (орденр-форма /orders/new вимагала справжнього створення ЕН, не
+  // заглушки). Поля звірені між трьома незалежними типізованими клієнтами
+  // (business-mapping.md), АЛЕ сам виклик — реальний побічний ефект
+  // (створює справжнє відправлення на акаунті тенанта), тому перший живий
+  // виклик мусить пройти під наглядом людини (не тестували наосліп).
+  // Відправник — завжди `kind: "counterparty"` (з налаштувань способу
+  // доставки). Отримувач — `kind: "new_recipient"`: конкретна людина, якої
+  // ще нема серед контрагентів акаунта перевізника — НП сама створює
+  // контрагента-отримувача з полів RecipientName/RecipientType/NewAddress=1
+  // (SaveWarehouse-варіант, shipments.md).
+  async createShipment(input: CreateShipmentInput): Promise<ShipmentResult> {
+    if (input.sender.kind !== "counterparty") {
+      throw new Error("Відправник повинен бути обраним контрагентом акаунта Нової пошти");
+    }
+    const { sender, recipient } = input;
+
+    const methodProperties: Record<string, unknown> = {
+      PayerType: input.payerType,
+      PaymentMethod: input.paymentMethod,
+      DateTime: formatNpDate(new Date()),
+      ServiceType: input.serviceType,
+      CargoType: input.cargoType,
+      Weight: String(input.weightKg),
+      SeatsAmount: String(input.seatsAmount),
+      Description: input.description,
+      Cost: String(input.declaredValue),
+      CitySender: sender.cityRef,
+      Sender: sender.counterpartyRef,
+      SenderAddress: sender.warehouseRef,
+      ContactSender: sender.contactPersonRef,
+      SendersPhone: toNpPhone(sender.phone),
+    };
+
+    if (recipient.kind === "counterparty") {
+      Object.assign(methodProperties, {
+        CityRecipient: recipient.cityRef,
+        Recipient: recipient.counterpartyRef,
+        RecipientAddress: recipient.warehouseRef,
+        ContactRecipient: recipient.contactPersonRef,
+        RecipientsPhone: toNpPhone(recipient.phone),
+      });
+    } else {
+      // Новий отримувач — без Ref контрагента/контактної особи (shipments.md, "SaveWarehouse").
+      Object.assign(methodProperties, {
+        CityRecipient: recipient.cityRef,
+        RecipientCityName: recipient.cityName,
+        Recipient: "",
+        RecipientAddress: recipient.warehouseRef,
+        ContactRecipient: "",
+        RecipientsPhone: toNpPhone(recipient.phone),
+        RecipientName: recipient.fullName,
+        RecipientType: "PrivatePerson",
+        NewAddress: "1",
+      });
+    }
+
+    const [row] = await callNovaPoshta<NpSaveDocumentRaw>(
+      this.apiKey,
+      NP_MODEL.internetDocument,
+      NP_METHOD.save,
+      methodProperties
+    );
+    return mapShipmentResult(row);
   }
 
   // ⚠️ docs/carriers/novaposhta/shipments.md

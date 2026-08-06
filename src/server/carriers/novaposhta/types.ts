@@ -51,3 +51,12 @@ export interface NpPayerTypeRaw {
   Ref: string;
   Description: string;
 }
+
+// InternetDocument.save — відповідь (SaveItem), docs/carriers/novaposhta/shipments.md.
+export interface NpSaveDocumentRaw {
+  Ref: string;
+  CostOnSite: string;
+  EstimatedDeliveryDate: string;
+  IntDocNumber: string;
+  TypeDocument: string;
+}

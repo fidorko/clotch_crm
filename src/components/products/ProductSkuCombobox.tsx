@@ -12,11 +12,13 @@ import {
 } from "@/components/ui/combobox";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
 
-// Пошуковий комбобокс "додати товар" (замінив нефункціональну кнопку) —
-// реальний каталог SKU тенанта (`listProductSkusCatalog`), одиничний вибір
-// одразу додає рядок і скидає поле пошуку (не персистентне значення, як
-// звичайний Select) — warehouse-receiving.md.
-export function AddSkuCombobox({
+// Пошуковий комбобокс "додати товар" — реальний каталог SKU тенанта
+// (`listProductSkusCatalog`), одиничний вибір одразу додає рядок і скидає
+// поле пошуку (не персистентне значення, як звичайний Select). Спершу жив як
+// AddSkuCombobox лише в warehouse-receiving.md, перенесено сюди (ui-kit.md,
+// правило 9.2 CLAUDE.md — 2 використання), коли знадобився й у формі нового
+// замовлення (orders.md).
+export function ProductSkuCombobox({
   catalog,
   excludeIds,
   onAdd,

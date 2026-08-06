@@ -89,7 +89,7 @@ export interface ReceivingDocumentItemMutationResult {
 }
 
 /**
- * Скан або вибір з AddSkuCombobox — insert, або ordered/received += delta при
+ * Скан або вибір з ProductSkuCombobox — insert, або ordered/received += delta при
  * конфлікті на (tenant_id, document_id, product_sku_id). qtyField вирішує
  * виклик (workspace передає "ordered", поки isPlanned && awaiting_delivery,
  * інакше завжди "received" — один документ, не два типи). Зміна received

@@ -102,6 +102,21 @@ Junction товар↔тег; `tenant_id` тут навмисно **денорм
 
 Дев-сід заповнює 11 стартових статусів (`lib/mocks/order-statuses.ts`, пряма вказівка людини): Прийнято → Комплектується → Відправлено → На відділенні 1Д…7Д (ескалація кольору жовтий→червоний за днями очікування на відділенні перевізника) → Повернення. Сідується без `notify_after_hours`/`notify_user` (сповіщення — опційне ручне налаштування, не вигадувалось).
 
+### customers / orders / order_items
+Перший реальний бек модуля «Замовлення» (`orders.md`) — форма `/orders/new`, пряма вказівка людини (список `/orders` поки лишається на моках, окремий open item нижче).
+
+**`customers`** — `tenant_id`, `name`, `phone` (нормалізовано `+380XXXXXXXXX`, conventions.md), `email` (nullable). UNIQUE `(tenant_id, phone)` — один номер = один клієнт; `createOrGetCustomer` (`server/data/customers.ts`) шукає за телефоном і повертає наявного, а не плодить дублі. Індекс `(tenant_id, created_at)`.
+
+**`orders`** — `tenant_id`, `number` (`ORD-0001`, генерується від кількості замовлень тенанта, той самий прийом, що `WH-0001`), `customer_id` (FK `customers.id`, без `ON DELETE` — клієнта з замовленнями видалити не можна), `status`/`payment_status`/`source` — pg-enum, значення 1:1 збігаються з хардкод-типами `OrderStatus`/`PaymentStatus`/`OrderSource` (`lib/types/orders.ts`) навмисно, щоб список `/orders` можна було безболісно перевести на цю таблицю пізніше. `payment_method` (вільний текст, фіксований UI-список `ORDER_PAYMENT_METHOD_OPTIONS`), `manager_name` (`TODO(auth)`, `DEV_USER.name`), `total_sum` (`numeric(12,2)`, рахується сервером із суми позицій), `notes`.
+
+Доставка/ЕН — знімок на момент оформлення: `delivery_method_id` (FK `delivery_methods.id`, `ON DELETE SET NULL`), `recipient_name`/`recipient_phone`/`recipient_city(_ref)`/`recipient_warehouse(_ref)`, `ttn`/`carrier_shipment_ref`/`carrier_cost_on_site`/`carrier_estimated_delivery_date` — реальний результат `InternetDocument.save` (docs/carriers/novaposhta/shipments.md), записується окремим викликом `saveOrderShipment` після успішного виклику carrier API (не в тій самій транзакції, що створення замовлення — мережевий виклик не повинен тримати відкритою DB-транзакцію); той-таки виклик виставляє `status = "shipped"`.
+
+Індекси `(tenant_id, created_at)`, `(tenant_id, status)`, `(tenant_id, customer_id)`. UNIQUE `(tenant_id, number)`.
+
+**`order_items`** — знімок товару на момент продажу (`product_name`/`sku`/`color`/`size`/`unit_price` копіюються, не читаються наживо з `products`/`product_skus`), `product_sku_id` — nullable FK `ON DELETE SET NULL` (той самий патерн, що `products.category_id`) — видалення SKU не стирає історію замовлення. `quantity` — `CHECK > 0`. `order_id` — FK `orders.id`, `ON DELETE CASCADE`. Індекс `(tenant_id, order_id)`.
+
+**Ціна за замовчуванням** для нової позиції — реальна роздрібна ціна товару (`purchasePrice*(1+retailPercent/100)` або `retailAmount`, той самий розрахунок, що `listProducts`) — рахується в `listProductSkusCatalog` (`server/data/product-skus.ts`, нове поле `retailPrice`), редагована вручну перед збереженням замовлення. Per-SKU `retail_price_override` (`product_skus`) поки не враховується — ніде в проєкті ще не читається (`products-characteristics.md`, open item).
+
 ### currencies
 Тенант-конфігурований довідник валют (`settings` → «Довідники» → «Валюти»), окрема таблиця, не `reference_items` — валюті потрібні код/символ/позиція/знаки після коми/курс, не просто назва. `tenant_id`, `code` (ISO 4217, напр. `UAH`), `name`, `symbol`, `symbol_position` (enum `before`/`after`), `decimal_places`, `is_active`, `is_default`, `exchange_rate` (nullable, `numeric(14,6)` — курс відносно базової валюти тенанта; для самої базової завжди `NULL`, курс до себе = 1), `rate_updated_at`, `auto_update` (за замовчуванням `true`), `position`.
 

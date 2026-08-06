@@ -121,3 +121,10 @@ export interface OrderListItem {
 export function formatOrderSum(value: number): string {
   return `${value.toLocaleString("uk-UA")} грн`;
 }
+
+// Форма нового замовлення (orders.md, /orders/new) — перший реальний бек:
+// значення PaymentStatus/OrderSource вище навмисно збігаються 1:1 з pg-enum
+// orders.status/source (server/db/schema/orders.ts), тому перевикористані тут
+// напряму. Спосіб оплати — поки фіксований список, не окремий довідник
+// (не просили, аналог "Форма оплати" Нової пошти теж не налаштовується — settings-delivery.md).
+export const ORDER_PAYMENT_METHOD_OPTIONS = ["Готівка", "Картка", "Накладений платіж"];

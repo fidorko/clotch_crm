@@ -46,7 +46,14 @@ export interface CalculateShipmentResult {
   costRedelivery: number | null;
 }
 
-export interface ShipmentAddress {
+// Відправник — завжди існуючий контрагент акаунта перевізника (обирається в
+// налаштуваннях способу доставки, settings-delivery.md). Отримувач при
+// оформленні замовлення — як правило НОВА людина, якої ще нема серед
+// контрагентів перевізника (типовий e-commerce кейс, не наш саме клієнт CRM,
+// а конкретна фізособа-отримувач) — тому окрема форма без counterpartyRef,
+// перевізник створює контрагента-отримувача автоматично (docs/carriers/<carrier>/shipments.md).
+export interface ShipmentCounterpartyAddress {
+  kind: "counterparty";
   cityRef: string;
   warehouseRef?: string;
   counterpartyRef: string;
@@ -54,9 +61,21 @@ export interface ShipmentAddress {
   phone: string;
 }
 
+export interface ShipmentNewRecipient {
+  kind: "new_recipient";
+  cityRef: string;
+  cityName: string;
+  warehouseRef: string;
+  fullName: string;
+  phone: string;
+}
+
+export type ShipmentAddress = ShipmentCounterpartyAddress | ShipmentNewRecipient;
+
 export interface CreateShipmentInput {
   serviceType: string;
   payerType: string;
+  paymentMethod: string;
   cargoType: string;
   weightKg: number;
   seatsAmount: number;

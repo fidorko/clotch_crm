@@ -10,7 +10,7 @@
 | Довідник вулиць (відправник → «Звідки відправляємо: Адреса», `settings-delivery.md`) | `getStreets()` | `Address.getStreet` (**однина!** `getStreets` не існує — "Method AddressGeneral_getStreets not found", перевірено живим викликом 2026-08-06) | ✅ реалізовано |
 | Довідник населеного пункту (уточнення area/region) | `getSettlement()` | `Address.searchSettlements` | ⚠️ не реалізовано, не просили ще |
 | Розрахунок вартості доставки (майбутнє «Оформити замовлення») | `calculate()` | `InternetDocument.getDocumentPrice` | 📄 задокументовано, не реалізовано |
-| Створити ЕН при оформленні замовлення | `createShipment()` | `InternetDocument.save` | 📄 задокументовано, не реалізовано |
+| Створити ЕН при оформленні замовлення (`/orders/new`, orders.md) | `createShipment()` | `InternetDocument.save` | ✅ реалізовано (2026-08-06), **⚠️ не перевірено живим викликом** — перший реальний запуск з ключем тенанта вимагає нагляду людини |
 | Редагувати ЕН | `updateShipment()` | `InternetDocument.update` | 📄 задокументовано, не реалізовано |
 | Скасувати ЕН | `deleteShipment()` | `InternetDocument.delete` | 📄 задокументовано, не реалізовано |
 | «Показати, де моя посилка» (майбутній ШІ-чат, людина згадала прямо) | `track()` | `TrackingDocument.getStatusDocuments` | 📄 задокументовано, не реалізовано |

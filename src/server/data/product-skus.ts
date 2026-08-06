@@ -147,12 +147,18 @@ export interface ProductSkuCatalogItem {
   colorHex: string;
   size: string;
   photoUrl: string | null;
+  retailPrice: number;
 }
 
-// Джерело для пошуку/додавання позиції в надходження (AddSkuCombobox і
-// сканування штрихкоду в ReceivingItemsTable, warehouse-receiving.md) —
-// клієнтська фільтрація/пошук по `barcode`, як і решта Combobox у проєкті
-// (ui-kit.md), тому весь каталог тенанта одним запитом. LIMIT — правило
+function toAmount(value: string | null): number {
+  return value ? Number(value) : 0;
+}
+
+// Джерело для пошуку/додавання позиції в надходження (ProductSkuCombobox і
+// сканування штрихкоду в ReceivingItemsTable, warehouse-receiving.md) та
+// товарів у формі замовлення (orders-new-order-form.md) — клієнтська
+// фільтрація/пошук по `barcode`, як і решта Combobox у проєкті (ui-kit.md),
+// тому весь каталог тенанта одним запитом. LIMIT — правило
 // "На списках завжди LIMIT" (CLAUDE.md розділ 7); для дуже великого
 // каталогу знадобиться пошук на сервері замість повного списку.
 const CATALOG_LIMIT = 500;
@@ -201,6 +207,10 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
         color: productSkus.color,
         colorHex: productSkus.colorHex,
         size: productSkus.size,
+        purchasePrice: products.purchasePrice,
+        retailMode: products.retailMode,
+        retailAmount: products.retailAmount,
+        retailPercent: products.retailPercent,
       })
       .from(productSkus)
       .innerJoin(products, and(eq(products.id, productSkus.productId), eq(products.tenantId, tenantId)))
@@ -211,15 +221,26 @@ export async function listProductSkusCatalog(tenantId: string): Promise<ProductS
     const productIds = [...new Set(rows.map((r) => r.productId))];
     const photoByProductColor = await buildPhotoLookup(tx, tenantId, productIds);
 
-    return rows.map((row) => ({
-      id: row.id,
-      sku: row.sku,
-      barcode: row.barcode,
-      productName: row.productName,
-      color: row.color,
-      colorHex: row.colorHex,
-      size: row.size,
-      photoUrl: photoByProductColor.get(`${row.productId}|${row.color}`) ?? null,
-    }));
+    return rows.map((row) => {
+      // Той самий розрахунок, що listProducts (server/data/products.ts) —
+      // ціна SKU для форми замовлення (orders.md), поки без урахування
+      // per-SKU retailPriceOverride (ще ніде не читається, products-characteristics.md).
+      const purchasePrice = toAmount(row.purchasePrice);
+      const retailPrice =
+        row.retailMode === "percent"
+          ? purchasePrice * (1 + toAmount(row.retailPercent) / 100)
+          : toAmount(row.retailAmount);
+      return {
+        id: row.id,
+        sku: row.sku,
+        barcode: row.barcode,
+        productName: row.productName,
+        color: row.color,
+        colorHex: row.colorHex,
+        size: row.size,
+        photoUrl: photoByProductColor.get(`${row.productId}|${row.color}`) ?? null,
+        retailPrice,
+      };
+    });
   });
 }

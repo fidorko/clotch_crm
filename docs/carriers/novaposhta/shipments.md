@@ -1,6 +1,6 @@
 # InternetDocument — створення/редагування/видалення ЕН, розрахунок
 
-**📄 Задокументована поведінка** — не перевірено живим викликом цієї сесії: `save`/`update`/`delete` реально створюють/змінюють/скасовують справжнє відправлення на акаунті тенанта (реальний побічний ефект, не read-only довідник), тому наосліп не тестували. Поля нижче звірені між трьома незалежними типізованими клієнтами (Go `platx/go-nova-poshta`, PHP `serj1chen/nova-poshta-sdk-php`, `daaner/NovaPoshta`) — імена збігаються, висока довіра, але перед першим реальним викликом варто зробити один ручний тест на реальному замовленні й звірити з офіційною документацією (`developers.novaposhta.ua`, блокує бот-доступ — читати людині в браузері).
+**📄 `update`/`delete`/`calculate` — задокументована поведінка, не реалізовано.** `save` (нижче) — **✅ реалізовано** (`NovaPoshtaProvider.createShipment`, 2026-08-06, форма `/orders/new`, orders.md) — але поля звірені лише між трьома незалежними типізованими клієнтами (Go `platx/go-nova-poshta`, PHP `serj1chen/nova-poshta-sdk-php`, `daaner/NovaPoshta`) плюс перехресна перевірка PHP SDK-джерела (`getDataInternetDocument`) для полів нового отримувача — **живим викликом цієї сесії ще НЕ перевірено** (реальний побічний ефект — створює справжнє відправлення на акаунті тенанта, наосліп не тестували). Перший реальний виклик з реальним ключем тенанта — під наглядом людини, з ручним скасуванням/перевіркою результату в кабінеті Нової пошти.
 
 `modelName: "InternetDocument"`.
 
@@ -28,7 +28,7 @@ AssessedCost, Cost, CostRedelivery, CostPack, TZoneInfo
 DateTime, ServiceType, CitySender, CityRecipient → Date, TimezoneType, Timezone
 ```
 
-## save — створити ЕН (createShipment())
+## save — створити ЕН (createShipment()) ✅ реалізовано
 ```
 SenderWarehouseIndex / RecipientWarehouseIndex   — опційно, номер відділення (альтернатива Address)
 PayerType                — Ref з CommonGeneral.getTypesOfPayers
@@ -47,6 +47,10 @@ Ref, CostOnSite, EstimatedDeliveryDate, IntDocNumber, TypeDocument
 - `SavePostomat` — доставка в поштомат, додає `OptionsSeat[]`
 - `SaveWarehouse` — новий контрагент-отримувач (фізособа), додає `RecipientCityName`/`RecipientArea`/`RecipientHouse`/`RecipientFlat`/`RecipientType` тощо
 - `SaveAddress` — доставка на адресу, аналогічний набір + `RecipientAddressNote`
+
+**Реалізація (`NovaPoshtaProvider.createShipment`, orders.md — форма нового замовлення).** Відправник — завжди існуючий контрагент акаунта (`ShipmentCounterpartyAddress`, `carrier.interface.ts`, дані з `delivery_methods.sender*`). Отримувач при оформленні замовлення — **реальна людина, якої майже напевне ще нема серед контрагентів акаунта перевізника** (типовий e-commerce кейс), тому окремий тип `ShipmentNewRecipient` (без `counterpartyRef`/`contactPersonRef`) — варіант `SaveWarehouse` вище: замість `Recipient`/`ContactRecipient` (порожні рядки) передаються `RecipientCityName`/`RecipientName`/`RecipientType: "PrivatePerson"` + прапорець `NewAddress: "1"`, і Нова пошта сама створює контрагента-отримувача. Поля `RecipientName`/`RecipientType`/`NewAddress` звірені додатково через PHP SDK (`serj1chen/nova-poshta-sdk-php`, `getDataInternetDocument`) — **⚠️ це найменш перевірена частина**, перший реальний виклик з ключем тенанта вимагає нагляду людини (business-mapping.md).
+
+Обслуговування (`ServiceType`), тип вантажу (`CargoType`) і форма оплати (`PaymentMethod`) — на цьому проході **хардкод**: `"WarehouseWarehouse"` (відділення-відділення, адресна доставка не підтримана), `"Parcel"` (посилка), `"Cash"` (готівка) — не винесено в UI форми замовлення (`orders.md`, «Відкрито»). `PayerType` — переклад внутрішнього enum `delivery_methods.payer` (`sender`/`recipient`/`third_party`) у справжній Ref НП (`payerToNpRef`, `mapper.ts`).
 
 ## update — редагувати ЕН (updateShipment())
 Той самий набір полів, що `save`, плюс обов'язковий `Ref` створеного документа.

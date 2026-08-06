@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AddSkuCombobox } from "@/components/warehouse/receiving/AddSkuCombobox";
+import { ProductSkuCombobox } from "@/components/products/ProductSkuCombobox";
 import { playScanBeep } from "@/lib/warehouse/scan-beep";
 import { cn } from "@/lib/utils";
 import type { ReceivingItem } from "@/lib/types/receiving";
@@ -297,7 +297,7 @@ export function PlannedReceivingItemsTable({
         </Table>
 
         {!locked && (
-          <AddSkuCombobox
+          <ProductSkuCombobox
             catalog={skuCatalog}
             excludeIds={items.map((item) => item.productSkuId)}
             onAdd={onScanOrAdd}

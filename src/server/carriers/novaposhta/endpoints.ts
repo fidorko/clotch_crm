@@ -24,4 +24,5 @@ export const NP_METHOD = {
   getPackList: "getPackList",
   getServiceTypes: "getServiceTypes",
   getTypesOfPayers: "getTypesOfPayers",
+  save: "save",
 } as const;
