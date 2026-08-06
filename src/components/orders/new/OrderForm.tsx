@@ -22,6 +22,7 @@ import { OrderScheduleCard, type OrderScheduleValues } from "@/components/orders
 import { formatOrderSum } from "@/lib/types/orders";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createOrderAction, printShipmentDocumentsAction, type CreateOrderResult } from "@/app/orders/new/actions";
+import { openPdfBlob } from "@/lib/open-pdf-blob";
 import type { DeliveryMethodRow } from "@/server/data/delivery-methods";
 import type { DeliveryMethodEntitySettingsRow } from "@/server/data/delivery-method-entity-settings";
 import type { ProductSkuCatalogItem } from "@/server/data/product-skus";
@@ -44,7 +45,7 @@ function SuccessPanel({ result, onCreateAnother }: { result: Extract<CreateOrder
         setPrintError(response.message);
         return;
       }
-      window.open(response.url, "_blank", "noopener,noreferrer");
+      openPdfBlob(response.pdfBase64);
     });
   }
 

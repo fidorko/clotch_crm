@@ -136,7 +136,8 @@ export interface PrintDocumentsInput {
 }
 
 export interface PrintDocumentsResult {
-  url: string;
+  /** Base64 PDF-байти, не URL — apiKey перевізника не повинен покидати сервер (docs/carriers/novaposhta/printing.md). */
+  pdfBase64: string;
 }
 
 /**

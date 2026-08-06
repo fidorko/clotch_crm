@@ -24,6 +24,7 @@ import {
 import { getPaymentMethodById } from "@/server/data/payment-methods";
 import { listDeliveryMethods } from "@/server/data/delivery-methods";
 import {
+  findDeliveryMethodEntitySettings,
   listAllDeliveryMethodEntitySettings,
   type DeliveryMethodEntitySettingsRow,
 } from "@/server/data/delivery-method-entity-settings";
@@ -101,14 +102,6 @@ export type CreateOrderResult =
   | { ok: true; order: OrderRow }
   | { ok: false; message: string };
 
-function findEntitySettings(
-  allSettings: DeliveryMethodEntitySettingsRow[],
-  deliveryMethodId: string,
-  legalEntityId: string
-): DeliveryMethodEntitySettingsRow | undefined {
-  return allSettings.find((s) => s.deliveryMethodId === deliveryMethodId && s.legalEntityId === legalEntityId);
-}
-
 /**
  * ServiceType Нової пошти — 2 половини "Warehouse"/"Doors" (відправник/
  * отримувач), звірено з офіційно задокументованими значеннями getDocumentPrice
@@ -171,7 +164,7 @@ export async function createShipmentNowAction(input: CreateShipmentNowInput): Pr
   if (deliveryMethod.carrierKey !== "nova_poshta") {
     return { ok: false, message: "Реальне створення ЕН підключено поки лише для Нової пошти" };
   }
-  const entitySettings = findEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
   if (!entitySettings) return { ok: false, message: "У обраної юридичної особи немає налаштованої доставки цим способом (Налаштування → Доставка)" };
   if (!entitySettings.apiKey) return { ok: false, message: "У способу доставки не задано API-ключ (Налаштування → Доставка)" };
   if (
@@ -270,7 +263,7 @@ export async function deleteShipmentNowAction(
     listAllDeliveryMethodEntitySettings(tenantId),
   ]);
   const deliveryMethod = methods.find((m) => m.id === deliveryMethodId);
-  const entitySettings = findEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
   if (!deliveryMethod || !entitySettings?.apiKey) {
     return { ok: false, message: "Спосіб доставки не знайдено або не налаштовано" };
   }
@@ -283,7 +276,7 @@ export async function deleteShipmentNowAction(
   }
 }
 
-export type PrintShipmentNowResult = { ok: true; url: string } | { ok: false; message: string };
+export type PrintShipmentNowResult = { ok: true; pdfBase64: string } | { ok: false; message: string };
 
 /**
  * Друк ЕН/маркування ОДРАЗУ після створення (пряма вказівка людини —
@@ -304,16 +297,16 @@ export async function printShipmentNowAction(
     listAllDeliveryMethodEntitySettings(tenantId),
   ]);
   const deliveryMethod = methods.find((m) => m.id === deliveryMethodId);
-  const entitySettings = findEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
   if (!deliveryMethod || !entitySettings?.apiKey) {
     return { ok: false, message: "Спосіб доставки не знайдено або не налаштовано" };
   }
   try {
     const provider = getCarrierProvider(deliveryMethod.carrierKey, entitySettings.apiKey);
     const result = await provider.printDocuments({ documentRefs: [ref], kind });
-    return { ok: true, url: result.url };
+    return { ok: true, pdfBase64: result.pdfBase64 };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Не вдалося сформувати посилання на друк" };
+    return { ok: false, message: err instanceof Error ? err.message : "Не вдалося сформувати друк" };
   }
 }
 
@@ -333,7 +326,7 @@ export async function trackShipmentAction(
     listAllDeliveryMethodEntitySettings(tenantId),
   ]);
   const deliveryMethod = methods.find((m) => m.id === deliveryMethodId);
-  const entitySettings = findEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, deliveryMethodId, legalEntityId);
   if (!deliveryMethod || !entitySettings?.apiKey) {
     return { ok: false, message: "Спосіб доставки не знайдено або не налаштовано" };
   }
@@ -377,7 +370,7 @@ export async function createOrderAction(input: OrderFormInput): Promise<CreateOr
   let descriptionIncludeQuantity = true;
   if (input.deliveryMethodId) {
     const allEntitySettings = await listAllDeliveryMethodEntitySettings(tenantId);
-    const entitySettings = findEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
+    const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
     if (entitySettings) {
       descriptionContent = entitySettings.descriptionContent;
       descriptionIncludeQuantity = entitySettings.descriptionIncludeQuantity;
@@ -478,7 +471,7 @@ export async function calculateDeliveryCostAction(
   if (deliveryMethod.carrierKey !== "nova_poshta") {
     return { ok: false, message: "Розрахунок вартості підключено поки лише для Нової пошти" };
   }
-  const entitySettings = findEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, input.deliveryMethodId, input.legalEntityId);
   if (!entitySettings?.apiKey || !entitySettings.senderCityRef) {
     return { ok: false, message: "У обраної юридичної особи не налаштовано відправника (settings → Доставка)" };
   }
@@ -502,15 +495,16 @@ export async function calculateDeliveryCostAction(
 }
 
 export type PrintShipmentDocumentsResult =
-  | { ok: true; url: string }
+  | { ok: true; pdfBase64: string }
   | { ok: false; message: string };
 
 /**
  * Друк ЕН/маркування (docs/carriers/novaposhta/printing.md, третій прохід —
  * пряма вказівка людини) — доступно лише для ВЖЕ створеного відправлення
  * (order.carrierShipmentRef, четвертий прохід — ЕН створюється до сабміту,
- * createShipmentNowAction). printDocuments() не робить мережевого виклику,
- * лише формує URL — сам PDF відкривається в новій вкладці на клієнті.
+ * createShipmentNowAction). Восьмий прохід — `printDocuments()` тепер робить
+ * мережевий виклик і повертає base64 PDF-байти (не URL з apiKey), клієнт
+ * відкриває blob-URL.
  */
 export async function printShipmentDocumentsAction(
   orderId: string,
@@ -530,7 +524,7 @@ export async function printShipmentDocumentsAction(
   if (!deliveryMethod || deliveryMethod.carrierKey !== "nova_poshta") {
     return { ok: false, message: "Друк підключено поки лише для Нової пошти" };
   }
-  const entitySettings = findEntitySettings(allEntitySettings, order.deliveryMethodId, order.legalEntityId);
+  const entitySettings = findDeliveryMethodEntitySettings(allEntitySettings, order.deliveryMethodId, order.legalEntityId);
   if (!entitySettings?.apiKey) {
     return { ok: false, message: "У способу доставки не задано API-ключ (settings → Доставка)" };
   }
@@ -541,8 +535,8 @@ export async function printShipmentDocumentsAction(
       documentRefs: [order.carrierShipmentRef],
       kind,
     });
-    return { ok: true, url: result.url };
+    return { ok: true, pdfBase64: result.pdfBase64 };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Не вдалося сформувати посилання на друк" };
+    return { ok: false, message: err instanceof Error ? err.message : "Не вдалося сформувати друк" };
   }
 }

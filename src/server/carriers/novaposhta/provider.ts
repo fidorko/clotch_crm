@@ -16,6 +16,7 @@ import {
 } from "../carrier.interface";
 import { callNovaPoshta } from "./client";
 import { NP_METHOD, NP_MODEL } from "./endpoints";
+import { NovaPoshtaConnectionError } from "./errors";
 import {
   formatNpDate,
   mapCity,
@@ -349,15 +350,34 @@ export class NovaPoshtaProvider implements CarrierProvider {
     throw new CarrierNotImplementedError(CARRIER_KEY, "getSettlement");
   }
 
-  // ✅ docs/carriers/novaposhta/printing.md — реалізовано третім проходом за
-  // прямою вказівкою людини. НЕ JSON-RPC-виклик (callNovaPoshta тут не
-  // задіяний) — просто формує URL на my.novaposhta.ua за схемою, підтвердженою
-  // незалежним відкритим SDK (офіційний портал 403 для бота, printing.md).
-  // Перший живий друк варто перевірити з людиною.
+  // ✅ docs/carriers/novaposhta/printing.md — реалізовано третім проходом,
+  // сегмент "orders/" (без "[]") звірено живим запитом шостим проходом.
+  // Восьмий прохід: URL із apiKey у чистому вигляді більше НЕ покидає сервер
+  // (людина показала, що this.apiKey світиться в адресному рядку/історії
+  // браузера при відкритті прямого посилання на друк) — провайдер сам робить
+  // GET на my.novaposhta.ua і повертає base64 PDF-байти, клієнт відкриває
+  // blob-URL (server actions, що кличуть цей метод, більше не пропускають
+  // "url" далі на клієнт).
   async printDocuments(input: PrintDocumentsInput): Promise<PrintDocumentsResult> {
     const method = input.kind === "marking" ? "printMarking100x100" : "printDocument";
     const refs = input.documentRefs.join(",");
     const format = input.format ?? "pdf";
-    return { url: `${MY_NP_URL}/orders/${method}/orders[]/${refs}/type/${format}/apiKey/${this.apiKey}` };
+    // "orders[]/" (з літеральними квадратними дужками в шляху) повертає
+    // ПОРОЖНЮ відповідь щойно там більше одного ref — підтверджено живим
+    // запитом (шостий прохід, orders.md): 1 ref — ОК, 2-3 ref/ttn через кому
+    // — порожньо. "orders/" (без дужок) коректний і для 1, і для кількох
+    // значень (Ref чи TTN — байдуже), об'єднує в один PDF кількасторінковий.
+    const url = `${MY_NP_URL}/orders/${method}/orders/${refs}/type/${format}/apiKey/${this.apiKey}`;
+    let response: Response;
+    try {
+      response = await fetch(url);
+    } catch (error) {
+      throw new NovaPoshtaConnectionError(error);
+    }
+    if (!response.ok) {
+      throw new NovaPoshtaConnectionError(new Error(`my.novaposhta.ua HTTP ${response.status}`));
+    }
+    const buffer = await response.arrayBuffer();
+    return { pdfBase64: Buffer.from(buffer).toString("base64") };
   }
 }

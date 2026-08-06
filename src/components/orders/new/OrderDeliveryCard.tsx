@@ -30,6 +30,7 @@ import {
   trackShipmentAction,
 } from "@/app/orders/new/actions";
 import { buildShipmentDescription } from "@/lib/orders/shipment-description";
+import { openPdfBlob } from "@/lib/open-pdf-blob";
 import type { DeliveryMethodRow } from "@/server/data/delivery-methods";
 import type { DeliveryMethodEntitySettingsRow } from "@/server/data/delivery-method-entity-settings";
 import type { NovaPoshtaPackItem } from "@/server/carriers/novaposhta/mapper";
@@ -359,7 +360,7 @@ export function OrderDeliveryCard({
         setPrintError(result.message);
         return;
       }
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      openPdfBlob(result.pdfBase64);
     });
   }
 

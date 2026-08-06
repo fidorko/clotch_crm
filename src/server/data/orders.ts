@@ -256,6 +256,17 @@ export async function getOrderById(tenantId: string, id: string): Promise<OrderR
   });
 }
 
+/** Пакетний варіант getOrderById (bulk «Друк ТТН», orders.md) — id, що не належать tenantId, просто не потраплять у результат (RLS + фільтр tenantId). */
+export async function getOrdersByIds(tenantId: string, ids: string[]): Promise<OrderRow[]> {
+  if (ids.length === 0) return [];
+  return withTenant(tenantId, async (tx) =>
+    tx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.tenantId, tenantId), inArray(orders.id, ids)))
+  );
+}
+
 export interface OrderDetail {
   order: OrderRow;
   customerName: string;

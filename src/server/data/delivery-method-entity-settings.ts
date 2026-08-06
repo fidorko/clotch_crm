@@ -101,6 +101,15 @@ async function replaceStatusRules(
   );
 }
 
+/** Знаходить конфігурацію (спосіб×ЮО) серед уже завантаженого списку — уникає повторного запиту при пакетній обробці (orders/new/actions.ts, orders/actions.ts). */
+export function findDeliveryMethodEntitySettings(
+  allSettings: DeliveryMethodEntitySettingsRow[],
+  deliveryMethodId: string,
+  legalEntityId: string
+): DeliveryMethodEntitySettingsRow | undefined {
+  return allSettings.find((s) => s.deliveryMethodId === deliveryMethodId && s.legalEntityId === legalEntityId);
+}
+
 /** Усі конфігурації (спосіб×ЮО) тенанта одним запитом — групується на клієнті. */
 export async function listAllDeliveryMethodEntitySettings(
   tenantId: string

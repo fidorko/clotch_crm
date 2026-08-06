@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { HeaderActions } from "@/components/layout/HeaderActions";
 import { PrintTtnDialog } from "@/components/orders/PrintTtnDialog";
+import type { PrintOrdersDocumentsResult } from "@/app/orders/actions";
 import {
   ORDER_STATUS_META,
   ORDER_STATUS_ORDER,
@@ -38,7 +39,7 @@ export function OrdersHeader({
   onClearSelection: () => void;
   postPrintAction: PostPrintAction;
   onPostPrintActionChange: (action: PostPrintAction) => void;
-  onPrintTtn: (orderIds: string[]) => void;
+  onPrintTtn: (orderIds: string[]) => Promise<PrintOrdersDocumentsResult>;
 }) {
   return (
     <div className="flex flex-col gap-3 border-b border-border px-6 py-4">

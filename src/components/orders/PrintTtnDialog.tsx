@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useState, useTransition, type ReactElement } from "react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
+import type { PrintOrdersDocumentsResult } from "@/app/orders/actions";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +15,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DEV_USER } from "@/lib/constants/dev-user";
-import { NovaPoshtaLogo, UkrposhtaLogo } from "./carrier-logos";
+import { openPdfBlob } from "@/lib/open-pdf-blob";
+import { CARRIER_LOGOS } from "@/lib/constants/carrier-logos";
 import {
   DELIVERY_METHOD_LABEL,
   ORDER_STATUS_META,
@@ -26,39 +30,40 @@ import {
 
 const NOTIFY_USER_OPTIONS = [DEV_USER.name];
 
-const CARRIER_LOGO: Record<DeliveryMethod, React.ComponentType<{ className?: string }>> = {
-  nova_poshta: NovaPoshtaLogo,
-  ukrposhta: UkrposhtaLogo,
-  courier: NovaPoshtaLogo,
-  pickup: NovaPoshtaLogo,
-};
-
 function ordersWord(count: number): string {
   return count === 1 ? "замовлення" : "замовлень";
 }
 
 // Велика квадратна кнопка перевізника — лого+назва+кількість замовлень
-// усередині (пряма вказівка людини). Поки жодного реального API
-// перевізника нема (orders.md) — клік застосовує лише «Дію після друку»
-// до мок-замовлень цього перевізника, без реального PDF-маркування.
+// усередині (пряма вказівка людини). Клік друкує реальне маркування
+// (100×100, Нова пошта) для замовлень цього перевізника з уже створеною ЕН —
+// пряма вказівка людини, п'ятий прохід.
 function CarrierButton({
   carrier,
   count,
+  disabled,
+  isPrinting,
   onClick,
 }: {
   carrier: DeliveryMethod;
   count: number;
+  disabled: boolean;
+  isPrinting: boolean;
   onClick: () => void;
 }) {
-  const Logo = CARRIER_LOGO[carrier];
+  const logo = CARRIER_LOGOS[carrier];
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={count === 0}
+      disabled={disabled}
       className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 border-border p-4 text-center transition-colors hover:border-primary hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-transparent"
     >
-      <Logo className="size-14 shrink-0" />
+      {isPrinting ? (
+        <Loader2 className="size-14 shrink-0 animate-spin text-muted-foreground" />
+      ) : (
+        logo && <Image src={logo} alt="" width={56} height={56} className="size-14 shrink-0 rounded object-contain" />
+      )}
       <span className="text-sm font-semibold text-foreground">{DELIVERY_METHOD_LABEL[carrier]}</span>
       <span className="text-xs text-muted-foreground">
         {count} {ordersWord(count)}
@@ -79,10 +84,13 @@ export function PrintTtnDialog({
   selectedOrders: OrderListItem[];
   postPrintAction: PostPrintAction;
   onPostPrintActionChange: (action: PostPrintAction) => void;
-  onPrint: (orderIds: string[]) => void;
+  onPrint: (orderIds: string[]) => Promise<PrintOrdersDocumentsResult>;
   onClose: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [printingCarrier, setPrintingCarrier] = useState<DeliveryMethod | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [isPending, startPrinting] = useTransition();
 
   const counts = Object.fromEntries(
     TTN_PRINTABLE_CARRIERS.map((carrier) => [
@@ -95,7 +103,20 @@ export function PrintTtnDialog({
   function handlePrint(carrier: DeliveryMethod) {
     const ids = selectedOrders.filter((o) => o.carrierKey === carrier).map((o) => o.id);
     if (ids.length === 0) return;
-    onPrint(ids);
+    setPrintError(null);
+    setPrintingCarrier(carrier);
+    startPrinting(async () => {
+      const result = await onPrint(ids);
+      for (const pdf of result.pdfs) openPdfBlob(pdf);
+      if (result.pdfs.length === 0) {
+        setPrintError(result.skipped[0]?.reason ?? "Не вдалося сформувати друк");
+      } else if (result.skipped.length > 0) {
+        setPrintError(
+          `Надруковано ${result.pdfs.length === 1 ? "1 файл" : `${result.pdfs.length} файли`}. ${result.skipped.length} ${ordersWord(result.skipped.length)} пропущено: ${result.skipped[0].reason}`
+        );
+      }
+      setPrintingCarrier(null);
+    });
     // Попап навмисно НЕ закривається — можна одразу надрукувати й іншого
     // перевізника (пряма вказівка людини), закриття лише хрестиком нижче.
   }
@@ -131,6 +152,8 @@ export function PrintTtnDialog({
               key={carrier}
               carrier={carrier}
               count={counts[carrier]}
+              disabled={counts[carrier] === 0 || isPending}
+              isPrinting={isPending && printingCarrier === carrier}
               onClick={() => handlePrint(carrier)}
             />
           ))}
@@ -141,6 +164,8 @@ export function PrintTtnDialog({
             {`${unsupportedCount} ${ordersWord(unsupportedCount)} з іншою доставкою (кур'єр/самовивіз) — ТТН для них не друкується.`}
           </p>
         )}
+
+        {printError && <p className="text-sm text-destructive">{printError}</p>}
 
         <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
           <span className="text-sm font-medium text-foreground">Дія після друку</span>

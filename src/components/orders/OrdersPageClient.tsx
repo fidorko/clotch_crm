@@ -5,6 +5,7 @@ import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { exportOrdersToCsv } from "@/lib/orders/export-csv";
 import { DEV_USER } from "@/lib/constants/dev-user";
+import { printOrdersDocumentsAction, type PrintOrdersDocumentsResult } from "@/app/orders/actions";
 import type { OrderListItem, OrderStatus, PostPrintAction } from "@/lib/types/orders";
 import { OrdersHeader } from "./OrdersHeader";
 import { OrdersKpiCards } from "./OrdersKpiCards";
@@ -47,17 +48,22 @@ export function OrdersPageClient({
     exportOrdersToCsv(selectedOrders);
   }
 
-  // Реального друку/API перевізника ще нема (PrintTtnDialog, orders.md) —
-  // застосовується лише налаштована «Дія після друку» до замовлень цього
-  // перевізника серед виділених. Попап лишається відкритим (закриває
-  // людина хрестиком) — виділення чиститься саме там, не тут.
-  function handlePrintTtn(orderIds: string[]) {
-    if (postPrintAction.changeStatus) {
+  // Реальний друк маркування Нової пошти (printOrdersDocumentsAction,
+  // п'ятий прохід, пряма вказівка людини) — той самий provider.printDocuments,
+  // що /orders/new. «Дія після друку» застосовується лише до замовлень, для
+  // яких реально сформувався URL друку (не до пропущених — без ЕН/ключа).
+  // Попап лишається відкритим (закриває людина хрестиком) — виділення
+  // чиститься саме там, не тут.
+  async function handlePrintTtn(orderIds: string[]): Promise<PrintOrdersDocumentsResult> {
+    const result = await printOrdersDocumentsAction(orderIds, "marking");
+    const printedIds = orderIds.filter((id) => !result.skipped.some((s) => s.orderId === id));
+    if (postPrintAction.changeStatus && printedIds.length > 0) {
       setOrders((prev) =>
-        prev.map((o) => (orderIds.includes(o.id) ? { ...o, status: postPrintAction.status } : o))
+        prev.map((o) => (printedIds.includes(o.id) ? { ...o, status: postPrintAction.status } : o))
       );
     }
     // "notify" — конфігурація без реальної розсилки, нема системи сповіщень.
+    return result;
   }
 
   return (
