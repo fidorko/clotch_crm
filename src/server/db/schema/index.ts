@@ -10,6 +10,8 @@ import { colors } from "./colors";
 import { deliveryMethods } from "./delivery-methods";
 import { deliveryMethodStatusRules } from "./delivery-method-status-rules";
 import { paymentMethods, paymentMethodPartialAmounts } from "./payment-methods";
+import { generalSettings } from "./general-settings";
+import { companyLegalEntities } from "./company-legal-entities";
 import { orderStatuses } from "./order-statuses";
 import { customers } from "./customers";
 import { orders, orderItems } from "./orders";
@@ -54,6 +56,8 @@ export * from "./colors";
 export * from "./delivery-methods";
 export * from "./delivery-method-status-rules";
 export * from "./payment-methods";
+export * from "./general-settings";
+export * from "./company-legal-entities";
 export * from "./order-statuses";
 export * from "./customers";
 export * from "./orders";
@@ -126,7 +130,7 @@ export const productTagsRelations = relations(productTags, ({ one }) => ({
   }),
 }));
 
-export const tenantsRelations = relations(tenants, ({ many }) => ({
+export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   products: many(products),
   categories: many(categories),
   colors: many(colors),
@@ -135,6 +139,8 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   orderStatuses: many(orderStatuses),
   deliveryMethodStatusRules: many(deliveryMethodStatusRules),
   paymentMethodPartialAmounts: many(paymentMethodPartialAmounts),
+  generalSettings: one(generalSettings),
+  companyLegalEntities: many(companyLegalEntities),
   currencies: many(currencies),
   suppliers: many(suppliers),
   referenceItems: many(referenceItems),

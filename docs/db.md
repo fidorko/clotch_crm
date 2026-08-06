@@ -164,6 +164,18 @@ UNIQUE `(tenant_id, payment_method_id, amount)` — однакова сума д
 
 Клієнт вносить одну з цих сум одразу; **сама сума планується для розрахунку решти при грошовому переказі при отриманні, а вибір потрібного варіанта при оформленні замовлення — ще не реалізовані**, лише зберігається конфігурація (форма замовлення, `orders.md`, ще на моках і не читає цю таблицю).
 
+### general_settings
+Основні дані магазину (`settings` → «Загальні», `?tab=general`, `docs/modules/settings-general.md`) — **singleton на тенанта**: на відміну від усіх інших прикладних таблиць, `tenant_id` тут сам є PRIMARY KEY (не окремий `uuid id`), бо це рівно один рядок налаштувань на тенанта, не список. `name`, `website`, `email`, `contact_person_name`, `contact_person_position`, `contact_person_phone` (нормалізовано `+380XXXXXXXXX`, conventions.md) — усі nullable, форма зберігає порожній рядок, поки нічого не введено. `work_hours` — `jsonb` (`GeneralSettingsWorkHourEntry[]`, та сама форма запису, що `warehouses.work_hours`) — довільна кількість груп днів, як у «Складах».
+
+Рядка може не існувати, поки тенант жодного разу не зберігав форму (`getGeneralSettings` повертає `null`) — `upsertGeneralSettings` (`onConflictDoUpdate` за `tenant_id`) створює його при першому автозбереженні й надалі лише оновлює. Без `UNIQUE`-обмеження окремо — `tenant_id`-як-PK вже гарантує рівно один рядок.
+
+### company_legal_entities
+«Мої ФОП та ТОВ» (`settings` → «Загальні») — список юридичних осіб/ФОП тенанта, за зразком-скріном людини. `tenant_id`, `type` (pg-enum `company_legal_entity_type`: `fop`/`tov`), `name`, `edrpou` (текст, лише цифри на рівні UI-маски, без перевірки довжини/контрольної суми — відкритий пункт), `is_active`, `position`.
+
+UNIQUE `(tenant_id, edrpou)` — той самий ЄДРПОУ двічі в межах тенанта заборонено. Індекс `(tenant_id, position)`.
+
+**Повні реквізити (юридична адреса, розрахунковий рахунок/IBAN, система оподаткування) — не запитувались, не змодельовані** — лише поля, видимі на зразку-скріні (тип/назва/ЄДРПОУ/статус). Жоден інший модуль ще не читає цю таблицю (друк документів, форма замовлення тощо).
+
 ### reference_items
 Один спільний довідник для 3 «просто назва» пунктів «Довідники» (settings, група «Системні»): `manufacturers`/`countries`/`units` — замість окремої таблиці на кожен тип. `tenant_id`, `kind` (enum `reference_item_kind`, той самий список значень, що `REFERENCE_ITEM_KINDS` у `lib/constants/reference-item-kinds.ts` — тримати синхронно вручну, schema-файли навмисно не імпортують з `lib/`), `name`, `position`. UNIQUE `(tenant_id, kind, name)` — дублікат назви в межах одного kind заборонено, той самий кортеж не заважає різним kind мати однакову назву. Індекс `(tenant_id, kind, position)`.
 

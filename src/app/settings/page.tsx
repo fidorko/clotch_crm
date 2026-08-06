@@ -5,6 +5,7 @@ import { CategoriesTab } from "@/components/settings/CategoriesTab";
 import { WarehousesTab } from "@/components/settings/WarehousesTab";
 import { DeliveryTab } from "@/components/settings/DeliveryTab";
 import { PaymentMethodsTab } from "@/components/settings/PaymentMethodsTab";
+import { GeneralTab } from "@/components/settings/GeneralTab";
 import { DevBlockLabel } from "@/components/dev/DevBlockLabel";
 import { DEV_BLOCK_LABELS } from "@/lib/dev/dev-flags";
 import { getProductCountsByCategory, listCategories } from "@/server/data/categories";
@@ -12,6 +13,8 @@ import { listWarehouses } from "@/server/data/warehouses";
 import { listColors } from "@/server/data/colors";
 import { listAllDeliveryMethodStatusRules, listDeliveryMethods } from "@/server/data/delivery-methods";
 import { listAllPaymentMethodPartialAmounts, listPaymentMethods } from "@/server/data/payment-methods";
+import { getGeneralSettings } from "@/server/data/general-settings";
+import { listCompanyLegalEntities } from "@/server/data/company-legal-entities";
 import { listOrderStatuses } from "@/server/data/order-statuses";
 import { listCurrencies } from "@/server/data/currencies";
 import { listCustomCharacteristicsWithValues } from "@/server/data/custom-characteristics";
@@ -34,7 +37,6 @@ export const metadata: Metadata = {
 // вкладками в SettingsTabs; вибір розділу тепер веде другорядне меню сайдбару.
 const EMPTY_SECTION_TITLES: Record<string, string> = {
   storefront: "Вітрина магазину",
-  general: "Загальні",
   orders: "Замовлення",
   plan: "Тарифний план",
 };
@@ -83,6 +85,18 @@ async function PaymentSection({ tenantId, dev }: { tenantId: string; dev: boolea
   return (
     <DevBlockLabel name="PaymentMethodsTab" enabled={dev}>
       <PaymentMethodsTab paymentMethods={paymentMethods} partialAmounts={partialAmounts} />
+    </DevBlockLabel>
+  );
+}
+
+async function GeneralSection({ tenantId, dev }: { tenantId: string; dev: boolean }) {
+  const [settings, legalEntities] = await Promise.all([
+    getGeneralSettings(tenantId),
+    listCompanyLegalEntities(tenantId),
+  ]);
+  return (
+    <DevBlockLabel name="GeneralTab" enabled={dev}>
+      <GeneralTab settings={settings} legalEntities={legalEntities} />
     </DevBlockLabel>
   );
 }
@@ -159,6 +173,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     rawTab === "warehouses" ||
     rawTab === "delivery" ||
     rawTab === "payment" ||
+    rawTab === "general" ||
     (rawTab && rawTab in EMPTY_SECTION_TITLES)
       ? rawTab
       : "categories";
@@ -177,6 +192,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         {tab === "warehouses" && <WarehousesSection tenantId={tenantId} dev={dev} />}
         {tab === "delivery" && <DeliverySection tenantId={tenantId} dev={dev} />}
         {tab === "payment" && <PaymentSection tenantId={tenantId} dev={dev} />}
+        {tab === "general" && <GeneralSection tenantId={tenantId} dev={dev} />}
         {tab in EMPTY_SECTION_TITLES && (
           <p className="text-sm text-muted-foreground">
             Розділ «{EMPTY_SECTION_TITLES[tab]}» ще в розробці.
